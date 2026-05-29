@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,17 +17,19 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
-from google.api_core import exceptions as core_exceptions
-from google.api_core import gapic_v1
-from google.api_core import retry as retries
 import google.auth  # type: ignore
+import google.protobuf
+from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1
+from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.kms_v1 import gapic_version as package_version
 from google.cloud.kms_v1.types import resources, service
@@ -73,9 +75,10 @@ class KeyManagementServiceTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -86,9 +89,11 @@ class KeyManagementServiceTransport(abc.ABC):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
-
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
 
         # Save the scopes.
         self._scopes = scopes
@@ -104,11 +109,16 @@ class KeyManagementServiceTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -131,6 +141,8 @@ class KeyManagementServiceTransport(abc.ABC):
         if ":" not in host:
             host += ":443"
         self._host = host
+
+        self._wrapped_methods: Dict[Callable, Callable] = {}
 
     @property
     def host(self):
@@ -186,6 +198,21 @@ class KeyManagementServiceTransport(abc.ABC):
             ),
             self.list_import_jobs: gapic_v1.method.wrap_method(
                 self.list_import_jobs,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=60.0,
+                ),
+                default_timeout=60.0,
+                client_info=client_info,
+            ),
+            self.list_retired_resources: gapic_v1.method.wrap_method(
+                self.list_retired_resources,
                 default_retry=retries.Retry(
                     initial=0.1,
                     maximum=60.0,
@@ -274,6 +301,21 @@ class KeyManagementServiceTransport(abc.ABC):
                 default_timeout=60.0,
                 client_info=client_info,
             ),
+            self.get_retired_resource: gapic_v1.method.wrap_method(
+                self.get_retired_resource,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=60.0,
+                ),
+                default_timeout=60.0,
+                client_info=client_info,
+            ),
             self.create_key_ring: gapic_v1.method.wrap_method(
                 self.create_key_ring,
                 default_retry=retries.Retry(
@@ -306,6 +348,36 @@ class KeyManagementServiceTransport(abc.ABC):
             ),
             self.create_crypto_key_version: gapic_v1.method.wrap_method(
                 self.create_crypto_key_version,
+                default_timeout=60.0,
+                client_info=client_info,
+            ),
+            self.delete_crypto_key: gapic_v1.method.wrap_method(
+                self.delete_crypto_key,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=60.0,
+                ),
+                default_timeout=60.0,
+                client_info=client_info,
+            ),
+            self.delete_crypto_key_version: gapic_v1.method.wrap_method(
+                self.delete_crypto_key_version,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=60.0,
+                ),
                 default_timeout=60.0,
                 client_info=client_info,
             ),
@@ -504,6 +576,11 @@ class KeyManagementServiceTransport(abc.ABC):
                 default_timeout=60.0,
                 client_info=client_info,
             ),
+            self.decapsulate: gapic_v1.method.wrap_method(
+                self.decapsulate,
+                default_timeout=None,
+                client_info=client_info,
+            ),
             self.generate_random_bytes: gapic_v1.method.wrap_method(
                 self.generate_random_bytes,
                 default_retry=retries.Retry(
@@ -561,6 +638,11 @@ class KeyManagementServiceTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
+    def operations_client(self):
+        """Return the client designed to process long-running operations."""
+        raise NotImplementedError()
+
+    @property
     def list_key_rings(
         self,
     ) -> Callable[
@@ -599,6 +681,18 @@ class KeyManagementServiceTransport(abc.ABC):
         [service.ListImportJobsRequest],
         Union[
             service.ListImportJobsResponse, Awaitable[service.ListImportJobsResponse]
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def list_retired_resources(
+        self,
+    ) -> Callable[
+        [service.ListRetiredResourcesRequest],
+        Union[
+            service.ListRetiredResourcesResponse,
+            Awaitable[service.ListRetiredResourcesResponse],
         ],
     ]:
         raise NotImplementedError()
@@ -649,6 +743,15 @@ class KeyManagementServiceTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
+    def get_retired_resource(
+        self,
+    ) -> Callable[
+        [service.GetRetiredResourceRequest],
+        Union[resources.RetiredResource, Awaitable[resources.RetiredResource]],
+    ]:
+        raise NotImplementedError()
+
+    @property
     def create_key_ring(
         self,
     ) -> Callable[
@@ -672,6 +775,24 @@ class KeyManagementServiceTransport(abc.ABC):
     ) -> Callable[
         [service.CreateCryptoKeyVersionRequest],
         Union[resources.CryptoKeyVersion, Awaitable[resources.CryptoKeyVersion]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_crypto_key(
+        self,
+    ) -> Callable[
+        [service.DeleteCryptoKeyRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_crypto_key_version(
+        self,
+    ) -> Callable[
+        [service.DeleteCryptoKeyVersionRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
     ]:
         raise NotImplementedError()
 
@@ -812,6 +933,15 @@ class KeyManagementServiceTransport(abc.ABC):
     ) -> Callable[
         [service.MacVerifyRequest],
         Union[service.MacVerifyResponse, Awaitable[service.MacVerifyResponse]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def decapsulate(
+        self,
+    ) -> Callable[
+        [service.DecapsulateRequest],
+        Union[service.DecapsulateResponse, Awaitable[service.DecapsulateResponse]],
     ]:
         raise NotImplementedError()
 

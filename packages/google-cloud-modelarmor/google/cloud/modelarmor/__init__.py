@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ from google.cloud.modelarmor_v1.services.model_armor.async_client import (
 )
 from google.cloud.modelarmor_v1.services.model_armor.client import ModelArmorClient
 from google.cloud.modelarmor_v1.types.service import (
+    AiPlatformFloorSetting,
     ByteDataItem,
     CreateTemplateRequest,
     CsamFilterResult,
@@ -42,6 +43,7 @@ from google.cloud.modelarmor_v1.types.service import (
     MaliciousUriFilterResult,
     MaliciousUriFilterSettings,
     MessageItem,
+    MultiLanguageDetectionMetadata,
     PiAndJailbreakFilterResult,
     PiAndJailbreakFilterSettings,
     RaiFilterResult,
@@ -71,6 +73,7 @@ from google.cloud.modelarmor_v1.types.service import (
 __all__ = (
     "ModelArmorClient",
     "ModelArmorAsyncClient",
+    "AiPlatformFloorSetting",
     "ByteDataItem",
     "CreateTemplateRequest",
     "CsamFilterResult",
@@ -86,6 +89,7 @@ __all__ = (
     "MaliciousUriFilterResult",
     "MaliciousUriFilterSettings",
     "MessageItem",
+    "MultiLanguageDetectionMetadata",
     "PiAndJailbreakFilterResult",
     "PiAndJailbreakFilterSettings",
     "RaiFilterResult",

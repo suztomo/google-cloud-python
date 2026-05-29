@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflow_v2.types import gcs
@@ -69,7 +69,7 @@ class InputConfig(proto.Message):
 
     Attributes:
         gcs_source (google.cloud.dialogflow_v2.types.GcsSources):
-            The Cloud Storage URI has the form gs:////agent*.json.
+            The Cloud Storage URI has the form gs:////agent\*.json.
             Wildcards are allowed and will be expanded into all matched
             JSON files, which will be read as one conversation per file.
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_update_project():
     client = resourcemanager_v3.ProjectsClient()
 
     # Initialize request argument(s)
-    request = resourcemanager_v3.UpdateProjectRequest(
-    )
+    request = resourcemanager_v3.UpdateProjectRequest()
 
     # Make the request
     operation = client.update_project(request=request)
@@ -51,5 +50,6 @@ def sample_update_project():
 
     # Handle the response
     print(response)
+
 
 # [END cloudresourcemanager_v3_generated_Projects_UpdateProject_sync]

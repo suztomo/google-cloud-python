@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +32,8 @@ __protobuf__ = proto.module(
         "CustomPronunciationParams",
         "CustomPronunciations",
         "MultiSpeakerMarkup",
+        "MultispeakerPrebuiltVoice",
+        "MultiSpeakerVoiceConfig",
         "SynthesisInput",
         "VoiceSelectionParams",
         "AudioConfig",
@@ -70,6 +72,7 @@ class SsmlVoiceGender(proto.Enum):
             A gender-neutral voice. This voice is not yet
             supported.
     """
+
     SSML_VOICE_GENDER_UNSPECIFIED = 0
     MALE = 1
     FEMALE = 2
@@ -82,7 +85,8 @@ class AudioEncoding(proto.Enum):
 
     Values:
         AUDIO_ENCODING_UNSPECIFIED (0):
-            Not specified. Will return result
+            Not specified. Only used by GenerateVoiceCloningKey.
+            Otherwise, will return result
             [google.rpc.Code.INVALID_ARGUMENT][google.rpc.Code.INVALID_ARGUMENT].
         LINEAR16 (1):
             Uncompressed 16-bit signed little-endian
@@ -94,11 +98,11 @@ class AudioEncoding(proto.Enum):
             MP3 at 64kbps.
         OGG_OPUS (3):
             Opus encoded audio wrapped in an ogg
-            container. The result will be a file which can
-            be played natively on Android, and in browsers
-            (at least Chrome and Firefox). The quality of
-            the encoding is considerably higher than MP3
-            while using approximately the same bitrate.
+            container. The result is a file which can be
+            played natively on Android, and in browsers (at
+            least Chrome and Firefox). The quality of the
+            encoding is considerably higher than MP3 while
+            using approximately the same bitrate.
         MULAW (5):
             8-bit samples that compand 14-bit audio
             samples using G.711 PCMU/mu-law. Audio content
@@ -110,9 +114,12 @@ class AudioEncoding(proto.Enum):
         PCM (7):
             Uncompressed 16-bit signed little-endian
             samples (Linear PCM). Note that as opposed to
-            LINEAR16, audio will not be wrapped in a WAV (or
+            LINEAR16, audio won't be wrapped in a WAV (or
             any other) header.
+        M4A (8):
+            M4A audio.
     """
+
     AUDIO_ENCODING_UNSPECIFIED = 0
     LINEAR16 = 1
     MP3 = 2
@@ -121,6 +128,7 @@ class AudioEncoding(proto.Enum):
     MULAW = 5
     ALAW = 6
     PCM = 7
+    M4A = 8
 
 
 class ListVoicesRequest(proto.Message):
@@ -206,15 +214,138 @@ class AdvancedVoiceOptions(proto.Message):
     Attributes:
         low_latency_journey_synthesis (bool):
             Only for Journey voices. If false, the
-            synthesis will be context aware and have higher
+            synthesis is context aware and has a higher
             latency.
 
             This field is a member of `oneof`_ ``_low_latency_journey_synthesis``.
+        relax_safety_filters (bool):
+            Optional. Input only. Deprecated, use safety_settings
+            instead. If true, relaxes safety filters for Gemini TTS.
+        safety_settings (google.cloud.texttospeech_v1beta1.types.AdvancedVoiceOptions.SafetySettings):
+            Optional. Input only. This applies to Gemini
+            TTS only. If set, the category specified in the
+            safety setting will be blocked if the harm
+            probability is above the threshold. Otherwise,
+            the safety filter will be disabled by default.
+        enable_textnorm (bool):
+            Optional. If true, textnorm will be applied
+            to text input. This feature is enabled by
+            default. Only applies for Gemini TTS.
+
+            This field is a member of `oneof`_ ``_enable_textnorm``.
     """
+
+    class HarmCategory(proto.Enum):
+        r"""Harm categories that will block the content.
+
+        Values:
+            HARM_CATEGORY_UNSPECIFIED (0):
+                Default value. This value is unused.
+            HARM_CATEGORY_HATE_SPEECH (1):
+                Content that promotes violence or incites
+                hatred against individuals or groups based on
+                certain attributes.
+            HARM_CATEGORY_DANGEROUS_CONTENT (2):
+                Content that promotes, facilitates, or
+                enables dangerous activities.
+            HARM_CATEGORY_HARASSMENT (3):
+                Abusive, threatening, or content intended to
+                bully, torment, or ridicule.
+            HARM_CATEGORY_SEXUALLY_EXPLICIT (4):
+                Content that contains sexually explicit
+                material.
+        """
+
+        HARM_CATEGORY_UNSPECIFIED = 0
+        HARM_CATEGORY_HATE_SPEECH = 1
+        HARM_CATEGORY_DANGEROUS_CONTENT = 2
+        HARM_CATEGORY_HARASSMENT = 3
+        HARM_CATEGORY_SEXUALLY_EXPLICIT = 4
+
+    class HarmBlockThreshold(proto.Enum):
+        r"""Harm block thresholds for the safety settings.
+
+        Values:
+            HARM_BLOCK_THRESHOLD_UNSPECIFIED (0):
+                The harm block threshold is unspecified.
+            BLOCK_LOW_AND_ABOVE (1):
+                Block content with a low harm probability or
+                higher.
+            BLOCK_MEDIUM_AND_ABOVE (2):
+                Block content with a medium harm probability
+                or higher.
+            BLOCK_ONLY_HIGH (3):
+                Block content with a high harm probability.
+            BLOCK_NONE (4):
+                Do not block any content, regardless of its
+                harm probability.
+            OFF (5):
+                Turn off the safety filter entirely.
+        """
+
+        HARM_BLOCK_THRESHOLD_UNSPECIFIED = 0
+        BLOCK_LOW_AND_ABOVE = 1
+        BLOCK_MEDIUM_AND_ABOVE = 2
+        BLOCK_ONLY_HIGH = 3
+        BLOCK_NONE = 4
+        OFF = 5
+
+    class SafetySetting(proto.Message):
+        r"""Safety setting for a single harm category.
+
+        Attributes:
+            category (google.cloud.texttospeech_v1beta1.types.AdvancedVoiceOptions.HarmCategory):
+                The harm category to apply the safety setting
+                to.
+            threshold (google.cloud.texttospeech_v1beta1.types.AdvancedVoiceOptions.HarmBlockThreshold):
+                The harm block threshold for the safety
+                setting.
+        """
+
+        category: "AdvancedVoiceOptions.HarmCategory" = proto.Field(
+            proto.ENUM,
+            number=1,
+            enum="AdvancedVoiceOptions.HarmCategory",
+        )
+        threshold: "AdvancedVoiceOptions.HarmBlockThreshold" = proto.Field(
+            proto.ENUM,
+            number=2,
+            enum="AdvancedVoiceOptions.HarmBlockThreshold",
+        )
+
+    class SafetySettings(proto.Message):
+        r"""Safety settings for the request.
+
+        Attributes:
+            settings (MutableSequence[google.cloud.texttospeech_v1beta1.types.AdvancedVoiceOptions.SafetySetting]):
+                The safety settings for the request.
+        """
+
+        settings: MutableSequence["AdvancedVoiceOptions.SafetySetting"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="AdvancedVoiceOptions.SafetySetting",
+            )
+        )
 
     low_latency_journey_synthesis: bool = proto.Field(
         proto.BOOL,
         number=1,
+        optional=True,
+    )
+    relax_safety_filters: bool = proto.Field(
+        proto.BOOL,
+        number=8,
+    )
+    safety_settings: SafetySettings = proto.Field(
+        proto.MESSAGE,
+        number=9,
+        message=SafetySettings,
+    )
+    enable_textnorm: bool = proto.Field(
+        proto.BOOL,
+        number=2,
         optional=True,
     )
 
@@ -240,7 +371,7 @@ class SynthesizeSpeechRequest(proto.Message):
             Whether and what timepoints are returned in
             the response.
         advanced_voice_options (google.cloud.texttospeech_v1beta1.types.AdvancedVoiceOptions):
-            Advanced voice options.
+            Optional. Advanced voice options.
 
             This field is a member of `oneof`_ ``_advanced_voice_options``.
     """
@@ -257,6 +388,7 @@ class SynthesizeSpeechRequest(proto.Message):
                 Timepoint information of ``<mark>`` tags in SSML input will
                 be returned.
         """
+
         TIMEPOINT_TYPE_UNSPECIFIED = 0
         SSML_MARK = 1
 
@@ -295,10 +427,10 @@ class CustomPronunciationParams(proto.Message):
 
     Attributes:
         phrase (str):
-            The phrase to which the customization will be
-            applied. The phrase can be multiple words (in
-            the case of proper nouns etc), but should not
-            span to a whole sentence.
+            The phrase to which the customization is
+            applied. The phrase can be multiple words, such
+            as proper nouns, but shouldn't span the length
+            of the sentence.
 
             This field is a member of `oneof`_ ``_phrase``.
         phonetic_encoding (google.cloud.texttospeech_v1beta1.types.CustomPronunciationParams.PhoneticEncoding):
@@ -319,15 +451,45 @@ class CustomPronunciationParams(proto.Message):
             PHONETIC_ENCODING_UNSPECIFIED (0):
                 Not specified.
             PHONETIC_ENCODING_IPA (1):
-                IPA. (e.g. apple -> ˈæpəl )
+                IPA, such as apple -> ˈæpəl.
                 https://en.wikipedia.org/wiki/International_Phonetic_Alphabet
             PHONETIC_ENCODING_X_SAMPA (2):
-                X-SAMPA (e.g. apple -> "{p@l" )
+                X-SAMPA, such as apple -> "{p@l".
                 https://en.wikipedia.org/wiki/X-SAMPA
+            PHONETIC_ENCODING_JAPANESE_YOMIGANA (3):
+                For reading-to-pron conversion to work well, the
+                ``pronunciation`` field should only contain Kanji, Hiragana,
+                and Katakana.
+
+                The pronunciation can also contain pitch accents. The start
+                of a pitch phrase is specified with ``^`` and the down-pitch
+                position is specified with ``!``, for example:
+
+                ::
+
+                    phrase:端  pronunciation:^はし
+                    phrase:箸  pronunciation:^は!し
+                    phrase:橋  pronunciation:^はし!
+
+                We currently only support the Tokyo dialect, which allows at
+                most one down-pitch per phrase (i.e. at most one ``!``
+                between ``^``).
+            PHONETIC_ENCODING_PINYIN (4):
+                Used to specify pronunciations for Mandarin
+                words. See https://en.wikipedia.org/wiki/Pinyin.
+
+                For example: 朝阳, the pronunciation is "chao2
+                yang2". The number represents the tone, and
+                there is a space between syllables. Neutral
+                tones are represented by 5, for example 孩子 "hai2
+                zi5".
         """
+
         PHONETIC_ENCODING_UNSPECIFIED = 0
         PHONETIC_ENCODING_IPA = 1
         PHONETIC_ENCODING_X_SAMPA = 2
+        PHONETIC_ENCODING_JAPANESE_YOMIGANA = 3
+        PHONETIC_ENCODING_PINYIN = 4
 
     phrase: str = proto.Field(
         proto.STRING,
@@ -352,8 +514,7 @@ class CustomPronunciations(proto.Message):
 
     Attributes:
         pronunciations (MutableSequence[google.cloud.texttospeech_v1beta1.types.CustomPronunciationParams]):
-            The pronunciation customizations to be
-            applied.
+            The pronunciation customizations are applied.
     """
 
     pronunciations: MutableSequence["CustomPronunciationParams"] = proto.RepeatedField(
@@ -372,7 +533,7 @@ class MultiSpeakerMarkup(proto.Message):
     """
 
     class Turn(proto.Message):
-        r"""A Multi-speaker turn.
+        r"""A multi-speaker turn.
 
         Attributes:
             speaker (str):
@@ -399,6 +560,53 @@ class MultiSpeakerMarkup(proto.Message):
     )
 
 
+class MultispeakerPrebuiltVoice(proto.Message):
+    r"""Configuration for a single speaker in a Gemini TTS
+    multi-speaker setup. Enables dialogue between two speakers.
+
+    Attributes:
+        speaker_alias (str):
+            Required. The speaker alias of the voice.
+            This is the user-chosen speaker name that is
+            used in the multispeaker text input, such as
+            "Speaker1".
+        speaker_id (str):
+            Required. The speaker ID of the voice. See
+            https://cloud.google.com/text-to-speech/docs/gemini-tts#voice_options
+            for available values.
+    """
+
+    speaker_alias: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    speaker_id: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+
+
+class MultiSpeakerVoiceConfig(proto.Message):
+    r"""Configuration for a multi-speaker text-to-speech setup.
+    Enables the use of up to two distinct voices in a single
+    synthesis request.
+
+    Attributes:
+        speaker_voice_configs (MutableSequence[google.cloud.texttospeech_v1beta1.types.MultispeakerPrebuiltVoice]):
+            Required. A list of configurations for the
+            voices of the speakers. Exactly two speaker
+            voice configurations must be provided.
+    """
+
+    speaker_voice_configs: MutableSequence["MultispeakerPrebuiltVoice"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="MultispeakerPrebuiltVoice",
+        )
+    )
+
+
 class SynthesisInput(proto.Message):
     r"""Contains text input to be synthesized. Either ``text`` or ``ssml``
     must be supplied. Supplying both or neither returns
@@ -417,6 +625,12 @@ class SynthesisInput(proto.Message):
             The raw text to be synthesized.
 
             This field is a member of `oneof`_ ``input_source``.
+        markup (str):
+            Markup for Chirp 3: HD voices specifically.
+            This field may not be used with any other
+            voices.
+
+            This field is a member of `oneof`_ ``input_source``.
         ssml (str):
             The SSML document to be synthesized. The SSML document must
             be valid and well-formed. Otherwise the RPC will fail and
@@ -431,27 +645,39 @@ class SynthesisInput(proto.Message):
             Only applicable for multi-speaker synthesis.
 
             This field is a member of `oneof`_ ``input_source``.
+        prompt (str):
+            This system instruction is supported only for
+            controllable/promptable voice models. If this
+            system instruction is used, we pass the unedited
+            text to Gemini-TTS. Otherwise, a default system
+            instruction is used. AI Studio calls this system
+            instruction, Style Instructions.
+
+            This field is a member of `oneof`_ ``_prompt``.
         custom_pronunciations (google.cloud.texttospeech_v1beta1.types.CustomPronunciations):
-            Optional. The pronunciation customizations to
-            be applied to the input. If this is set, the
-            input will be synthesized using the given
+            Optional. The pronunciation customizations
+            are applied to the input. If this is set, the
+            input is synthesized using the given
             pronunciation customizations.
 
-            The initial support will be for EFIGS (English,
-            French, Italian, German, Spanish) languages, as
-            provided in VoiceSelectionParams. Journey and
-            Instant Clone voices are not supported yet.
+            The initial support is for en-us, with plans to
+            expand to other locales in the future. Instant
+            Clone voices aren't supported.
 
             In order to customize the pronunciation of a
             phrase, there must be an exact match of the
             phrase in the input types. If using SSML, the
-            phrase must not be inside a phoneme tag
-            (entirely or partially).
+            phrase must not be inside a phoneme tag.
     """
 
     text: str = proto.Field(
         proto.STRING,
         number=1,
+        oneof="input_source",
+    )
+    markup: str = proto.Field(
+        proto.STRING,
+        number=5,
         oneof="input_source",
     )
     ssml: str = proto.Field(
@@ -464,6 +690,11 @@ class SynthesisInput(proto.Message):
         number=4,
         oneof="input_source",
         message="MultiSpeakerMarkup",
+    )
+    prompt: str = proto.Field(
+        proto.STRING,
+        number=6,
+        optional=True,
     )
     custom_pronunciations: "CustomPronunciations" = proto.Field(
         proto.MESSAGE,
@@ -508,8 +739,18 @@ class VoiceSelectionParams(proto.Message):
             the custom voice matching the specified configuration.
         voice_clone (google.cloud.texttospeech_v1beta1.types.VoiceCloneParams):
             Optional. The configuration for a voice clone. If
-            [VoiceCloneParams.voice_clone_key] is set, the service will
-            choose the voice clone matching the specified configuration.
+            [VoiceCloneParams.voice_clone_key] is set, the service
+            chooses the voice clone matching the specified
+            configuration.
+        model_name (str):
+            Optional. The name of the model. If set, the
+            service will choose the model matching the
+            specified configuration.
+        multi_speaker_voice_config (google.cloud.texttospeech_v1beta1.types.MultiSpeakerVoiceConfig):
+            Optional. The configuration for a Gemini
+            multi-speaker text-to-speech setup. Enables the
+            use of two distinct voices in a single synthesis
+            request.
     """
 
     language_code: str = proto.Field(
@@ -535,6 +776,15 @@ class VoiceSelectionParams(proto.Message):
         number=5,
         message="VoiceCloneParams",
     )
+    model_name: str = proto.Field(
+        proto.STRING,
+        number=6,
+    )
+    multi_speaker_voice_config: "MultiSpeakerVoiceConfig" = proto.Field(
+        proto.MESSAGE,
+        number=7,
+        message="MultiSpeakerVoiceConfig",
+    )
 
 
 class AudioConfig(proto.Message):
@@ -546,10 +796,10 @@ class AudioConfig(proto.Message):
             stream.
         speaking_rate (float):
             Optional. Input only. Speaking rate/speed, in the range
-            [0.25, 4.0]. 1.0 is the normal native speed supported by the
+            [0.25, 2.0]. 1.0 is the normal native speed supported by the
             specific voice. 2.0 is twice as fast, and 0.5 is half as
             fast. If unset(0.0), defaults to the native 1.0 speed. Any
-            other values < 0.25 or > 4.0 will return an error.
+            other values < 0.25 or > 2.0 will return an error.
         pitch (float):
             Optional. Input only. Speaking pitch, in the range [-20.0,
             20.0]. 20 means increase 20 semitones from the original
@@ -642,6 +892,7 @@ class CustomVoiceParams(proto.Message):
                 synthesized audio is downloaded, stored in
                 customer service system and played repeatedly.
         """
+
         REPORTED_USAGE_UNSPECIFIED = 0
         REALTIME = 1
         OFFLINE = 2
@@ -735,12 +986,18 @@ class StreamingAudioConfig(proto.Message):
 
     Attributes:
         audio_encoding (google.cloud.texttospeech_v1beta1.types.AudioEncoding):
-            Required. The format of the audio byte stream. For now,
-            streaming only supports PCM and OGG_OPUS. All other
-            encodings will return an error.
+            Required. The format of the audio byte stream. Streaming
+            supports PCM, ALAW, MULAW and OGG_OPUS. All other encodings
+            return an error.
         sample_rate_hertz (int):
             Optional. The synthesis sample rate (in
             hertz) for this audio.
+        speaking_rate (float):
+            Optional. Input only. Speaking rate/speed, in the range
+            [0.25, 2.0]. 1.0 is the normal native speed supported by the
+            specific voice. 2.0 is twice as fast, and 0.5 is half as
+            fast. If unset(0.0), defaults to the native 1.0 speed. Any
+            other values < 0.25 or > 2.0 will return an error.
     """
 
     audio_encoding: "AudioEncoding" = proto.Field(
@@ -752,11 +1009,18 @@ class StreamingAudioConfig(proto.Message):
         proto.INT32,
         number=2,
     )
+    speaking_rate: float = proto.Field(
+        proto.DOUBLE,
+        number=3,
+    )
 
 
 class StreamingSynthesizeConfig(proto.Message):
     r"""Provides configuration information for the
     StreamingSynthesize request.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
     Attributes:
         voice (google.cloud.texttospeech_v1beta1.types.VoiceSelectionParams):
@@ -765,6 +1029,24 @@ class StreamingSynthesizeConfig(proto.Message):
         streaming_audio_config (google.cloud.texttospeech_v1beta1.types.StreamingAudioConfig):
             Optional. The configuration of the
             synthesized audio.
+        custom_pronunciations (google.cloud.texttospeech_v1beta1.types.CustomPronunciations):
+            Optional. The pronunciation customizations
+            are applied to the input. If this is set, the
+            input is synthesized using the given
+            pronunciation customizations.
+
+            The initial support is for en-us, with plans to
+            expand to other locales in the future. Instant
+            Clone voices aren't supported.
+
+            In order to customize the pronunciation of a
+            phrase, there must be an exact match of the
+            phrase in the input types. If using SSML, the
+            phrase must not be inside a phoneme tag.
+        advanced_voice_options (google.cloud.texttospeech_v1beta1.types.AdvancedVoiceOptions):
+            Optional. Advanced voice options.
+
+            This field is a member of `oneof`_ ``_advanced_voice_options``.
     """
 
     voice: "VoiceSelectionParams" = proto.Field(
@@ -777,10 +1059,26 @@ class StreamingSynthesizeConfig(proto.Message):
         number=4,
         message="StreamingAudioConfig",
     )
+    custom_pronunciations: "CustomPronunciations" = proto.Field(
+        proto.MESSAGE,
+        number=5,
+        message="CustomPronunciations",
+    )
+    advanced_voice_options: "AdvancedVoiceOptions" = proto.Field(
+        proto.MESSAGE,
+        number=7,
+        optional=True,
+        message="AdvancedVoiceOptions",
+    )
 
 
 class StreamingSynthesisInput(proto.Message):
     r"""Input to be synthesized.
+
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
 
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
@@ -788,18 +1086,48 @@ class StreamingSynthesisInput(proto.Message):
         text (str):
             The raw text to be synthesized. It is
             recommended that each input contains complete,
-            terminating sentences, as this will likely
-            result in better prosody in the output audio.
-            That being said, users are free to input text
-            however they please.
+            terminating sentences, which results in better
+            prosody in the output audio.
 
             This field is a member of `oneof`_ ``input_source``.
+        markup (str):
+            Markup for Chirp 3: HD voices specifically.
+            This field may not be used with any other
+            voices.
+
+            This field is a member of `oneof`_ ``input_source``.
+        multi_speaker_markup (google.cloud.texttospeech_v1beta1.types.MultiSpeakerMarkup):
+            Multi-speaker markup for Gemini TTS. This
+            field may not be used with any other voices.
+
+            This field is a member of `oneof`_ ``input_source``.
+        prompt (str):
+            This is system instruction supported only for
+            controllable voice models.
+
+            This field is a member of `oneof`_ ``_prompt``.
     """
 
     text: str = proto.Field(
         proto.STRING,
         number=1,
         oneof="input_source",
+    )
+    markup: str = proto.Field(
+        proto.STRING,
+        number=5,
+        oneof="input_source",
+    )
+    multi_speaker_markup: "MultiSpeakerMarkup" = proto.Field(
+        proto.MESSAGE,
+        number=7,
+        oneof="input_source",
+        message="MultiSpeakerMarkup",
+    )
+    prompt: str = proto.Field(
+        proto.STRING,
+        number=6,
+        optional=True,
     )
 
 

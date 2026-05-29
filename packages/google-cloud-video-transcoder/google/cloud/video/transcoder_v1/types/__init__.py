@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ from .resources import (
     ElementaryStream,
     Encryption,
     Input,
+    InputAttributes,
     Job,
     JobConfig,
     JobTemplate,
@@ -32,6 +33,7 @@ from .resources import (
     SegmentSettings,
     SpriteSheet,
     TextStream,
+    TrackDefinition,
     VideoStream,
 )
 from .services import (
@@ -54,6 +56,7 @@ __all__ = (
     "ElementaryStream",
     "Encryption",
     "Input",
+    "InputAttributes",
     "Job",
     "JobConfig",
     "JobTemplate",
@@ -66,6 +69,7 @@ __all__ = (
     "SegmentSettings",
     "SpriteSheet",
     "TextStream",
+    "TrackDefinition",
     "VideoStream",
     "CreateJobRequest",
     "CreateJobTemplateRequest",

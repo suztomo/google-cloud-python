@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,24 +16,24 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
+from google.cloud.dialogflow_v2.types import conversation_dataset
 from google.cloud.dialogflow_v2.types import (
     conversation_dataset as gcd_conversation_dataset,
 )
-from google.cloud.dialogflow_v2.types import conversation_dataset
 
 from .base import DEFAULT_CLIENT_INFO as BASE_DEFAULT_CLIENT_INFO
 from .rest_base import _BaseConversationDatasetsRestTransport
@@ -546,9 +546,10 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -566,6 +567,12 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[ConversationDatasetsRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -707,9 +714,7 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
 
             """
 
-            http_options = (
-                _BaseConversationDatasetsRestTransport._BaseCreateConversationDataset._get_http_options()
-            )
+            http_options = _BaseConversationDatasetsRestTransport._BaseCreateConversationDataset._get_http_options()
 
             request, metadata = self._interceptor.pre_create_conversation_dataset(
                 request, metadata
@@ -735,7 +740,7 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -862,9 +867,7 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
 
             """
 
-            http_options = (
-                _BaseConversationDatasetsRestTransport._BaseDeleteConversationDataset._get_http_options()
-            )
+            http_options = _BaseConversationDatasetsRestTransport._BaseDeleteConversationDataset._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_conversation_dataset(
                 request, metadata
@@ -886,7 +889,7 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1015,9 +1018,7 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
 
             """
 
-            http_options = (
-                _BaseConversationDatasetsRestTransport._BaseGetConversationDataset._get_http_options()
-            )
+            http_options = _BaseConversationDatasetsRestTransport._BaseGetConversationDataset._get_http_options()
 
             request, metadata = self._interceptor.pre_get_conversation_dataset(
                 request, metadata
@@ -1171,9 +1172,7 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
 
             """
 
-            http_options = (
-                _BaseConversationDatasetsRestTransport._BaseImportConversationData._get_http_options()
-            )
+            http_options = _BaseConversationDatasetsRestTransport._BaseImportConversationData._get_http_options()
 
             request, metadata = self._interceptor.pre_import_conversation_data(
                 request, metadata
@@ -1199,7 +1198,7 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1327,9 +1326,7 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
 
             """
 
-            http_options = (
-                _BaseConversationDatasetsRestTransport._BaseListConversationDatasets._get_http_options()
-            )
+            http_options = _BaseConversationDatasetsRestTransport._BaseListConversationDatasets._get_http_options()
 
             request, metadata = self._interceptor.pre_list_conversation_datasets(
                 request, metadata
@@ -1432,7 +1429,9 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateConversationDataset(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateConversationDataset(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_conversation_dataset(
@@ -1443,7 +1442,9 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteConversationDataset(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteConversationDataset(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_conversation_dataset(
@@ -1454,7 +1455,9 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetConversationDataset(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetConversationDataset(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def import_conversation_data(
@@ -1464,7 +1467,9 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ImportConversationData(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ImportConversationData(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_conversation_datasets(
@@ -1475,7 +1480,9 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListConversationDatasets(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListConversationDatasets(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_location(self):
@@ -1535,9 +1542,7 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
                 locations_pb2.Location: Response from GetLocation method.
             """
 
-            http_options = (
-                _BaseConversationDatasetsRestTransport._BaseGetLocation._get_http_options()
-            )
+            http_options = _BaseConversationDatasetsRestTransport._BaseGetLocation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_location(request, metadata)
             transcoded_request = _BaseConversationDatasetsRestTransport._BaseGetLocation._get_transcoded_request(
@@ -1676,9 +1681,7 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
                 locations_pb2.ListLocationsResponse: Response from ListLocations method.
             """
 
-            http_options = (
-                _BaseConversationDatasetsRestTransport._BaseListLocations._get_http_options()
-            )
+            http_options = _BaseConversationDatasetsRestTransport._BaseListLocations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_locations(request, metadata)
             transcoded_request = _BaseConversationDatasetsRestTransport._BaseListLocations._get_transcoded_request(
@@ -1814,9 +1817,7 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseConversationDatasetsRestTransport._BaseCancelOperation._get_http_options()
-            )
+            http_options = _BaseConversationDatasetsRestTransport._BaseCancelOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_cancel_operation(
                 request, metadata
@@ -1932,9 +1933,7 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
                 operations_pb2.Operation: Response from GetOperation method.
             """
 
-            http_options = (
-                _BaseConversationDatasetsRestTransport._BaseGetOperation._get_http_options()
-            )
+            http_options = _BaseConversationDatasetsRestTransport._BaseGetOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_operation(request, metadata)
             transcoded_request = _BaseConversationDatasetsRestTransport._BaseGetOperation._get_transcoded_request(
@@ -2073,9 +2072,7 @@ class ConversationDatasetsRestTransport(_BaseConversationDatasetsRestTransport):
                 operations_pb2.ListOperationsResponse: Response from ListOperations method.
             """
 
-            http_options = (
-                _BaseConversationDatasetsRestTransport._BaseListOperations._get_http_options()
-            )
+            http_options = _BaseConversationDatasetsRestTransport._BaseListOperations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_operations(request, metadata)
             transcoded_request = _BaseConversationDatasetsRestTransport._BaseListOperations._get_transcoded_request(

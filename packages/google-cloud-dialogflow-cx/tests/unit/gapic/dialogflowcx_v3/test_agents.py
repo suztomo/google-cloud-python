@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +38,14 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,20 +54,13 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
 
 from google.cloud.dialogflowcx_v3.services.agents import (
     AgentsAsyncClient,
@@ -74,14 +69,18 @@ from google.cloud.dialogflowcx_v3.services.agents import (
     transports,
 )
 from google.cloud.dialogflowcx_v3.types import (
+    advanced_settings,
+    agent,
+    audio_config,
+    flow,
+    gcs,
+    generative_settings,
+    safety_settings,
+)
+from google.cloud.dialogflowcx_v3.types import agent as gcdc_agent
+from google.cloud.dialogflowcx_v3.types import (
     generative_settings as gcdc_generative_settings,
 )
-from google.cloud.dialogflowcx_v3.types import advanced_settings
-from google.cloud.dialogflowcx_v3.types import agent
-from google.cloud.dialogflowcx_v3.types import agent as gcdc_agent
-from google.cloud.dialogflowcx_v3.types import audio_config, flow, gcs
-from google.cloud.dialogflowcx_v3.types import generative_settings
-from google.cloud.dialogflowcx_v3.types import safety_settings
 
 CRED_INFO_JSON = {
     "credential_source": "/path/to/file",
@@ -131,12 +130,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert AgentsClient._get_default_mtls_endpoint(None) is None
     assert AgentsClient._get_default_mtls_endpoint(api_endpoint) == api_mtls_endpoint
@@ -152,6 +167,7 @@ def test__get_default_mtls_endpoint():
         == sandbox_mtls_endpoint
     )
     assert AgentsClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    assert AgentsClient._get_default_mtls_endpoint(custom_endpoint) == custom_endpoint
 
 
 def test__read_environment_variables():
@@ -166,12 +182,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            AgentsClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                AgentsClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert AgentsClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert AgentsClient._read_environment_variables() == (False, "never", None)
@@ -192,6 +215,105 @@ def test__read_environment_variables():
 
     with mock.patch.dict(os.environ, {"GOOGLE_CLOUD_UNIVERSE_DOMAIN": "foo.com"}):
         assert AgentsClient._read_environment_variables() == (False, "auto", "foo.com")
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert AgentsClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert AgentsClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert AgentsClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert AgentsClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert AgentsClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert AgentsClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert AgentsClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert AgentsClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert AgentsClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                AgentsClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert AgentsClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert AgentsClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -545,17 +667,6 @@ def test_agents_client_client_options(client_class, transport_class, transport_n
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -765,6 +876,117 @@ def test_agents_client_get_mtls_endpoint_and_cert_source(client_class):
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -797,10 +1019,9 @@ def test_agents_client_get_mtls_endpoint_and_cert_source(client_class):
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -813,18 +1034,6 @@ def test_agents_client_get_mtls_endpoint_and_cert_source(client_class):
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1037,13 +1246,13 @@ def test_agents_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1071,8 +1280,8 @@ def test_agents_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        agent.ListAgentsRequest,
-        dict,
+        agent.ListAgentsRequest(),
+        {},
     ],
 )
 def test_list_agents(request_type, transport: str = "grpc"):
@@ -1083,7 +1292,7 @@ def test_list_agents(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_agents), "__call__") as call:
@@ -1128,10 +1337,11 @@ def test_list_agents_non_empty_request_with_auto_populated_field():
         client.list_agents(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == agent.ListAgentsRequest(
+        request_msg = agent.ListAgentsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_agents_use_cached_wrapped_rpc():
@@ -1212,9 +1422,14 @@ async def test_list_agents_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_agents_async(
-    transport: str = "grpc_asyncio", request_type=agent.ListAgentsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        agent.ListAgentsRequest(),
+        {},
+    ],
+)
+async def test_list_agents_async(request_type, transport: str = "grpc_asyncio"):
     client = AgentsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1222,7 +1437,7 @@ async def test_list_agents_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_agents), "__call__") as call:
@@ -1243,11 +1458,6 @@ async def test_list_agents_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListAgentsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_agents_async_from_dict():
-    await test_list_agents_async(request_type=dict)
 
 
 def test_list_agents_field_headers():
@@ -1577,11 +1787,7 @@ async def test_list_agents_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_agents(request={})
-        ).pages:
+        async for page_ in (await client.list_agents(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -1590,8 +1796,8 @@ async def test_list_agents_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        agent.GetAgentRequest,
-        dict,
+        agent.GetAgentRequest(),
+        {},
     ],
 )
 def test_get_agent(request_type, transport: str = "grpc"):
@@ -1602,7 +1808,7 @@ def test_get_agent(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_agent), "__call__") as call:
@@ -1615,7 +1821,6 @@ def test_get_agent(request_type, transport: str = "grpc"):
             time_zone="time_zone_value",
             description="description_value",
             avatar_uri="avatar_uri_value",
-            start_flow="start_flow_value",
             security_settings="security_settings_value",
             enable_stackdriver_logging=True,
             enable_spell_correction=True,
@@ -1623,6 +1828,7 @@ def test_get_agent(request_type, transport: str = "grpc"):
             locked=True,
             satisfies_pzs=True,
             satisfies_pzi=True,
+            start_flow="start_flow_value",
         )
         response = client.get_agent(request)
 
@@ -1641,7 +1847,6 @@ def test_get_agent(request_type, transport: str = "grpc"):
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -1674,9 +1879,10 @@ def test_get_agent_non_empty_request_with_auto_populated_field():
         client.get_agent(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == agent.GetAgentRequest(
+        request_msg = agent.GetAgentRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_agent_use_cached_wrapped_rpc():
@@ -1755,9 +1961,14 @@ async def test_get_agent_async_use_cached_wrapped_rpc(transport: str = "grpc_asy
 
 
 @pytest.mark.asyncio
-async def test_get_agent_async(
-    transport: str = "grpc_asyncio", request_type=agent.GetAgentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        agent.GetAgentRequest(),
+        {},
+    ],
+)
+async def test_get_agent_async(request_type, transport: str = "grpc_asyncio"):
     client = AgentsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1765,7 +1976,7 @@ async def test_get_agent_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_agent), "__call__") as call:
@@ -1779,7 +1990,6 @@ async def test_get_agent_async(
                 time_zone="time_zone_value",
                 description="description_value",
                 avatar_uri="avatar_uri_value",
-                start_flow="start_flow_value",
                 security_settings="security_settings_value",
                 enable_stackdriver_logging=True,
                 enable_spell_correction=True,
@@ -1806,7 +2016,6 @@ async def test_get_agent_async(
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -1814,11 +2023,6 @@ async def test_get_agent_async(
     assert response.locked is True
     assert response.satisfies_pzs is True
     assert response.satisfies_pzi is True
-
-
-@pytest.mark.asyncio
-async def test_get_agent_async_from_dict():
-    await test_get_agent_async(request_type=dict)
 
 
 def test_get_agent_field_headers():
@@ -1963,8 +2167,8 @@ async def test_get_agent_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcdc_agent.CreateAgentRequest,
-        dict,
+        gcdc_agent.CreateAgentRequest(),
+        {},
     ],
 )
 def test_create_agent(request_type, transport: str = "grpc"):
@@ -1975,7 +2179,7 @@ def test_create_agent(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_agent), "__call__") as call:
@@ -1988,7 +2192,6 @@ def test_create_agent(request_type, transport: str = "grpc"):
             time_zone="time_zone_value",
             description="description_value",
             avatar_uri="avatar_uri_value",
-            start_flow="start_flow_value",
             security_settings="security_settings_value",
             enable_stackdriver_logging=True,
             enable_spell_correction=True,
@@ -1996,6 +2199,7 @@ def test_create_agent(request_type, transport: str = "grpc"):
             locked=True,
             satisfies_pzs=True,
             satisfies_pzi=True,
+            start_flow="start_flow_value",
         )
         response = client.create_agent(request)
 
@@ -2014,7 +2218,6 @@ def test_create_agent(request_type, transport: str = "grpc"):
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -2047,9 +2250,10 @@ def test_create_agent_non_empty_request_with_auto_populated_field():
         client.create_agent(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcdc_agent.CreateAgentRequest(
+        request_msg = gcdc_agent.CreateAgentRequest(
             parent="parent_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_agent_use_cached_wrapped_rpc():
@@ -2130,9 +2334,14 @@ async def test_create_agent_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_agent_async(
-    transport: str = "grpc_asyncio", request_type=gcdc_agent.CreateAgentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcdc_agent.CreateAgentRequest(),
+        {},
+    ],
+)
+async def test_create_agent_async(request_type, transport: str = "grpc_asyncio"):
     client = AgentsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2140,7 +2349,7 @@ async def test_create_agent_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_agent), "__call__") as call:
@@ -2154,7 +2363,6 @@ async def test_create_agent_async(
                 time_zone="time_zone_value",
                 description="description_value",
                 avatar_uri="avatar_uri_value",
-                start_flow="start_flow_value",
                 security_settings="security_settings_value",
                 enable_stackdriver_logging=True,
                 enable_spell_correction=True,
@@ -2181,7 +2389,6 @@ async def test_create_agent_async(
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -2189,11 +2396,6 @@ async def test_create_agent_async(
     assert response.locked is True
     assert response.satisfies_pzs is True
     assert response.satisfies_pzi is True
-
-
-@pytest.mark.asyncio
-async def test_create_agent_async_from_dict():
-    await test_create_agent_async(request_type=dict)
 
 
 def test_create_agent_field_headers():
@@ -2348,8 +2550,8 @@ async def test_create_agent_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcdc_agent.UpdateAgentRequest,
-        dict,
+        gcdc_agent.UpdateAgentRequest(),
+        {},
     ],
 )
 def test_update_agent(request_type, transport: str = "grpc"):
@@ -2360,7 +2562,7 @@ def test_update_agent(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_agent), "__call__") as call:
@@ -2373,7 +2575,6 @@ def test_update_agent(request_type, transport: str = "grpc"):
             time_zone="time_zone_value",
             description="description_value",
             avatar_uri="avatar_uri_value",
-            start_flow="start_flow_value",
             security_settings="security_settings_value",
             enable_stackdriver_logging=True,
             enable_spell_correction=True,
@@ -2381,6 +2582,7 @@ def test_update_agent(request_type, transport: str = "grpc"):
             locked=True,
             satisfies_pzs=True,
             satisfies_pzi=True,
+            start_flow="start_flow_value",
         )
         response = client.update_agent(request)
 
@@ -2399,7 +2601,6 @@ def test_update_agent(request_type, transport: str = "grpc"):
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -2430,7 +2631,8 @@ def test_update_agent_non_empty_request_with_auto_populated_field():
         client.update_agent(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcdc_agent.UpdateAgentRequest()
+        request_msg = gcdc_agent.UpdateAgentRequest()
+        assert args[0] == request_msg
 
 
 def test_update_agent_use_cached_wrapped_rpc():
@@ -2511,9 +2713,14 @@ async def test_update_agent_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_agent_async(
-    transport: str = "grpc_asyncio", request_type=gcdc_agent.UpdateAgentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcdc_agent.UpdateAgentRequest(),
+        {},
+    ],
+)
+async def test_update_agent_async(request_type, transport: str = "grpc_asyncio"):
     client = AgentsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2521,7 +2728,7 @@ async def test_update_agent_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_agent), "__call__") as call:
@@ -2535,7 +2742,6 @@ async def test_update_agent_async(
                 time_zone="time_zone_value",
                 description="description_value",
                 avatar_uri="avatar_uri_value",
-                start_flow="start_flow_value",
                 security_settings="security_settings_value",
                 enable_stackdriver_logging=True,
                 enable_spell_correction=True,
@@ -2562,7 +2768,6 @@ async def test_update_agent_async(
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -2570,11 +2775,6 @@ async def test_update_agent_async(
     assert response.locked is True
     assert response.satisfies_pzs is True
     assert response.satisfies_pzi is True
-
-
-@pytest.mark.asyncio
-async def test_update_agent_async_from_dict():
-    await test_update_agent_async(request_type=dict)
 
 
 def test_update_agent_field_headers():
@@ -2729,8 +2929,8 @@ async def test_update_agent_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        agent.DeleteAgentRequest,
-        dict,
+        agent.DeleteAgentRequest(),
+        {},
     ],
 )
 def test_delete_agent(request_type, transport: str = "grpc"):
@@ -2741,7 +2941,7 @@ def test_delete_agent(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_agent), "__call__") as call:
@@ -2782,9 +2982,10 @@ def test_delete_agent_non_empty_request_with_auto_populated_field():
         client.delete_agent(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == agent.DeleteAgentRequest(
+        request_msg = agent.DeleteAgentRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_agent_use_cached_wrapped_rpc():
@@ -2865,9 +3066,14 @@ async def test_delete_agent_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_agent_async(
-    transport: str = "grpc_asyncio", request_type=agent.DeleteAgentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        agent.DeleteAgentRequest(),
+        {},
+    ],
+)
+async def test_delete_agent_async(request_type, transport: str = "grpc_asyncio"):
     client = AgentsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2875,7 +3081,7 @@ async def test_delete_agent_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_agent), "__call__") as call:
@@ -2891,11 +3097,6 @@ async def test_delete_agent_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_agent_async_from_dict():
-    await test_delete_agent_async(request_type=dict)
 
 
 def test_delete_agent_field_headers():
@@ -3040,8 +3241,8 @@ async def test_delete_agent_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        agent.ExportAgentRequest,
-        dict,
+        agent.ExportAgentRequest(),
+        {},
     ],
 )
 def test_export_agent(request_type, transport: str = "grpc"):
@@ -3052,7 +3253,7 @@ def test_export_agent(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.export_agent), "__call__") as call:
@@ -3095,11 +3296,12 @@ def test_export_agent_non_empty_request_with_auto_populated_field():
         client.export_agent(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == agent.ExportAgentRequest(
+        request_msg = agent.ExportAgentRequest(
             name="name_value",
             agent_uri="agent_uri_value",
             environment="environment_value",
         )
+        assert args[0] == request_msg
 
 
 def test_export_agent_use_cached_wrapped_rpc():
@@ -3190,9 +3392,14 @@ async def test_export_agent_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_export_agent_async(
-    transport: str = "grpc_asyncio", request_type=agent.ExportAgentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        agent.ExportAgentRequest(),
+        {},
+    ],
+)
+async def test_export_agent_async(request_type, transport: str = "grpc_asyncio"):
     client = AgentsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3200,7 +3407,7 @@ async def test_export_agent_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.export_agent), "__call__") as call:
@@ -3218,11 +3425,6 @@ async def test_export_agent_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_export_agent_async_from_dict():
-    await test_export_agent_async(request_type=dict)
 
 
 def test_export_agent_field_headers():
@@ -3289,8 +3491,8 @@ async def test_export_agent_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        agent.RestoreAgentRequest,
-        dict,
+        agent.RestoreAgentRequest(),
+        {},
     ],
 )
 def test_restore_agent(request_type, transport: str = "grpc"):
@@ -3301,7 +3503,7 @@ def test_restore_agent(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.restore_agent), "__call__") as call:
@@ -3343,10 +3545,11 @@ def test_restore_agent_non_empty_request_with_auto_populated_field():
         client.restore_agent(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == agent.RestoreAgentRequest(
+        request_msg = agent.RestoreAgentRequest(
             name="name_value",
             agent_uri="agent_uri_value",
         )
+        assert args[0] == request_msg
 
 
 def test_restore_agent_use_cached_wrapped_rpc():
@@ -3437,9 +3640,14 @@ async def test_restore_agent_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_restore_agent_async(
-    transport: str = "grpc_asyncio", request_type=agent.RestoreAgentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        agent.RestoreAgentRequest(),
+        {},
+    ],
+)
+async def test_restore_agent_async(request_type, transport: str = "grpc_asyncio"):
     client = AgentsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3447,7 +3655,7 @@ async def test_restore_agent_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.restore_agent), "__call__") as call:
@@ -3465,11 +3673,6 @@ async def test_restore_agent_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_restore_agent_async_from_dict():
-    await test_restore_agent_async(request_type=dict)
 
 
 def test_restore_agent_field_headers():
@@ -3536,8 +3739,8 @@ async def test_restore_agent_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        agent.ValidateAgentRequest,
-        dict,
+        agent.ValidateAgentRequest(),
+        {},
     ],
 )
 def test_validate_agent(request_type, transport: str = "grpc"):
@@ -3548,7 +3751,7 @@ def test_validate_agent(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.validate_agent), "__call__") as call:
@@ -3593,10 +3796,11 @@ def test_validate_agent_non_empty_request_with_auto_populated_field():
         client.validate_agent(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == agent.ValidateAgentRequest(
+        request_msg = agent.ValidateAgentRequest(
             name="name_value",
             language_code="language_code_value",
         )
+        assert args[0] == request_msg
 
 
 def test_validate_agent_use_cached_wrapped_rpc():
@@ -3677,9 +3881,14 @@ async def test_validate_agent_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_validate_agent_async(
-    transport: str = "grpc_asyncio", request_type=agent.ValidateAgentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        agent.ValidateAgentRequest(),
+        {},
+    ],
+)
+async def test_validate_agent_async(request_type, transport: str = "grpc_asyncio"):
     client = AgentsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3687,7 +3896,7 @@ async def test_validate_agent_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.validate_agent), "__call__") as call:
@@ -3708,11 +3917,6 @@ async def test_validate_agent_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, agent.AgentValidationResult)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_validate_agent_async_from_dict():
-    await test_validate_agent_async(request_type=dict)
 
 
 def test_validate_agent_field_headers():
@@ -3779,8 +3983,8 @@ async def test_validate_agent_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        agent.GetAgentValidationResultRequest,
-        dict,
+        agent.GetAgentValidationResultRequest(),
+        {},
     ],
 )
 def test_get_agent_validation_result(request_type, transport: str = "grpc"):
@@ -3791,7 +3995,7 @@ def test_get_agent_validation_result(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3840,10 +4044,11 @@ def test_get_agent_validation_result_non_empty_request_with_auto_populated_field
         client.get_agent_validation_result(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == agent.GetAgentValidationResultRequest(
+        request_msg = agent.GetAgentValidationResultRequest(
             name="name_value",
             language_code="language_code_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_agent_validation_result_use_cached_wrapped_rpc():
@@ -3929,8 +4134,15 @@ async def test_get_agent_validation_result_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        agent.GetAgentValidationResultRequest(),
+        {},
+    ],
+)
 async def test_get_agent_validation_result_async(
-    transport: str = "grpc_asyncio", request_type=agent.GetAgentValidationResultRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = AgentsAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -3939,7 +4151,7 @@ async def test_get_agent_validation_result_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3962,11 +4174,6 @@ async def test_get_agent_validation_result_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, agent.AgentValidationResult)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_agent_validation_result_async_from_dict():
-    await test_get_agent_validation_result_async(request_type=dict)
 
 
 def test_get_agent_validation_result_field_headers():
@@ -4123,8 +4330,8 @@ async def test_get_agent_validation_result_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        agent.GetGenerativeSettingsRequest,
-        dict,
+        agent.GetGenerativeSettingsRequest(),
+        {},
     ],
 )
 def test_get_generative_settings(request_type, transport: str = "grpc"):
@@ -4135,7 +4342,7 @@ def test_get_generative_settings(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4186,10 +4393,11 @@ def test_get_generative_settings_non_empty_request_with_auto_populated_field():
         client.get_generative_settings(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == agent.GetGenerativeSettingsRequest(
+        request_msg = agent.GetGenerativeSettingsRequest(
             name="name_value",
             language_code="language_code_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_generative_settings_use_cached_wrapped_rpc():
@@ -4275,8 +4483,15 @@ async def test_get_generative_settings_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        agent.GetGenerativeSettingsRequest(),
+        {},
+    ],
+)
 async def test_get_generative_settings_async(
-    transport: str = "grpc_asyncio", request_type=agent.GetGenerativeSettingsRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = AgentsAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -4285,7 +4500,7 @@ async def test_get_generative_settings_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4310,11 +4525,6 @@ async def test_get_generative_settings_async(
     assert isinstance(response, generative_settings.GenerativeSettings)
     assert response.name == "name_value"
     assert response.language_code == "language_code_value"
-
-
-@pytest.mark.asyncio
-async def test_get_generative_settings_async_from_dict():
-    await test_get_generative_settings_async(request_type=dict)
 
 
 def test_get_generative_settings_field_headers():
@@ -4481,8 +4691,8 @@ async def test_get_generative_settings_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        agent.UpdateGenerativeSettingsRequest,
-        dict,
+        agent.UpdateGenerativeSettingsRequest(),
+        {},
     ],
 )
 def test_update_generative_settings(request_type, transport: str = "grpc"):
@@ -4493,7 +4703,7 @@ def test_update_generative_settings(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4541,7 +4751,8 @@ def test_update_generative_settings_non_empty_request_with_auto_populated_field(
         client.update_generative_settings(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == agent.UpdateGenerativeSettingsRequest()
+        request_msg = agent.UpdateGenerativeSettingsRequest()
+        assert args[0] == request_msg
 
 
 def test_update_generative_settings_use_cached_wrapped_rpc():
@@ -4627,8 +4838,15 @@ async def test_update_generative_settings_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        agent.UpdateGenerativeSettingsRequest(),
+        {},
+    ],
+)
 async def test_update_generative_settings_async(
-    transport: str = "grpc_asyncio", request_type=agent.UpdateGenerativeSettingsRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = AgentsAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -4637,7 +4855,7 @@ async def test_update_generative_settings_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4662,11 +4880,6 @@ async def test_update_generative_settings_async(
     assert isinstance(response, gcdc_generative_settings.GenerativeSettings)
     assert response.name == "name_value"
     assert response.language_code == "language_code_value"
-
-
-@pytest.mark.asyncio
-async def test_update_generative_settings_async_from_dict():
-    await test_update_generative_settings_async(request_type=dict)
 
 
 def test_update_generative_settings_field_headers():
@@ -4951,7 +5164,7 @@ def test_list_agents_rest_required_fields(request_type=agent.ListAgentsRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_agents_rest_unset_required_fields():
@@ -5195,7 +5408,7 @@ def test_get_agent_rest_required_fields(request_type=agent.GetAgentRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_agent_rest_unset_required_fields():
@@ -5371,7 +5584,7 @@ def test_create_agent_rest_required_fields(request_type=gcdc_agent.CreateAgentRe
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_agent_rest_unset_required_fields():
@@ -5554,7 +5767,7 @@ def test_update_agent_rest_required_fields(request_type=gcdc_agent.UpdateAgentRe
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_agent_rest_unset_required_fields():
@@ -5731,7 +5944,7 @@ def test_delete_agent_rest_required_fields(request_type=agent.DeleteAgentRequest
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_agent_rest_unset_required_fields():
@@ -5906,7 +6119,7 @@ def test_export_agent_rest_required_fields(request_type=agent.ExportAgentRequest
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_export_agent_rest_unset_required_fields():
@@ -6026,7 +6239,7 @@ def test_restore_agent_rest_required_fields(request_type=agent.RestoreAgentReque
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_restore_agent_rest_unset_required_fields():
@@ -6145,7 +6358,7 @@ def test_validate_agent_rest_required_fields(request_type=agent.ValidateAgentReq
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_validate_agent_rest_unset_required_fields():
@@ -6272,7 +6485,7 @@ def test_get_agent_validation_result_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_agent_validation_result_rest_unset_required_fields():
@@ -6472,7 +6685,7 @@ def test_get_generative_settings_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_generative_settings_rest_unset_required_fields():
@@ -6665,7 +6878,7 @@ def test_update_generative_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_generative_settings_rest_unset_required_fields():
@@ -6868,7 +7081,6 @@ def test_list_agents_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.ListAgentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -6889,7 +7101,6 @@ def test_get_agent_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.GetAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6910,7 +7121,6 @@ def test_create_agent_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcdc_agent.CreateAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6931,7 +7141,6 @@ def test_update_agent_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcdc_agent.UpdateAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6952,7 +7161,6 @@ def test_delete_agent_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.DeleteAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6973,7 +7181,6 @@ def test_export_agent_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.ExportAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6994,7 +7201,6 @@ def test_restore_agent_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.RestoreAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -7015,7 +7221,6 @@ def test_validate_agent_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.ValidateAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -7038,7 +7243,6 @@ def test_get_agent_validation_result_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.GetAgentValidationResultRequest()
-
         assert args[0] == request_msg
 
 
@@ -7061,7 +7265,6 @@ def test_get_generative_settings_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.GetGenerativeSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -7084,7 +7287,6 @@ def test_update_generative_settings_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.UpdateGenerativeSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -7125,7 +7327,6 @@ async def test_list_agents_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.ListAgentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -7150,7 +7351,6 @@ async def test_get_agent_empty_call_grpc_asyncio():
                 time_zone="time_zone_value",
                 description="description_value",
                 avatar_uri="avatar_uri_value",
-                start_flow="start_flow_value",
                 security_settings="security_settings_value",
                 enable_stackdriver_logging=True,
                 enable_spell_correction=True,
@@ -7166,7 +7366,6 @@ async def test_get_agent_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.GetAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -7191,7 +7390,6 @@ async def test_create_agent_empty_call_grpc_asyncio():
                 time_zone="time_zone_value",
                 description="description_value",
                 avatar_uri="avatar_uri_value",
-                start_flow="start_flow_value",
                 security_settings="security_settings_value",
                 enable_stackdriver_logging=True,
                 enable_spell_correction=True,
@@ -7207,7 +7405,6 @@ async def test_create_agent_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcdc_agent.CreateAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -7232,7 +7429,6 @@ async def test_update_agent_empty_call_grpc_asyncio():
                 time_zone="time_zone_value",
                 description="description_value",
                 avatar_uri="avatar_uri_value",
-                start_flow="start_flow_value",
                 security_settings="security_settings_value",
                 enable_stackdriver_logging=True,
                 enable_spell_correction=True,
@@ -7248,7 +7444,6 @@ async def test_update_agent_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcdc_agent.UpdateAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -7271,7 +7466,6 @@ async def test_delete_agent_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.DeleteAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -7296,7 +7490,6 @@ async def test_export_agent_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.ExportAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -7321,7 +7514,6 @@ async def test_restore_agent_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.RestoreAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -7348,7 +7540,6 @@ async def test_validate_agent_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.ValidateAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -7377,7 +7568,6 @@ async def test_get_agent_validation_result_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.GetAgentValidationResultRequest()
-
         assert args[0] == request_msg
 
 
@@ -7407,7 +7597,6 @@ async def test_get_generative_settings_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.GetGenerativeSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -7437,7 +7626,6 @@ async def test_update_generative_settings_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.UpdateGenerativeSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -7457,8 +7645,9 @@ def test_list_agents_rest_bad_request(request_type=agent.ListAgentsRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7519,17 +7708,15 @@ def test_list_agents_rest_interceptors(null_interceptor):
     )
     client = AgentsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_list_agents"
-    ) as post, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_list_agents_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.AgentsRestInterceptor, "pre_list_agents"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.AgentsRestInterceptor, "post_list_agents") as post,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_list_agents_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.AgentsRestInterceptor, "pre_list_agents") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7578,8 +7765,9 @@ def test_get_agent_rest_bad_request(request_type=agent.GetAgentRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7619,7 +7807,6 @@ def test_get_agent_rest_call_success(request_type):
             time_zone="time_zone_value",
             description="description_value",
             avatar_uri="avatar_uri_value",
-            start_flow="start_flow_value",
             security_settings="security_settings_value",
             enable_stackdriver_logging=True,
             enable_spell_correction=True,
@@ -7627,6 +7814,7 @@ def test_get_agent_rest_call_success(request_type):
             locked=True,
             satisfies_pzs=True,
             satisfies_pzi=True,
+            start_flow="start_flow_value",
         )
 
         # Wrap the value into a proper Response obj
@@ -7650,7 +7838,6 @@ def test_get_agent_rest_call_success(request_type):
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -7668,17 +7855,15 @@ def test_get_agent_rest_interceptors(null_interceptor):
     )
     client = AgentsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_get_agent"
-    ) as post, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_get_agent_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.AgentsRestInterceptor, "pre_get_agent"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.AgentsRestInterceptor, "post_get_agent") as post,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_get_agent_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.AgentsRestInterceptor, "pre_get_agent") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7727,8 +7912,9 @@ def test_create_agent_rest_bad_request(request_type=gcdc_agent.CreateAgentReques
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7768,6 +7954,7 @@ def test_create_agent_rest_call_success(request_type):
         "avatar_uri": "avatar_uri_value",
         "speech_to_text_settings": {"enable_speech_adaptation": True},
         "start_flow": "start_flow_value",
+        "start_playbook": "start_playbook_value",
         "security_settings": "security_settings_value",
         "enable_stackdriver_logging": True,
         "enable_spell_correction": True,
@@ -7895,7 +8082,6 @@ def test_create_agent_rest_call_success(request_type):
             time_zone="time_zone_value",
             description="description_value",
             avatar_uri="avatar_uri_value",
-            start_flow="start_flow_value",
             security_settings="security_settings_value",
             enable_stackdriver_logging=True,
             enable_spell_correction=True,
@@ -7903,6 +8089,7 @@ def test_create_agent_rest_call_success(request_type):
             locked=True,
             satisfies_pzs=True,
             satisfies_pzi=True,
+            start_flow="start_flow_value",
         )
 
         # Wrap the value into a proper Response obj
@@ -7926,7 +8113,6 @@ def test_create_agent_rest_call_success(request_type):
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -7944,17 +8130,17 @@ def test_create_agent_rest_interceptors(null_interceptor):
     )
     client = AgentsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_create_agent"
-    ) as post, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_create_agent_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.AgentsRestInterceptor, "pre_create_agent"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_create_agent"
+        ) as post,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_create_agent_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.AgentsRestInterceptor, "pre_create_agent") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8005,8 +8191,9 @@ def test_update_agent_rest_bad_request(request_type=gcdc_agent.UpdateAgentReques
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8048,6 +8235,7 @@ def test_update_agent_rest_call_success(request_type):
         "avatar_uri": "avatar_uri_value",
         "speech_to_text_settings": {"enable_speech_adaptation": True},
         "start_flow": "start_flow_value",
+        "start_playbook": "start_playbook_value",
         "security_settings": "security_settings_value",
         "enable_stackdriver_logging": True,
         "enable_spell_correction": True,
@@ -8175,7 +8363,6 @@ def test_update_agent_rest_call_success(request_type):
             time_zone="time_zone_value",
             description="description_value",
             avatar_uri="avatar_uri_value",
-            start_flow="start_flow_value",
             security_settings="security_settings_value",
             enable_stackdriver_logging=True,
             enable_spell_correction=True,
@@ -8183,6 +8370,7 @@ def test_update_agent_rest_call_success(request_type):
             locked=True,
             satisfies_pzs=True,
             satisfies_pzi=True,
+            start_flow="start_flow_value",
         )
 
         # Wrap the value into a proper Response obj
@@ -8206,7 +8394,6 @@ def test_update_agent_rest_call_success(request_type):
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -8224,17 +8411,17 @@ def test_update_agent_rest_interceptors(null_interceptor):
     )
     client = AgentsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_update_agent"
-    ) as post, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_update_agent_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.AgentsRestInterceptor, "pre_update_agent"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_update_agent"
+        ) as post,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_update_agent_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.AgentsRestInterceptor, "pre_update_agent") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8283,8 +8470,9 @@ def test_delete_agent_rest_bad_request(request_type=agent.DeleteAgentRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8339,13 +8527,11 @@ def test_delete_agent_rest_interceptors(null_interceptor):
     )
     client = AgentsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AgentsRestInterceptor, "pre_delete_agent"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.AgentsRestInterceptor, "pre_delete_agent") as pre,
+    ):
         pre.assert_not_called()
         pb_message = agent.DeleteAgentRequest.pb(agent.DeleteAgentRequest())
         transcode.return_value = {
@@ -8386,8 +8572,9 @@ def test_export_agent_rest_bad_request(request_type=agent.ExportAgentRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8442,19 +8629,18 @@ def test_export_agent_rest_interceptors(null_interceptor):
     )
     client = AgentsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.AgentsRestInterceptor, "post_export_agent"
-    ) as post, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_export_agent_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.AgentsRestInterceptor, "pre_export_agent"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_export_agent"
+        ) as post,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_export_agent_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.AgentsRestInterceptor, "pre_export_agent") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8503,8 +8689,9 @@ def test_restore_agent_rest_bad_request(request_type=agent.RestoreAgentRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8559,19 +8746,18 @@ def test_restore_agent_rest_interceptors(null_interceptor):
     )
     client = AgentsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.AgentsRestInterceptor, "post_restore_agent"
-    ) as post, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_restore_agent_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.AgentsRestInterceptor, "pre_restore_agent"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_restore_agent"
+        ) as post,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_restore_agent_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.AgentsRestInterceptor, "pre_restore_agent") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8620,8 +8806,9 @@ def test_validate_agent_rest_bad_request(request_type=agent.ValidateAgentRequest
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8682,17 +8869,19 @@ def test_validate_agent_rest_interceptors(null_interceptor):
     )
     client = AgentsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_validate_agent"
-    ) as post, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_validate_agent_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.AgentsRestInterceptor, "pre_validate_agent"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_validate_agent"
+        ) as post,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_validate_agent_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "pre_validate_agent"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8747,8 +8936,9 @@ def test_get_agent_validation_result_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8811,18 +9001,20 @@ def test_get_agent_validation_result_rest_interceptors(null_interceptor):
     )
     client = AgentsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_get_agent_validation_result"
-    ) as post, mock.patch.object(
-        transports.AgentsRestInterceptor,
-        "post_get_agent_validation_result_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AgentsRestInterceptor, "pre_get_agent_validation_result"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_get_agent_validation_result"
+        ) as post,
+        mock.patch.object(
+            transports.AgentsRestInterceptor,
+            "post_get_agent_validation_result_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "pre_get_agent_validation_result"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8879,8 +9071,9 @@ def test_get_generative_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8945,17 +9138,20 @@ def test_get_generative_settings_rest_interceptors(null_interceptor):
     )
     client = AgentsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_get_generative_settings"
-    ) as post, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_get_generative_settings_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.AgentsRestInterceptor, "pre_get_generative_settings"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_get_generative_settings"
+        ) as post,
+        mock.patch.object(
+            transports.AgentsRestInterceptor,
+            "post_get_generative_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "pre_get_generative_settings"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -9017,8 +9213,9 @@ def test_update_generative_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -9062,9 +9259,13 @@ def test_update_generative_settings_rest_call_success(request_type):
             ],
         },
         "generative_safety_settings": {
+            "default_banned_phrase_match_strategy": 1,
             "banned_phrases": [
                 {"text": "text_value", "language_code": "language_code_value"}
-            ]
+            ],
+            "rai_settings": {"category_filters": [{"category": 1, "filter_level": 1}]},
+            "default_rai_settings": {},
+            "prompt_security_settings": {"enable_prompt_security": True},
         },
         "knowledge_connector_settings": {
             "business": "business_value",
@@ -9075,6 +9276,10 @@ def test_update_generative_settings_rest_call_success(request_type):
             "disable_data_store_fallback": True,
         },
         "language_code": "language_code_value",
+        "llm_model_settings": {
+            "model": "model_value",
+            "prompt_text": "prompt_text_value",
+        },
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -9181,18 +9386,20 @@ def test_update_generative_settings_rest_interceptors(null_interceptor):
     )
     client = AgentsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AgentsRestInterceptor, "post_update_generative_settings"
-    ) as post, mock.patch.object(
-        transports.AgentsRestInterceptor,
-        "post_update_generative_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AgentsRestInterceptor, "pre_update_generative_settings"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "post_update_generative_settings"
+        ) as post,
+        mock.patch.object(
+            transports.AgentsRestInterceptor,
+            "post_update_generative_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AgentsRestInterceptor, "pre_update_generative_settings"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -9250,8 +9457,9 @@ def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationReq
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -9310,8 +9518,9 @@ def test_list_locations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -9372,8 +9581,9 @@ def test_cancel_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -9434,8 +9644,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -9494,8 +9705,9 @@ def test_list_operations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -9566,7 +9778,6 @@ def test_list_agents_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.ListAgentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -9586,7 +9797,6 @@ def test_get_agent_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.GetAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -9606,7 +9816,6 @@ def test_create_agent_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcdc_agent.CreateAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -9626,7 +9835,6 @@ def test_update_agent_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcdc_agent.UpdateAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -9646,7 +9854,6 @@ def test_delete_agent_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.DeleteAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -9666,7 +9873,6 @@ def test_export_agent_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.ExportAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -9686,7 +9892,6 @@ def test_restore_agent_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.RestoreAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -9706,7 +9911,6 @@ def test_validate_agent_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.ValidateAgentRequest()
-
         assert args[0] == request_msg
 
 
@@ -9728,7 +9932,6 @@ def test_get_agent_validation_result_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.GetAgentValidationResultRequest()
-
         assert args[0] == request_msg
 
 
@@ -9750,7 +9953,6 @@ def test_get_generative_settings_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.GetGenerativeSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -9772,7 +9974,6 @@ def test_update_generative_settings_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = agent.UpdateGenerativeSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -9866,11 +10067,14 @@ def test_agents_base_transport():
 
 def test_agents_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.dialogflowcx_v3.services.agents.transports.AgentsTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.dialogflowcx_v3.services.agents.transports.AgentsTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.AgentsTransport(
@@ -9890,9 +10094,12 @@ def test_agents_base_transport_with_credentials_file():
 
 def test_agents_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.dialogflowcx_v3.services.agents.transports.AgentsTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.dialogflowcx_v3.services.agents.transports.AgentsTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.AgentsTransport()
@@ -9970,11 +10177,12 @@ def test_agents_transport_auth_gdch_credentials(transport_class):
 def test_agents_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -10177,6 +10385,7 @@ def test_agents_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [transports.AgentsGrpcTransport, transports.AgentsGrpcAsyncIOTransport],
@@ -10468,10 +10677,39 @@ def test_parse_flow_validation_result_path():
     assert expected == actual
 
 
-def test_secret_version_path():
+def test_playbook_path():
     project = "cuttlefish"
-    secret = "mussel"
-    version = "winkle"
+    location = "mussel"
+    agent = "winkle"
+    playbook = "nautilus"
+    expected = "projects/{project}/locations/{location}/agents/{agent}/playbooks/{playbook}".format(
+        project=project,
+        location=location,
+        agent=agent,
+        playbook=playbook,
+    )
+    actual = AgentsClient.playbook_path(project, location, agent, playbook)
+    assert expected == actual
+
+
+def test_parse_playbook_path():
+    expected = {
+        "project": "scallop",
+        "location": "abalone",
+        "agent": "squid",
+        "playbook": "clam",
+    }
+    path = AgentsClient.playbook_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = AgentsClient.parse_playbook_path(path)
+    assert expected == actual
+
+
+def test_secret_version_path():
+    project = "whelk"
+    secret = "octopus"
+    version = "oyster"
     expected = "projects/{project}/secrets/{secret}/versions/{version}".format(
         project=project,
         secret=secret,
@@ -10483,9 +10721,9 @@ def test_secret_version_path():
 
 def test_parse_secret_version_path():
     expected = {
-        "project": "nautilus",
-        "secret": "scallop",
-        "version": "abalone",
+        "project": "nudibranch",
+        "secret": "cuttlefish",
+        "version": "mussel",
     }
     path = AgentsClient.secret_version_path(**expected)
 
@@ -10495,9 +10733,9 @@ def test_parse_secret_version_path():
 
 
 def test_security_settings_path():
-    project = "squid"
-    location = "clam"
-    security_settings = "whelk"
+    project = "winkle"
+    location = "nautilus"
+    security_settings = "scallop"
     expected = "projects/{project}/locations/{location}/securitySettings/{security_settings}".format(
         project=project,
         location=location,
@@ -10509,9 +10747,9 @@ def test_security_settings_path():
 
 def test_parse_security_settings_path():
     expected = {
-        "project": "octopus",
-        "location": "oyster",
-        "security_settings": "nudibranch",
+        "project": "abalone",
+        "location": "squid",
+        "security_settings": "clam",
     }
     path = AgentsClient.security_settings_path(**expected)
 
@@ -10521,7 +10759,7 @@ def test_parse_security_settings_path():
 
 
 def test_common_billing_account_path():
-    billing_account = "cuttlefish"
+    billing_account = "whelk"
     expected = "billingAccounts/{billing_account}".format(
         billing_account=billing_account,
     )
@@ -10531,7 +10769,7 @@ def test_common_billing_account_path():
 
 def test_parse_common_billing_account_path():
     expected = {
-        "billing_account": "mussel",
+        "billing_account": "octopus",
     }
     path = AgentsClient.common_billing_account_path(**expected)
 
@@ -10541,7 +10779,7 @@ def test_parse_common_billing_account_path():
 
 
 def test_common_folder_path():
-    folder = "winkle"
+    folder = "oyster"
     expected = "folders/{folder}".format(
         folder=folder,
     )
@@ -10551,7 +10789,7 @@ def test_common_folder_path():
 
 def test_parse_common_folder_path():
     expected = {
-        "folder": "nautilus",
+        "folder": "nudibranch",
     }
     path = AgentsClient.common_folder_path(**expected)
 
@@ -10561,7 +10799,7 @@ def test_parse_common_folder_path():
 
 
 def test_common_organization_path():
-    organization = "scallop"
+    organization = "cuttlefish"
     expected = "organizations/{organization}".format(
         organization=organization,
     )
@@ -10571,7 +10809,7 @@ def test_common_organization_path():
 
 def test_parse_common_organization_path():
     expected = {
-        "organization": "abalone",
+        "organization": "mussel",
     }
     path = AgentsClient.common_organization_path(**expected)
 
@@ -10581,7 +10819,7 @@ def test_parse_common_organization_path():
 
 
 def test_common_project_path():
-    project = "squid"
+    project = "winkle"
     expected = "projects/{project}".format(
         project=project,
     )
@@ -10591,7 +10829,7 @@ def test_common_project_path():
 
 def test_parse_common_project_path():
     expected = {
-        "project": "clam",
+        "project": "nautilus",
     }
     path = AgentsClient.common_project_path(**expected)
 
@@ -10601,8 +10839,8 @@ def test_parse_common_project_path():
 
 
 def test_common_location_path():
-    project = "whelk"
-    location = "octopus"
+    project = "scallop"
+    location = "abalone"
     expected = "projects/{project}/locations/{location}".format(
         project=project,
         location=location,
@@ -10613,8 +10851,8 @@ def test_common_location_path():
 
 def test_parse_common_location_path():
     expected = {
-        "project": "oyster",
-        "location": "nudibranch",
+        "project": "squid",
+        "location": "clam",
     }
     path = AgentsClient.common_location_path(**expected)
 
@@ -10785,6 +11023,38 @@ async def test_cancel_operation_from_dict_async():
         call.assert_called()
 
 
+def test_cancel_operation_flattened():
+    client = AgentsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = AgentsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
 def test_get_operation(transport: str = "grpc"):
     client = AgentsClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -10928,6 +11198,40 @@ async def test_get_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_operation_flattened():
+    client = AgentsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = AgentsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
 
 
 def test_list_operations(transport: str = "grpc"):
@@ -11075,6 +11379,40 @@ async def test_list_operations_from_dict_async():
         call.assert_called()
 
 
+def test_list_operations_flattened():
+    client = AgentsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = AgentsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
 def test_list_locations(transport: str = "grpc"):
     client = AgentsClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -11220,6 +11558,40 @@ async def test_list_locations_from_dict_async():
         call.assert_called()
 
 
+def test_list_locations_flattened():
+    client = AgentsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_flattened_async():
+    client = AgentsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
 def test_get_location(transport: str = "grpc"):
     client = AgentsClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -11359,6 +11731,40 @@ async def test_get_location_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_location_flattened():
+    client = AgentsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_location_flattened_async():
+    client = AgentsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
 
 
 def test_transport_close_grpc():

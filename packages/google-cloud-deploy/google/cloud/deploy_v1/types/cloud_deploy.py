@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
-from google.type import dayofweek_pb2  # type: ignore
-from google.type import timeofday_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.dayofweek_pb2 as dayofweek_pb2  # type: ignore
+import google.type.timeofday_pb2 as timeofday_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -208,6 +208,7 @@ class SkaffoldSupportState(proto.Enum):
         SKAFFOLD_SUPPORT_STATE_UNSUPPORTED (3):
             This Skaffold version is no longer supported.
     """
+
     SKAFFOLD_SUPPORT_STATE_UNSPECIFIED = 0
     SKAFFOLD_SUPPORT_STATE_SUPPORTED = 1
     SKAFFOLD_SUPPORT_STATE_MAINTENANCE_MODE = 2
@@ -225,6 +226,7 @@ class BackoffMode(proto.Enum):
         BACKOFF_MODE_EXPONENTIAL (2):
             Increases the wait time exponentially.
     """
+
     BACKOFF_MODE_UNSPECIFIED = 0
     BACKOFF_MODE_LINEAR = 1
     BACKOFF_MODE_EXPONENTIAL = 2
@@ -249,6 +251,7 @@ class RepairState(proto.Enum):
         REPAIR_STATE_ABORTED (7):
             The ``repair`` action was aborted.
     """
+
     REPAIR_STATE_UNSPECIFIED = 0
     REPAIR_STATE_SUCCEEDED = 1
     REPAIR_STATE_CANCELLED = 2
@@ -287,13 +290,13 @@ class DeliveryPipeline(proto.Message):
             user and by Cloud Deploy. Labels must meet the following
             constraints:
 
-            -  Keys and values can contain only lowercase letters,
-               numeric characters, underscores, and dashes.
-            -  All characters must use UTF-8 encoding, and international
-               characters are allowed.
-            -  Keys must start with a lowercase letter or international
-               character.
-            -  Each resource is limited to a maximum of 64 labels.
+            - Keys and values can contain only lowercase letters,
+              numeric characters, underscores, and dashes.
+            - All characters must use UTF-8 encoding, and international
+              characters are allowed.
+            - Keys must start with a lowercase letter or international
+              character.
+            - Each resource is limited to a maximum of 64 labels.
 
             Both keys and values are additionally constrained to be <=
             128 bytes.
@@ -1556,13 +1559,13 @@ class Target(proto.Message):
             both the user and by Cloud Deploy. Labels must meet the
             following constraints:
 
-            -  Keys and values can contain only lowercase letters,
-               numeric characters, underscores, and dashes.
-            -  All characters must use UTF-8 encoding, and international
-               characters are allowed.
-            -  Keys must start with a lowercase letter or international
-               character.
-            -  Each resource is limited to a maximum of 64 labels.
+            - Keys and values can contain only lowercase letters,
+              numeric characters, underscores, and dashes.
+            - All characters must use UTF-8 encoding, and international
+              characters are allowed.
+            - Keys must start with a lowercase letter or international
+              character.
+            - Each resource is limited to a maximum of 64 labels.
 
             Both keys and values are additionally constrained to be <=
             128 bytes.
@@ -1790,6 +1793,7 @@ class ExecutionConfig(proto.Message):
             POSTDEPLOY (5):
                 Use for postdeploy job execution.
         """
+
         EXECUTION_ENVIRONMENT_USAGE_UNSPECIFIED = 0
         RENDER = 1
         DEPLOY = 2
@@ -2357,13 +2361,13 @@ class CustomTargetType(proto.Message):
             both the user and by Cloud Deploy. Labels must meet the
             following constraints:
 
-            -  Keys and values can contain only lowercase letters,
-               numeric characters, underscores, and dashes.
-            -  All characters must use UTF-8 encoding, and international
-               characters are allowed.
-            -  Keys must start with a lowercase letter or international
-               character.
-            -  Each resource is limited to a maximum of 64 labels.
+            - Keys and values can contain only lowercase letters,
+              numeric characters, underscores, and dashes.
+            - All characters must use UTF-8 encoding, and international
+              characters are allowed.
+            - Keys must start with a lowercase letter or international
+              character.
+            - Each resource is limited to a maximum of 64 labels.
 
             Both keys and values are additionally constrained to be <=
             128 bytes.
@@ -2532,7 +2536,7 @@ class SkaffoldModules(proto.Message):
         Attributes:
             source (str):
                 Required. Cloud Storage source paths to copy recursively.
-                For example, providing `gs://my-bucket/dir/configs/*` will
+                For example, providing "gs://my-bucket/dir/configs/\*" will
                 result in Skaffold copying all files within the
                 "dir/configs" directory in the bucket "my-bucket".
             path (str):
@@ -2917,17 +2921,17 @@ class DeployPolicy(proto.Message):
             and used by the user, and not by Cloud Deploy. Annotations
             must meet the following constraints:
 
-            -  Annotations are key/value pairs.
-            -  Valid annotation keys have two segments: an optional
-               prefix and name, separated by a slash (``/``).
-            -  The name segment is required and must be 63 characters or
-               less, beginning and ending with an alphanumeric character
-               (``[a-z0-9A-Z]``) with dashes (``-``), underscores
-               (``_``), dots (``.``), and alphanumerics between.
-            -  The prefix is optional. If specified, the prefix must be
-               a DNS subdomain: a series of DNS labels separated by
-               dots(\ ``.``), not longer than 253 characters in total,
-               followed by a slash (``/``).
+            - Annotations are key/value pairs.
+            - Valid annotation keys have two segments: an optional
+              prefix and name, separated by a slash (``/``).
+            - The name segment is required and must be 63 characters or
+              less, beginning and ending with an alphanumeric character
+              (``[a-z0-9A-Z]``) with dashes (``-``), underscores
+              (``_``), dots (``.``), and alphanumerics between.
+            - The prefix is optional. If specified, the prefix must be a
+              DNS subdomain: a series of DNS labels separated by
+              dots(``.``), not longer than 253 characters in total,
+              followed by a slash (``/``).
 
             See
             https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/#syntax-and-character-set
@@ -2937,13 +2941,13 @@ class DeployPolicy(proto.Message):
             user and by Cloud Deploy. Labels must meet the following
             constraints:
 
-            -  Keys and values can contain only lowercase letters,
-               numeric characters, underscores, and dashes.
-            -  All characters must use UTF-8 encoding, and international
-               characters are allowed.
-            -  Keys must start with a lowercase letter or international
-               character.
-            -  Each resource is limited to a maximum of 64 labels.
+            - Keys and values can contain only lowercase letters,
+              numeric characters, underscores, and dashes.
+            - All characters must use UTF-8 encoding, and international
+              characters are allowed.
+            - Keys must start with a lowercase letter or international
+              character.
+            - Each resource is limited to a maximum of 64 labels.
 
             Both keys and values are additionally constrained to be <=
             128 bytes.
@@ -2990,6 +2994,7 @@ class DeployPolicy(proto.Message):
             DEPLOY_AUTOMATION (2):
                 Automated action by Cloud Deploy.
         """
+
         INVOKER_UNSPECIFIED = 0
         USER = 1
         DEPLOY_AUTOMATION = 2
@@ -3082,8 +3087,8 @@ class DeliveryPipelineAttribute(proto.Message):
             Optional. ID of the ``DeliveryPipeline``. The value of this
             field could be one of the following:
 
-            -  The last segment of a pipeline name
-            -  "*", all delivery pipelines in a location
+            - The last segment of a pipeline name
+            - "\*", all delivery pipelines in a location
         labels (MutableMapping[str, str]):
             DeliveryPipeline labels.
     """
@@ -3108,8 +3113,8 @@ class TargetAttribute(proto.Message):
             Optional. ID of the ``Target``. The value of this field
             could be one of the following:
 
-            -  The last segment of a target name
-            -  "*", all targets in a location
+            - The last segment of a target name
+            - "\*", all targets in a location
         labels (MutableMapping[str, str]):
             Target labels.
     """
@@ -3188,6 +3193,7 @@ class RolloutRestriction(proto.Message):
             TERMINATE_JOBRUN (8):
                 Terminate a jobrun.
         """
+
         ROLLOUT_ACTIONS_UNSPECIFIED = 0
         ADVANCE = 1
         APPROVE = 2
@@ -3341,12 +3347,12 @@ class PolicyViolation(proto.Message):
             Policy violation details.
     """
 
-    policy_violation_details: MutableSequence[
-        "PolicyViolationDetails"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="PolicyViolationDetails",
+    policy_violation_details: MutableSequence["PolicyViolationDetails"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="PolicyViolationDetails",
+        )
     )
 
 
@@ -3409,13 +3415,13 @@ class Release(proto.Message):
             user and by Cloud Deploy. Labels must meet the following
             constraints:
 
-            -  Keys and values can contain only lowercase letters,
-               numeric characters, underscores, and dashes.
-            -  All characters must use UTF-8 encoding, and international
-               characters are allowed.
-            -  Keys must start with a lowercase letter or international
-               character.
-            -  Each resource is limited to a maximum of 64 labels.
+            - Keys and values can contain only lowercase letters,
+              numeric characters, underscores, and dashes.
+            - All characters must use UTF-8 encoding, and international
+              characters are allowed.
+            - Keys must start with a lowercase letter or international
+              character.
+            - Each resource is limited to a maximum of 64 labels.
 
             Both keys and values are additionally constrained to be <=
             128 bytes.
@@ -3493,6 +3499,7 @@ class Release(proto.Message):
             IN_PROGRESS (3):
                 Rendering has started and is not complete.
         """
+
         RENDER_STATE_UNSPECIFIED = 0
         SUCCEEDED = 1
         FAILED = 2
@@ -3536,6 +3543,7 @@ class Release(proto.Message):
                 IN_PROGRESS (3):
                     The render operation is in progress.
             """
+
             TARGET_RENDER_STATE_UNSPECIFIED = 0
             SUCCEEDED = 1
             FAILED = 2
@@ -3576,6 +3584,7 @@ class Release(proto.Message):
                     The render operation had a feature configured
                     that is not supported.
             """
+
             FAILURE_CAUSE_UNSPECIFIED = 0
             CLOUD_BUILD_UNAVAILABLE = 1
             EXECUTION_FAILED = 2
@@ -3756,12 +3765,12 @@ class Release(proto.Message):
         number=12,
         message="Target",
     )
-    custom_target_type_snapshots: MutableSequence[
-        "CustomTargetType"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=27,
-        message="CustomTargetType",
+    custom_target_type_snapshots: MutableSequence["CustomTargetType"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=27,
+            message="CustomTargetType",
+        )
     )
     render_state: RenderState = proto.Field(
         proto.ENUM,
@@ -4455,13 +4464,13 @@ class Rollout(proto.Message):
             user and by Cloud Deploy. Labels must meet the following
             constraints:
 
-            -  Keys and values can contain only lowercase letters,
-               numeric characters, underscores, and dashes.
-            -  All characters must use UTF-8 encoding, and international
-               characters are allowed.
-            -  Keys must start with a lowercase letter or international
-               character.
-            -  Each resource is limited to a maximum of 64 labels.
+            - Keys and values can contain only lowercase letters,
+              numeric characters, underscores, and dashes.
+            - All characters must use UTF-8 encoding, and international
+              characters are allowed.
+            - Keys must start with a lowercase letter or international
+              character.
+            - Each resource is limited to a maximum of 64 labels.
 
             Both keys and values are additionally constrained to be <=
             128 bytes.
@@ -4536,6 +4545,7 @@ class Rollout(proto.Message):
             REJECTED (4):
                 The ``Rollout`` has been rejected.
         """
+
         APPROVAL_STATE_UNSPECIFIED = 0
         NEEDS_APPROVAL = 1
         DOES_NOT_NEED_APPROVAL = 2
@@ -4571,6 +4581,7 @@ class Rollout(proto.Message):
             HALTED (10):
                 The ``Rollout`` is halted.
         """
+
         STATE_UNSPECIFIED = 0
         SUCCEEDED = 1
         FAILED = 2
@@ -4613,6 +4624,7 @@ class Rollout(proto.Message):
                 A Rollout operation had a feature configured
                 that is not supported.
         """
+
         FAILURE_CAUSE_UNSPECIFIED = 0
         CLOUD_BUILD_UNAVAILABLE = 1
         EXECUTION_FAILED = 2
@@ -4946,6 +4958,7 @@ class Phase(proto.Message):
             SKIPPED (6):
                 The Phase was skipped.
         """
+
         STATE_UNSPECIFIED = 0
         PENDING = 1
         IN_PROGRESS = 2
@@ -5114,6 +5127,7 @@ class Job(proto.Message):
             IGNORED (8):
                 The Job was ignored.
         """
+
         STATE_UNSPECIFIED = 0
         PENDING = 1
         DISABLED = 2
@@ -5737,6 +5751,7 @@ class JobRun(proto.Message):
             TERMINATED (5):
                 The ``JobRun`` was terminated.
         """
+
         STATE_UNSPECIFIED = 0
         IN_PROGRESS = 1
         SUCCEEDED = 2
@@ -5873,6 +5888,7 @@ class DeployJobRun(proto.Message):
                 The deploy operation had a feature configured
                 that is not supported.
         """
+
         FAILURE_CAUSE_UNSPECIFIED = 0
         CLOUD_BUILD_UNAVAILABLE = 1
         EXECUTION_FAILED = 2
@@ -5953,6 +5969,7 @@ class VerifyJobRun(proto.Message):
                 Cloud Build failed to fulfill Cloud Deploy's request. See
                 failure_message for additional details.
         """
+
         FAILURE_CAUSE_UNSPECIFIED = 0
         CLOUD_BUILD_UNAVAILABLE = 1
         EXECUTION_FAILED = 2
@@ -6023,6 +6040,7 @@ class PredeployJobRun(proto.Message):
                 Cloud Build failed to fulfill Cloud Deploy's request. See
                 failure_message for additional details.
         """
+
         FAILURE_CAUSE_UNSPECIFIED = 0
         CLOUD_BUILD_UNAVAILABLE = 1
         EXECUTION_FAILED = 2
@@ -6085,6 +6103,7 @@ class PostdeployJobRun(proto.Message):
                 Cloud Build failed to fulfill Cloud Deploy's request. See
                 failure_message for additional details.
         """
+
         FAILURE_CAUSE_UNSPECIFIED = 0
         CLOUD_BUILD_UNAVAILABLE = 1
         EXECUTION_FAILED = 2
@@ -6389,17 +6408,17 @@ class Automation(proto.Message):
             and used by the user, and not by Cloud Deploy. Annotations
             must meet the following constraints:
 
-            -  Annotations are key/value pairs.
-            -  Valid annotation keys have two segments: an optional
-               prefix and name, separated by a slash (``/``).
-            -  The name segment is required and must be 63 characters or
-               less, beginning and ending with an alphanumeric character
-               (``[a-z0-9A-Z]``) with dashes (``-``), underscores
-               (``_``), dots (``.``), and alphanumerics between.
-            -  The prefix is optional. If specified, the prefix must be
-               a DNS subdomain: a series of DNS labels separated by
-               dots(\ ``.``), not longer than 253 characters in total,
-               followed by a slash (``/``).
+            - Annotations are key/value pairs.
+            - Valid annotation keys have two segments: an optional
+              prefix and name, separated by a slash (``/``).
+            - The name segment is required and must be 63 characters or
+              less, beginning and ending with an alphanumeric character
+              (``[a-z0-9A-Z]``) with dashes (``-``), underscores
+              (``_``), dots (``.``), and alphanumerics between.
+            - The prefix is optional. If specified, the prefix must be a
+              DNS subdomain: a series of DNS labels separated by
+              dots(``.``), not longer than 253 characters in total,
+              followed by a slash (``/``).
 
             See
             https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/#syntax-and-character-set
@@ -6409,13 +6428,13 @@ class Automation(proto.Message):
             both the user and by Cloud Deploy. Labels must meet the
             following constraints:
 
-            -  Keys and values can contain only lowercase letters,
-               numeric characters, underscores, and dashes.
-            -  All characters must use UTF-8 encoding, and international
-               characters are allowed.
-            -  Keys must start with a lowercase letter or international
-               character.
-            -  Each resource is limited to a maximum of 64 labels.
+            - Keys and values can contain only lowercase letters,
+              numeric characters, underscores, and dashes.
+            - All characters must use UTF-8 encoding, and international
+              characters are allowed.
+            - Keys must start with a lowercase letter or international
+              character.
+            - Each resource is limited to a maximum of 64 labels.
 
             Both keys and values are additionally constrained to be <=
             63 characters.
@@ -6591,8 +6610,8 @@ class TimedPromoteReleaseRule(proto.Message):
             next stage in the promotion flow. The value of this field
             could be one of the following:
 
-            -  The last segment of a target name
-            -  "@next", the next target in the promotion sequence
+            - The last segment of a target name
+            - "@next", the next target in the promotion sequence
         schedule (str):
             Required. Schedule in crontab format. e.g. "0 9 \* \* 1" for
             every Monday at 9am.
@@ -6654,8 +6673,8 @@ class PromoteReleaseRule(proto.Message):
             next stage in the promotion flow. The value of this field
             could be one of the following:
 
-            -  The last segment of a target name
-            -  "@next", the next target in the promotion sequence
+            - The last segment of a target name
+            - "@next", the next target in the promotion sequence
         condition (google.cloud.deploy_v1.types.AutomationRuleCondition):
             Output only. Information around the state of
             the Automation rule.
@@ -7354,6 +7373,7 @@ class AutomationRun(proto.Message):
             ABORTED (6):
                 The ``AutomationRun`` was aborted.
         """
+
         STATE_UNSPECIFIED = 0
         SUCCEEDED = 1
         CANCELLED = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.monitoring_v3 import gapic_version as package_version
 
@@ -61,10 +61,10 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
 
 from google.cloud.monitoring_v3.services.alert_policy_service import pagers
 from google.cloud.monitoring_v3.types import alert, alert_service, mutation_record
@@ -82,9 +82,7 @@ class AlertPolicyServiceClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[AlertPolicyServiceTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[AlertPolicyServiceTransport]]
     _transport_registry["grpc"] = AlertPolicyServiceGrpcTransport
     _transport_registry["grpc_asyncio"] = AlertPolicyServiceGrpcAsyncIOTransport
 
@@ -123,7 +121,7 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
     """
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -131,7 +129,7 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -141,6 +139,10 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -160,6 +162,34 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "monitoring.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -367,12 +397,8 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = AlertPolicyServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -380,7 +406,7 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -412,20 +438,14 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = AlertPolicyServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -449,7 +469,7 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -546,7 +566,7 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -637,18 +657,16 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = AlertPolicyServiceClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            AlertPolicyServiceClient._read_environment_variables()
+        )
         self._client_cert_source = AlertPolicyServiceClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = AlertPolicyServiceClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -676,8 +694,7 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(AlertPolicyServiceTransport, transport)
             self._api_endpoint = self._transport.host
@@ -944,7 +961,7 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
                    considered to be "unhealthy" and the ways to notify
                    people or services about this state. For an overview
                    of alerting policies, see [Introduction to
-                   Alerting](\ https://cloud.google.com/monitoring/alerts/).
+                   Alerting](https://cloud.google.com/monitoring/alerts/).
 
         """
         # Create or coerce a protobuf request object.
@@ -1084,7 +1101,7 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
                    considered to be "unhealthy" and the ways to notify
                    people or services about this state. For an overview
                    of alerting policies, see [Introduction to
-                   Alerting](\ https://cloud.google.com/monitoring/alerts/).
+                   Alerting](https://cloud.google.com/monitoring/alerts/).
 
         """
         # Create or coerce a protobuf request object.
@@ -1309,15 +1326,15 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
                 deleting the existing policy and adding the supplied
                 policy, except for the following:
 
-                -  The new policy will have the same
-                   ``[ALERT_POLICY_ID]`` as the former policy. This
-                   gives you continuity with the former policy in your
-                   notifications and incidents.
-                -  Conditions in the new policy will keep their former
-                   ``[CONDITION_ID]`` if the supplied condition includes
-                   the ``name`` field with that ``[CONDITION_ID]``. If
-                   the supplied condition omits the ``name`` field, then
-                   a new ``[CONDITION_ID]`` is created.
+                - The new policy will have the same
+                  ``[ALERT_POLICY_ID]`` as the former policy. This gives
+                  you continuity with the former policy in your
+                  notifications and incidents.
+                - Conditions in the new policy will keep their former
+                  ``[CONDITION_ID]`` if the supplied condition includes
+                  the ``name`` field with that ``[CONDITION_ID]``. If
+                  the supplied condition omits the ``name`` field, then
+                  a new ``[CONDITION_ID]`` is created.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1345,7 +1362,7 @@ class AlertPolicyServiceClient(metaclass=AlertPolicyServiceClientMeta):
                    considered to be "unhealthy" and the ways to notify
                    people or services about this state. For an overview
                    of alerting policies, see [Introduction to
-                   Alerting](\ https://cloud.google.com/monitoring/alerts/).
+                   Alerting](https://cloud.google.com/monitoring/alerts/).
 
         """
         # Create or coerce a protobuf request object.

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.vision_v1p3beta1 import gapic_version as package_version
 
@@ -44,11 +44,11 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 
 from google.cloud.vision_v1p3beta1.services.product_search import pagers
 from google.cloud.vision_v1p3beta1.types import geometry, product_search_service
@@ -71,23 +71,22 @@ class ProductSearchAsyncClient:
     """Manages Products and ProductSets of reference images for use in
     product search. It uses the following resource model:
 
-    -  The API has a collection of
-       [ProductSet][google.cloud.vision.v1p3beta1.ProductSet] resources,
-       named ``projects/*/locations/*/productSets/*``, which acts as a
-       way to put different products into groups to limit
-       identification.
+    - The API has a collection of
+      [ProductSet][google.cloud.vision.v1p3beta1.ProductSet] resources,
+      named ``projects/*/locations/*/productSets/*``, which acts as a
+      way to put different products into groups to limit identification.
 
     In parallel,
 
-    -  The API has a collection of
-       [Product][google.cloud.vision.v1p3beta1.Product] resources, named
-       ``projects/*/locations/*/products/*``
+    - The API has a collection of
+      [Product][google.cloud.vision.v1p3beta1.Product] resources, named
+      ``projects/*/locations/*/products/*``
 
-    -  Each [Product][google.cloud.vision.v1p3beta1.Product] has a
-       collection of
-       [ReferenceImage][google.cloud.vision.v1p3beta1.ReferenceImage]
-       resources, named
-       ``projects/*/locations/*/products/*/referenceImages/*``
+    - Each [Product][google.cloud.vision.v1p3beta1.Product] has a
+      collection of
+      [ReferenceImage][google.cloud.vision.v1p3beta1.ReferenceImage]
+      resources, named
+      ``projects/*/locations/*/products/*/referenceImages/*``
     """
 
     _client: ProductSearchClient
@@ -145,7 +144,10 @@ class ProductSearchAsyncClient:
         Returns:
             ProductSearchAsyncClient: The constructed client.
         """
-        return ProductSearchClient.from_service_account_info.__func__(ProductSearchAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ProductSearchClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ProductSearchAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -161,7 +163,10 @@ class ProductSearchAsyncClient:
         Returns:
             ProductSearchAsyncClient: The constructed client.
         """
-        return ProductSearchClient.from_service_account_file.__func__(ProductSearchAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ProductSearchClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(ProductSearchAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -211,7 +216,7 @@ class ProductSearchAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -336,8 +341,8 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns INVALID_ARGUMENT if display_name is missing, or is
-           longer than 4096 characters.
+        - Returns INVALID_ARGUMENT if display_name is missing, or is
+          longer than 4096 characters.
 
         .. code-block:: python
 
@@ -477,8 +482,8 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns INVALID_ARGUMENT if page_size is greater than 100, or
-           less than 1.
+        - Returns INVALID_ARGUMENT if page_size is greater than 100, or
+          less than 1.
 
         .. code-block:: python
 
@@ -610,7 +615,7 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the ProductSet does not exist.
+        - Returns NOT_FOUND if the ProductSet does not exist.
 
         .. code-block:: python
 
@@ -733,10 +738,10 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the ProductSet does not exist.
-        -  Returns INVALID_ARGUMENT if display_name is present in
-           update_mask but missing from the request or longer than 4096
-           characters.
+        - Returns NOT_FOUND if the ProductSet does not exist.
+        - Returns INVALID_ARGUMENT if display_name is present in
+          update_mask but missing from the request or longer than 4096
+          characters.
 
         .. code-block:: python
 
@@ -871,7 +876,7 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the ProductSet does not exist.
+        - Returns NOT_FOUND if the ProductSet does not exist.
 
         .. code-block:: python
 
@@ -979,12 +984,12 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns INVALID_ARGUMENT if display_name is missing or longer
-           than 4096 characters.
-        -  Returns INVALID_ARGUMENT if description is longer than 4096
-           characters.
-        -  Returns INVALID_ARGUMENT if product_category is missing or
-           invalid.
+        - Returns INVALID_ARGUMENT if display_name is missing or longer
+          than 4096 characters.
+        - Returns INVALID_ARGUMENT if description is longer than 4096
+          characters.
+        - Returns INVALID_ARGUMENT if product_category is missing or
+          invalid.
 
         .. code-block:: python
 
@@ -1119,8 +1124,8 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns INVALID_ARGUMENT if page_size is greater than 100 or
-           less than 1.
+        - Returns INVALID_ARGUMENT if page_size is greater than 100 or
+          less than 1.
 
         .. code-block:: python
 
@@ -1250,7 +1255,7 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the Product does not exist.
+        - Returns NOT_FOUND if the Product does not exist.
 
         .. code-block:: python
 
@@ -1371,14 +1376,14 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the Product does not exist.
-        -  Returns INVALID_ARGUMENT if display_name is present in
-           update_mask but is missing from the request or longer than
-           4096 characters.
-        -  Returns INVALID_ARGUMENT if description is present in
-           update_mask but is longer than 4096 characters.
-        -  Returns INVALID_ARGUMENT if product_category is present in
-           update_mask.
+        - Returns NOT_FOUND if the Product does not exist.
+        - Returns INVALID_ARGUMENT if display_name is present in
+          update_mask but is missing from the request or longer than
+          4096 characters.
+        - Returns INVALID_ARGUMENT if description is present in
+          update_mask but is longer than 4096 characters.
+        - Returns INVALID_ARGUMENT if product_category is present in
+          update_mask.
 
         .. code-block:: python
 
@@ -1510,7 +1515,7 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the product does not exist.
+        - Returns NOT_FOUND if the product does not exist.
 
         .. code-block:: python
 
@@ -1628,14 +1633,14 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns INVALID_ARGUMENT if the image_uri is missing or
-           longer than 4096 characters.
-        -  Returns INVALID_ARGUMENT if the product does not exist.
-        -  Returns INVALID_ARGUMENT if bounding_poly is not provided,
-           and nothing compatible with the parent product's
-           product_category is detected.
-        -  Returns INVALID_ARGUMENT if bounding_poly contains more than
-           10 polygons.
+        - Returns INVALID_ARGUMENT if the image_uri is missing or longer
+          than 4096 characters.
+        - Returns INVALID_ARGUMENT if the product does not exist.
+        - Returns INVALID_ARGUMENT if bounding_poly is not provided, and
+          nothing compatible with the parent product's product_category
+          is detected.
+        - Returns INVALID_ARGUMENT if bounding_poly contains more than
+          10 polygons.
 
         .. code-block:: python
 
@@ -1787,7 +1792,7 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the reference image does not exist.
+        - Returns NOT_FOUND if the reference image does not exist.
 
         .. code-block:: python
 
@@ -1895,9 +1900,9 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the parent product does not exist.
-        -  Returns INVALID_ARGUMENT if the page_size is greater than
-           100, or less than 1.
+        - Returns NOT_FOUND if the parent product does not exist.
+        - Returns INVALID_ARGUMENT if the page_size is greater than 100,
+          or less than 1.
 
         .. code-block:: python
 
@@ -2030,7 +2035,7 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the specified image does not exist.
+        - Returns NOT_FOUND if the specified image does not exist.
 
         .. code-block:: python
 
@@ -2154,8 +2159,8 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns NOT_FOUND if the Product or the ProductSet doesn't
-           exist.
+        - Returns NOT_FOUND if the Product or the ProductSet doesn't
+          exist.
 
         .. code-block:: python
 
@@ -2279,8 +2284,8 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns NOT_FOUND If the Product is not found under the
-           ProductSet.
+        - Returns NOT_FOUND If the Product is not found under the
+          ProductSet.
 
         .. code-block:: python
 
@@ -2405,8 +2410,8 @@ class ProductSearchAsyncClient:
 
         Possible errors:
 
-        -  Returns INVALID_ARGUMENT if page_size is greater than 100 or
-           less than 1.
+        - Returns INVALID_ARGUMENT if page_size is greater than 100 or
+          less than 1.
 
         .. code-block:: python
 
@@ -2576,11 +2581,11 @@ class ProductSearchAsyncClient:
                 )
 
                 # Make the request
-                operation = client.import_product_sets(request=request)
+                operation = await client.import_product_sets(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)

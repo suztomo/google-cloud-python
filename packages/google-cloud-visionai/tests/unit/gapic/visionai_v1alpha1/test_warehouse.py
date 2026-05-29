@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +38,17 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.any_pb2 as any_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.datetime_pb2 as datetime_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,26 +57,18 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import options_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    options_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import any_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import datetime_pb2  # type: ignore
 
 from google.cloud.visionai_v1alpha1.services.warehouse import (
     WarehouseAsyncClient,
@@ -129,12 +126,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert WarehouseClient._get_default_mtls_endpoint(None) is None
     assert WarehouseClient._get_default_mtls_endpoint(api_endpoint) == api_mtls_endpoint
@@ -151,6 +164,9 @@ def test__get_default_mtls_endpoint():
         == sandbox_mtls_endpoint
     )
     assert WarehouseClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    assert (
+        WarehouseClient._get_default_mtls_endpoint(custom_endpoint) == custom_endpoint
+    )
 
 
 def test__read_environment_variables():
@@ -165,12 +181,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            WarehouseClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                WarehouseClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert WarehouseClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert WarehouseClient._read_environment_variables() == (False, "never", None)
@@ -195,6 +218,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert WarehouseClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert WarehouseClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert WarehouseClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert WarehouseClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert WarehouseClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert WarehouseClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert WarehouseClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert WarehouseClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert WarehouseClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                WarehouseClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert WarehouseClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert WarehouseClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -560,17 +682,6 @@ def test_warehouse_client_client_options(client_class, transport_class, transpor
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -782,6 +893,117 @@ def test_warehouse_client_get_mtls_endpoint_and_cert_source(client_class):
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -814,10 +1036,9 @@ def test_warehouse_client_get_mtls_endpoint_and_cert_source(client_class):
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -830,18 +1051,6 @@ def test_warehouse_client_get_mtls_endpoint_and_cert_source(client_class):
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1058,13 +1267,13 @@ def test_warehouse_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1089,8 +1298,8 @@ def test_warehouse_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.CreateAssetRequest,
-        dict,
+        warehouse.CreateAssetRequest(),
+        {},
     ],
 )
 def test_create_asset(request_type, transport: str = "grpc"):
@@ -1101,7 +1310,7 @@ def test_create_asset(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_asset), "__call__") as call:
@@ -1146,10 +1355,11 @@ def test_create_asset_non_empty_request_with_auto_populated_field():
         client.create_asset(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.CreateAssetRequest(
+        request_msg = warehouse.CreateAssetRequest(
             parent="parent_value",
             asset_id="asset_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_asset_use_cached_wrapped_rpc():
@@ -1230,9 +1440,14 @@ async def test_create_asset_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_asset_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.CreateAssetRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.CreateAssetRequest(),
+        {},
+    ],
+)
+async def test_create_asset_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1240,7 +1455,7 @@ async def test_create_asset_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_asset), "__call__") as call:
@@ -1261,11 +1476,6 @@ async def test_create_asset_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, warehouse.Asset)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_create_asset_async_from_dict():
-    await test_create_asset_async(request_type=dict)
 
 
 def test_create_asset_field_headers():
@@ -1430,8 +1640,8 @@ async def test_create_asset_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.UpdateAssetRequest,
-        dict,
+        warehouse.UpdateAssetRequest(),
+        {},
     ],
 )
 def test_update_asset(request_type, transport: str = "grpc"):
@@ -1442,7 +1652,7 @@ def test_update_asset(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_asset), "__call__") as call:
@@ -1484,7 +1694,8 @@ def test_update_asset_non_empty_request_with_auto_populated_field():
         client.update_asset(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.UpdateAssetRequest()
+        request_msg = warehouse.UpdateAssetRequest()
+        assert args[0] == request_msg
 
 
 def test_update_asset_use_cached_wrapped_rpc():
@@ -1565,9 +1776,14 @@ async def test_update_asset_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_asset_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.UpdateAssetRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.UpdateAssetRequest(),
+        {},
+    ],
+)
+async def test_update_asset_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1575,7 +1791,7 @@ async def test_update_asset_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_asset), "__call__") as call:
@@ -1596,11 +1812,6 @@ async def test_update_asset_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, warehouse.Asset)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_update_asset_async_from_dict():
-    await test_update_asset_async(request_type=dict)
 
 
 def test_update_asset_field_headers():
@@ -1755,8 +1966,8 @@ async def test_update_asset_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.GetAssetRequest,
-        dict,
+        warehouse.GetAssetRequest(),
+        {},
     ],
 )
 def test_get_asset(request_type, transport: str = "grpc"):
@@ -1767,7 +1978,7 @@ def test_get_asset(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_asset), "__call__") as call:
@@ -1811,9 +2022,10 @@ def test_get_asset_non_empty_request_with_auto_populated_field():
         client.get_asset(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.GetAssetRequest(
+        request_msg = warehouse.GetAssetRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_asset_use_cached_wrapped_rpc():
@@ -1892,9 +2104,14 @@ async def test_get_asset_async_use_cached_wrapped_rpc(transport: str = "grpc_asy
 
 
 @pytest.mark.asyncio
-async def test_get_asset_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.GetAssetRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.GetAssetRequest(),
+        {},
+    ],
+)
+async def test_get_asset_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1902,7 +2119,7 @@ async def test_get_asset_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_asset), "__call__") as call:
@@ -1923,11 +2140,6 @@ async def test_get_asset_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, warehouse.Asset)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_asset_async_from_dict():
-    await test_get_asset_async(request_type=dict)
 
 
 def test_get_asset_field_headers():
@@ -2072,8 +2284,8 @@ async def test_get_asset_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.ListAssetsRequest,
-        dict,
+        warehouse.ListAssetsRequest(),
+        {},
     ],
 )
 def test_list_assets(request_type, transport: str = "grpc"):
@@ -2084,7 +2296,7 @@ def test_list_assets(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_assets), "__call__") as call:
@@ -2129,10 +2341,11 @@ def test_list_assets_non_empty_request_with_auto_populated_field():
         client.list_assets(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.ListAssetsRequest(
+        request_msg = warehouse.ListAssetsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_assets_use_cached_wrapped_rpc():
@@ -2213,9 +2426,14 @@ async def test_list_assets_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_assets_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.ListAssetsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.ListAssetsRequest(),
+        {},
+    ],
+)
+async def test_list_assets_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2223,7 +2441,7 @@ async def test_list_assets_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_assets), "__call__") as call:
@@ -2244,11 +2462,6 @@ async def test_list_assets_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListAssetsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_assets_async_from_dict():
-    await test_list_assets_async(request_type=dict)
 
 
 def test_list_assets_field_headers():
@@ -2578,11 +2791,7 @@ async def test_list_assets_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_assets(request={})
-        ).pages:
+        async for page_ in (await client.list_assets(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -2591,8 +2800,8 @@ async def test_list_assets_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.DeleteAssetRequest,
-        dict,
+        warehouse.DeleteAssetRequest(),
+        {},
     ],
 )
 def test_delete_asset(request_type, transport: str = "grpc"):
@@ -2603,7 +2812,7 @@ def test_delete_asset(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_asset), "__call__") as call:
@@ -2644,9 +2853,10 @@ def test_delete_asset_non_empty_request_with_auto_populated_field():
         client.delete_asset(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.DeleteAssetRequest(
+        request_msg = warehouse.DeleteAssetRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_asset_use_cached_wrapped_rpc():
@@ -2737,9 +2947,14 @@ async def test_delete_asset_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_asset_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.DeleteAssetRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.DeleteAssetRequest(),
+        {},
+    ],
+)
+async def test_delete_asset_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2747,7 +2962,7 @@ async def test_delete_asset_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_asset), "__call__") as call:
@@ -2765,11 +2980,6 @@ async def test_delete_asset_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_asset_async_from_dict():
-    await test_delete_asset_async(request_type=dict)
 
 
 def test_delete_asset_field_headers():
@@ -2918,8 +3128,8 @@ async def test_delete_asset_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.CreateCorpusRequest,
-        dict,
+        warehouse.CreateCorpusRequest(),
+        {},
     ],
 )
 def test_create_corpus(request_type, transport: str = "grpc"):
@@ -2930,7 +3140,7 @@ def test_create_corpus(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_corpus), "__call__") as call:
@@ -2971,9 +3181,10 @@ def test_create_corpus_non_empty_request_with_auto_populated_field():
         client.create_corpus(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.CreateCorpusRequest(
+        request_msg = warehouse.CreateCorpusRequest(
             parent="parent_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_corpus_use_cached_wrapped_rpc():
@@ -3064,9 +3275,14 @@ async def test_create_corpus_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_corpus_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.CreateCorpusRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.CreateCorpusRequest(),
+        {},
+    ],
+)
+async def test_create_corpus_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3074,7 +3290,7 @@ async def test_create_corpus_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_corpus), "__call__") as call:
@@ -3092,11 +3308,6 @@ async def test_create_corpus_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_corpus_async_from_dict():
-    await test_create_corpus_async(request_type=dict)
 
 
 def test_create_corpus_field_headers():
@@ -3255,8 +3466,8 @@ async def test_create_corpus_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.GetCorpusRequest,
-        dict,
+        warehouse.GetCorpusRequest(),
+        {},
     ],
 )
 def test_get_corpus(request_type, transport: str = "grpc"):
@@ -3267,7 +3478,7 @@ def test_get_corpus(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_corpus), "__call__") as call:
@@ -3315,9 +3526,10 @@ def test_get_corpus_non_empty_request_with_auto_populated_field():
         client.get_corpus(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.GetCorpusRequest(
+        request_msg = warehouse.GetCorpusRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_corpus_use_cached_wrapped_rpc():
@@ -3396,9 +3608,14 @@ async def test_get_corpus_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_get_corpus_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.GetCorpusRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.GetCorpusRequest(),
+        {},
+    ],
+)
+async def test_get_corpus_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3406,7 +3623,7 @@ async def test_get_corpus_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_corpus), "__call__") as call:
@@ -3431,11 +3648,6 @@ async def test_get_corpus_async(
     assert response.name == "name_value"
     assert response.display_name == "display_name_value"
     assert response.description == "description_value"
-
-
-@pytest.mark.asyncio
-async def test_get_corpus_async_from_dict():
-    await test_get_corpus_async(request_type=dict)
 
 
 def test_get_corpus_field_headers():
@@ -3580,8 +3792,8 @@ async def test_get_corpus_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.UpdateCorpusRequest,
-        dict,
+        warehouse.UpdateCorpusRequest(),
+        {},
     ],
 )
 def test_update_corpus(request_type, transport: str = "grpc"):
@@ -3592,7 +3804,7 @@ def test_update_corpus(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_corpus), "__call__") as call:
@@ -3638,7 +3850,8 @@ def test_update_corpus_non_empty_request_with_auto_populated_field():
         client.update_corpus(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.UpdateCorpusRequest()
+        request_msg = warehouse.UpdateCorpusRequest()
+        assert args[0] == request_msg
 
 
 def test_update_corpus_use_cached_wrapped_rpc():
@@ -3719,9 +3932,14 @@ async def test_update_corpus_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_corpus_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.UpdateCorpusRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.UpdateCorpusRequest(),
+        {},
+    ],
+)
+async def test_update_corpus_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3729,7 +3947,7 @@ async def test_update_corpus_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_corpus), "__call__") as call:
@@ -3754,11 +3972,6 @@ async def test_update_corpus_async(
     assert response.name == "name_value"
     assert response.display_name == "display_name_value"
     assert response.description == "description_value"
-
-
-@pytest.mark.asyncio
-async def test_update_corpus_async_from_dict():
-    await test_update_corpus_async(request_type=dict)
 
 
 def test_update_corpus_field_headers():
@@ -3913,8 +4126,8 @@ async def test_update_corpus_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.ListCorporaRequest,
-        dict,
+        warehouse.ListCorporaRequest(),
+        {},
     ],
 )
 def test_list_corpora(request_type, transport: str = "grpc"):
@@ -3925,7 +4138,7 @@ def test_list_corpora(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_corpora), "__call__") as call:
@@ -3970,10 +4183,11 @@ def test_list_corpora_non_empty_request_with_auto_populated_field():
         client.list_corpora(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.ListCorporaRequest(
+        request_msg = warehouse.ListCorporaRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_corpora_use_cached_wrapped_rpc():
@@ -4054,9 +4268,14 @@ async def test_list_corpora_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_corpora_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.ListCorporaRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.ListCorporaRequest(),
+        {},
+    ],
+)
+async def test_list_corpora_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4064,7 +4283,7 @@ async def test_list_corpora_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_corpora), "__call__") as call:
@@ -4085,11 +4304,6 @@ async def test_list_corpora_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListCorporaAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_corpora_async_from_dict():
-    await test_list_corpora_async(request_type=dict)
 
 
 def test_list_corpora_field_headers():
@@ -4419,11 +4633,7 @@ async def test_list_corpora_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_corpora(request={})
-        ).pages:
+        async for page_ in (await client.list_corpora(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -4432,8 +4642,8 @@ async def test_list_corpora_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.DeleteCorpusRequest,
-        dict,
+        warehouse.DeleteCorpusRequest(),
+        {},
     ],
 )
 def test_delete_corpus(request_type, transport: str = "grpc"):
@@ -4444,7 +4654,7 @@ def test_delete_corpus(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_corpus), "__call__") as call:
@@ -4485,9 +4695,10 @@ def test_delete_corpus_non_empty_request_with_auto_populated_field():
         client.delete_corpus(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.DeleteCorpusRequest(
+        request_msg = warehouse.DeleteCorpusRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_corpus_use_cached_wrapped_rpc():
@@ -4568,9 +4779,14 @@ async def test_delete_corpus_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_corpus_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.DeleteCorpusRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.DeleteCorpusRequest(),
+        {},
+    ],
+)
+async def test_delete_corpus_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4578,7 +4794,7 @@ async def test_delete_corpus_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_corpus), "__call__") as call:
@@ -4594,11 +4810,6 @@ async def test_delete_corpus_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_corpus_async_from_dict():
-    await test_delete_corpus_async(request_type=dict)
 
 
 def test_delete_corpus_field_headers():
@@ -4743,8 +4954,8 @@ async def test_delete_corpus_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.CreateDataSchemaRequest,
-        dict,
+        warehouse.CreateDataSchemaRequest(),
+        {},
     ],
 )
 def test_create_data_schema(request_type, transport: str = "grpc"):
@@ -4755,7 +4966,7 @@ def test_create_data_schema(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4805,9 +5016,10 @@ def test_create_data_schema_non_empty_request_with_auto_populated_field():
         client.create_data_schema(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.CreateDataSchemaRequest(
+        request_msg = warehouse.CreateDataSchemaRequest(
             parent="parent_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_data_schema_use_cached_wrapped_rpc():
@@ -4833,9 +5045,9 @@ def test_create_data_schema_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_data_schema
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_data_schema] = (
+            mock_rpc
+        )
         request = {}
         client.create_data_schema(request)
 
@@ -4892,9 +5104,14 @@ async def test_create_data_schema_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_data_schema_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.CreateDataSchemaRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.CreateDataSchemaRequest(),
+        {},
+    ],
+)
+async def test_create_data_schema_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4902,7 +5119,7 @@ async def test_create_data_schema_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4927,11 +5144,6 @@ async def test_create_data_schema_async(
     assert isinstance(response, warehouse.DataSchema)
     assert response.name == "name_value"
     assert response.key == "key_value"
-
-
-@pytest.mark.asyncio
-async def test_create_data_schema_async_from_dict():
-    await test_create_data_schema_async(request_type=dict)
 
 
 def test_create_data_schema_field_headers():
@@ -5098,8 +5310,8 @@ async def test_create_data_schema_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.UpdateDataSchemaRequest,
-        dict,
+        warehouse.UpdateDataSchemaRequest(),
+        {},
     ],
 )
 def test_update_data_schema(request_type, transport: str = "grpc"):
@@ -5110,7 +5322,7 @@ def test_update_data_schema(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5158,7 +5370,8 @@ def test_update_data_schema_non_empty_request_with_auto_populated_field():
         client.update_data_schema(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.UpdateDataSchemaRequest()
+        request_msg = warehouse.UpdateDataSchemaRequest()
+        assert args[0] == request_msg
 
 
 def test_update_data_schema_use_cached_wrapped_rpc():
@@ -5184,9 +5397,9 @@ def test_update_data_schema_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_data_schema
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_data_schema] = (
+            mock_rpc
+        )
         request = {}
         client.update_data_schema(request)
 
@@ -5243,9 +5456,14 @@ async def test_update_data_schema_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_data_schema_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.UpdateDataSchemaRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.UpdateDataSchemaRequest(),
+        {},
+    ],
+)
+async def test_update_data_schema_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -5253,7 +5471,7 @@ async def test_update_data_schema_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5278,11 +5496,6 @@ async def test_update_data_schema_async(
     assert isinstance(response, warehouse.DataSchema)
     assert response.name == "name_value"
     assert response.key == "key_value"
-
-
-@pytest.mark.asyncio
-async def test_update_data_schema_async_from_dict():
-    await test_update_data_schema_async(request_type=dict)
 
 
 def test_update_data_schema_field_headers():
@@ -5449,8 +5662,8 @@ async def test_update_data_schema_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.GetDataSchemaRequest,
-        dict,
+        warehouse.GetDataSchemaRequest(),
+        {},
     ],
 )
 def test_get_data_schema(request_type, transport: str = "grpc"):
@@ -5461,7 +5674,7 @@ def test_get_data_schema(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_data_schema), "__call__") as call:
@@ -5507,9 +5720,10 @@ def test_get_data_schema_non_empty_request_with_auto_populated_field():
         client.get_data_schema(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.GetDataSchemaRequest(
+        request_msg = warehouse.GetDataSchemaRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_data_schema_use_cached_wrapped_rpc():
@@ -5590,9 +5804,14 @@ async def test_get_data_schema_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_data_schema_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.GetDataSchemaRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.GetDataSchemaRequest(),
+        {},
+    ],
+)
+async def test_get_data_schema_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -5600,7 +5819,7 @@ async def test_get_data_schema_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_data_schema), "__call__") as call:
@@ -5623,11 +5842,6 @@ async def test_get_data_schema_async(
     assert isinstance(response, warehouse.DataSchema)
     assert response.name == "name_value"
     assert response.key == "key_value"
-
-
-@pytest.mark.asyncio
-async def test_get_data_schema_async_from_dict():
-    await test_get_data_schema_async(request_type=dict)
 
 
 def test_get_data_schema_field_headers():
@@ -5776,8 +5990,8 @@ async def test_get_data_schema_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.DeleteDataSchemaRequest,
-        dict,
+        warehouse.DeleteDataSchemaRequest(),
+        {},
     ],
 )
 def test_delete_data_schema(request_type, transport: str = "grpc"):
@@ -5788,7 +6002,7 @@ def test_delete_data_schema(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5833,9 +6047,10 @@ def test_delete_data_schema_non_empty_request_with_auto_populated_field():
         client.delete_data_schema(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.DeleteDataSchemaRequest(
+        request_msg = warehouse.DeleteDataSchemaRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_data_schema_use_cached_wrapped_rpc():
@@ -5861,9 +6076,9 @@ def test_delete_data_schema_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_data_schema
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_data_schema] = (
+            mock_rpc
+        )
         request = {}
         client.delete_data_schema(request)
 
@@ -5920,9 +6135,14 @@ async def test_delete_data_schema_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_data_schema_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.DeleteDataSchemaRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.DeleteDataSchemaRequest(),
+        {},
+    ],
+)
+async def test_delete_data_schema_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -5930,7 +6150,7 @@ async def test_delete_data_schema_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5948,11 +6168,6 @@ async def test_delete_data_schema_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_data_schema_async_from_dict():
-    await test_delete_data_schema_async(request_type=dict)
 
 
 def test_delete_data_schema_field_headers():
@@ -6105,8 +6320,8 @@ async def test_delete_data_schema_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.ListDataSchemasRequest,
-        dict,
+        warehouse.ListDataSchemasRequest(),
+        {},
     ],
 )
 def test_list_data_schemas(request_type, transport: str = "grpc"):
@@ -6117,7 +6332,7 @@ def test_list_data_schemas(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6166,10 +6381,11 @@ def test_list_data_schemas_non_empty_request_with_auto_populated_field():
         client.list_data_schemas(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.ListDataSchemasRequest(
+        request_msg = warehouse.ListDataSchemasRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_data_schemas_use_cached_wrapped_rpc():
@@ -6193,9 +6409,9 @@ def test_list_data_schemas_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_data_schemas
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_data_schemas] = (
+            mock_rpc
+        )
         request = {}
         client.list_data_schemas(request)
 
@@ -6252,9 +6468,14 @@ async def test_list_data_schemas_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_data_schemas_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.ListDataSchemasRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.ListDataSchemasRequest(),
+        {},
+    ],
+)
+async def test_list_data_schemas_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -6262,7 +6483,7 @@ async def test_list_data_schemas_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6285,11 +6506,6 @@ async def test_list_data_schemas_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListDataSchemasAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_data_schemas_async_from_dict():
-    await test_list_data_schemas_async(request_type=dict)
 
 
 def test_list_data_schemas_field_headers():
@@ -6635,11 +6851,7 @@ async def test_list_data_schemas_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_data_schemas(request={})
-        ).pages:
+        async for page_ in (await client.list_data_schemas(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -6648,8 +6860,8 @@ async def test_list_data_schemas_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.CreateAnnotationRequest,
-        dict,
+        warehouse.CreateAnnotationRequest(),
+        {},
     ],
 )
 def test_create_annotation(request_type, transport: str = "grpc"):
@@ -6660,7 +6872,7 @@ def test_create_annotation(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6709,10 +6921,11 @@ def test_create_annotation_non_empty_request_with_auto_populated_field():
         client.create_annotation(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.CreateAnnotationRequest(
+        request_msg = warehouse.CreateAnnotationRequest(
             parent="parent_value",
             annotation_id="annotation_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_annotation_use_cached_wrapped_rpc():
@@ -6736,9 +6949,9 @@ def test_create_annotation_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_annotation
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_annotation] = (
+            mock_rpc
+        )
         request = {}
         client.create_annotation(request)
 
@@ -6795,9 +7008,14 @@ async def test_create_annotation_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_annotation_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.CreateAnnotationRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.CreateAnnotationRequest(),
+        {},
+    ],
+)
+async def test_create_annotation_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -6805,7 +7023,7 @@ async def test_create_annotation_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6828,11 +7046,6 @@ async def test_create_annotation_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, warehouse.Annotation)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_create_annotation_async_from_dict():
-    await test_create_annotation_async(request_type=dict)
 
 
 def test_create_annotation_field_headers():
@@ -7009,8 +7222,8 @@ async def test_create_annotation_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.GetAnnotationRequest,
-        dict,
+        warehouse.GetAnnotationRequest(),
+        {},
     ],
 )
 def test_get_annotation(request_type, transport: str = "grpc"):
@@ -7021,7 +7234,7 @@ def test_get_annotation(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_annotation), "__call__") as call:
@@ -7065,9 +7278,10 @@ def test_get_annotation_non_empty_request_with_auto_populated_field():
         client.get_annotation(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.GetAnnotationRequest(
+        request_msg = warehouse.GetAnnotationRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_annotation_use_cached_wrapped_rpc():
@@ -7148,9 +7362,14 @@ async def test_get_annotation_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_annotation_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.GetAnnotationRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.GetAnnotationRequest(),
+        {},
+    ],
+)
+async def test_get_annotation_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -7158,7 +7377,7 @@ async def test_get_annotation_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_annotation), "__call__") as call:
@@ -7179,11 +7398,6 @@ async def test_get_annotation_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, warehouse.Annotation)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_annotation_async_from_dict():
-    await test_get_annotation_async(request_type=dict)
 
 
 def test_get_annotation_field_headers():
@@ -7332,8 +7546,8 @@ async def test_get_annotation_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.ListAnnotationsRequest,
-        dict,
+        warehouse.ListAnnotationsRequest(),
+        {},
     ],
 )
 def test_list_annotations(request_type, transport: str = "grpc"):
@@ -7344,7 +7558,7 @@ def test_list_annotations(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_annotations), "__call__") as call:
@@ -7390,11 +7604,12 @@ def test_list_annotations_non_empty_request_with_auto_populated_field():
         client.list_annotations(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.ListAnnotationsRequest(
+        request_msg = warehouse.ListAnnotationsRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_annotations_use_cached_wrapped_rpc():
@@ -7418,9 +7633,9 @@ def test_list_annotations_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_annotations
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_annotations] = (
+            mock_rpc
+        )
         request = {}
         client.list_annotations(request)
 
@@ -7477,9 +7692,14 @@ async def test_list_annotations_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_annotations_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.ListAnnotationsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.ListAnnotationsRequest(),
+        {},
+    ],
+)
+async def test_list_annotations_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -7487,7 +7707,7 @@ async def test_list_annotations_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_annotations), "__call__") as call:
@@ -7508,11 +7728,6 @@ async def test_list_annotations_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListAnnotationsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_annotations_async_from_dict():
-    await test_list_annotations_async(request_type=dict)
 
 
 def test_list_annotations_field_headers():
@@ -7842,11 +8057,7 @@ async def test_list_annotations_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_annotations(request={})
-        ).pages:
+        async for page_ in (await client.list_annotations(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -7855,8 +8066,8 @@ async def test_list_annotations_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.UpdateAnnotationRequest,
-        dict,
+        warehouse.UpdateAnnotationRequest(),
+        {},
     ],
 )
 def test_update_annotation(request_type, transport: str = "grpc"):
@@ -7867,7 +8078,7 @@ def test_update_annotation(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -7913,7 +8124,8 @@ def test_update_annotation_non_empty_request_with_auto_populated_field():
         client.update_annotation(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.UpdateAnnotationRequest()
+        request_msg = warehouse.UpdateAnnotationRequest()
+        assert args[0] == request_msg
 
 
 def test_update_annotation_use_cached_wrapped_rpc():
@@ -7937,9 +8149,9 @@ def test_update_annotation_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_annotation
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_annotation] = (
+            mock_rpc
+        )
         request = {}
         client.update_annotation(request)
 
@@ -7996,9 +8208,14 @@ async def test_update_annotation_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_annotation_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.UpdateAnnotationRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.UpdateAnnotationRequest(),
+        {},
+    ],
+)
+async def test_update_annotation_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -8006,7 +8223,7 @@ async def test_update_annotation_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -8029,11 +8246,6 @@ async def test_update_annotation_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, warehouse.Annotation)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_update_annotation_async_from_dict():
-    await test_update_annotation_async(request_type=dict)
 
 
 def test_update_annotation_field_headers():
@@ -8200,8 +8412,8 @@ async def test_update_annotation_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.DeleteAnnotationRequest,
-        dict,
+        warehouse.DeleteAnnotationRequest(),
+        {},
     ],
 )
 def test_delete_annotation(request_type, transport: str = "grpc"):
@@ -8212,7 +8424,7 @@ def test_delete_annotation(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -8257,9 +8469,10 @@ def test_delete_annotation_non_empty_request_with_auto_populated_field():
         client.delete_annotation(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.DeleteAnnotationRequest(
+        request_msg = warehouse.DeleteAnnotationRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_annotation_use_cached_wrapped_rpc():
@@ -8283,9 +8496,9 @@ def test_delete_annotation_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_annotation
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_annotation] = (
+            mock_rpc
+        )
         request = {}
         client.delete_annotation(request)
 
@@ -8342,9 +8555,14 @@ async def test_delete_annotation_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_annotation_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.DeleteAnnotationRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.DeleteAnnotationRequest(),
+        {},
+    ],
+)
+async def test_delete_annotation_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -8352,7 +8570,7 @@ async def test_delete_annotation_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -8370,11 +8588,6 @@ async def test_delete_annotation_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_annotation_async_from_dict():
-    await test_delete_annotation_async(request_type=dict)
 
 
 def test_delete_annotation_field_headers():
@@ -8527,8 +8740,8 @@ async def test_delete_annotation_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.IngestAssetRequest,
-        dict,
+        warehouse.IngestAssetRequest(),
+        {},
     ],
 )
 def test_ingest_asset(request_type, transport: str = "grpc"):
@@ -8539,7 +8752,7 @@ def test_ingest_asset(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
     requests = [request]
 
     # Mock the actual call within the gRPC stub, and fake the request.
@@ -8636,9 +8849,14 @@ async def test_ingest_asset_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_ingest_asset_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.IngestAssetRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.IngestAssetRequest(),
+        {},
+    ],
+)
+async def test_ingest_asset_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -8646,7 +8864,7 @@ async def test_ingest_asset_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
     requests = [request]
 
     # Mock the actual call within the gRPC stub, and fake the request.
@@ -8668,16 +8886,11 @@ async def test_ingest_asset_async(
     assert isinstance(message, warehouse.IngestAssetResponse)
 
 
-@pytest.mark.asyncio
-async def test_ingest_asset_async_from_dict():
-    await test_ingest_asset_async(request_type=dict)
-
-
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.ClipAssetRequest,
-        dict,
+        warehouse.ClipAssetRequest(),
+        {},
     ],
 )
 def test_clip_asset(request_type, transport: str = "grpc"):
@@ -8688,7 +8901,7 @@ def test_clip_asset(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.clip_asset), "__call__") as call:
@@ -8729,9 +8942,10 @@ def test_clip_asset_non_empty_request_with_auto_populated_field():
         client.clip_asset(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.ClipAssetRequest(
+        request_msg = warehouse.ClipAssetRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_clip_asset_use_cached_wrapped_rpc():
@@ -8810,9 +9024,14 @@ async def test_clip_asset_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_clip_asset_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.ClipAssetRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.ClipAssetRequest(),
+        {},
+    ],
+)
+async def test_clip_asset_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -8820,7 +9039,7 @@ async def test_clip_asset_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.clip_asset), "__call__") as call:
@@ -8838,11 +9057,6 @@ async def test_clip_asset_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, warehouse.ClipAssetResponse)
-
-
-@pytest.mark.asyncio
-async def test_clip_asset_async_from_dict():
-    await test_clip_asset_async(request_type=dict)
 
 
 def test_clip_asset_field_headers():
@@ -8909,8 +9123,8 @@ async def test_clip_asset_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.GenerateHlsUriRequest,
-        dict,
+        warehouse.GenerateHlsUriRequest(),
+        {},
     ],
 )
 def test_generate_hls_uri(request_type, transport: str = "grpc"):
@@ -8921,7 +9135,7 @@ def test_generate_hls_uri(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.generate_hls_uri), "__call__") as call:
@@ -8965,9 +9179,10 @@ def test_generate_hls_uri_non_empty_request_with_auto_populated_field():
         client.generate_hls_uri(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.GenerateHlsUriRequest(
+        request_msg = warehouse.GenerateHlsUriRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_generate_hls_uri_use_cached_wrapped_rpc():
@@ -8991,9 +9206,9 @@ def test_generate_hls_uri_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.generate_hls_uri
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.generate_hls_uri] = (
+            mock_rpc
+        )
         request = {}
         client.generate_hls_uri(request)
 
@@ -9050,9 +9265,14 @@ async def test_generate_hls_uri_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_generate_hls_uri_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.GenerateHlsUriRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.GenerateHlsUriRequest(),
+        {},
+    ],
+)
+async def test_generate_hls_uri_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -9060,7 +9280,7 @@ async def test_generate_hls_uri_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.generate_hls_uri), "__call__") as call:
@@ -9081,11 +9301,6 @@ async def test_generate_hls_uri_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, warehouse.GenerateHlsUriResponse)
     assert response.uri == "uri_value"
-
-
-@pytest.mark.asyncio
-async def test_generate_hls_uri_async_from_dict():
-    await test_generate_hls_uri_async(request_type=dict)
 
 
 def test_generate_hls_uri_field_headers():
@@ -9152,8 +9367,8 @@ async def test_generate_hls_uri_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.CreateSearchConfigRequest,
-        dict,
+        warehouse.CreateSearchConfigRequest(),
+        {},
     ],
 )
 def test_create_search_config(request_type, transport: str = "grpc"):
@@ -9164,7 +9379,7 @@ def test_create_search_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9213,10 +9428,11 @@ def test_create_search_config_non_empty_request_with_auto_populated_field():
         client.create_search_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.CreateSearchConfigRequest(
+        request_msg = warehouse.CreateSearchConfigRequest(
             parent="parent_value",
             search_config_id="search_config_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_search_config_use_cached_wrapped_rpc():
@@ -9242,9 +9458,9 @@ def test_create_search_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_search_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_search_config] = (
+            mock_rpc
+        )
         request = {}
         client.create_search_config(request)
 
@@ -9301,8 +9517,15 @@ async def test_create_search_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.CreateSearchConfigRequest(),
+        {},
+    ],
+)
 async def test_create_search_config_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.CreateSearchConfigRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -9311,7 +9534,7 @@ async def test_create_search_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9334,11 +9557,6 @@ async def test_create_search_config_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, warehouse.SearchConfig)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_create_search_config_async_from_dict():
-    await test_create_search_config_async(request_type=dict)
 
 
 def test_create_search_config_field_headers():
@@ -9515,8 +9733,8 @@ async def test_create_search_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.UpdateSearchConfigRequest,
-        dict,
+        warehouse.UpdateSearchConfigRequest(),
+        {},
     ],
 )
 def test_update_search_config(request_type, transport: str = "grpc"):
@@ -9527,7 +9745,7 @@ def test_update_search_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9573,7 +9791,8 @@ def test_update_search_config_non_empty_request_with_auto_populated_field():
         client.update_search_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.UpdateSearchConfigRequest()
+        request_msg = warehouse.UpdateSearchConfigRequest()
+        assert args[0] == request_msg
 
 
 def test_update_search_config_use_cached_wrapped_rpc():
@@ -9599,9 +9818,9 @@ def test_update_search_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_search_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_search_config] = (
+            mock_rpc
+        )
         request = {}
         client.update_search_config(request)
 
@@ -9658,8 +9877,15 @@ async def test_update_search_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.UpdateSearchConfigRequest(),
+        {},
+    ],
+)
 async def test_update_search_config_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.UpdateSearchConfigRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -9668,7 +9894,7 @@ async def test_update_search_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9691,11 +9917,6 @@ async def test_update_search_config_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, warehouse.SearchConfig)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_update_search_config_async_from_dict():
-    await test_update_search_config_async(request_type=dict)
 
 
 def test_update_search_config_field_headers():
@@ -9862,8 +10083,8 @@ async def test_update_search_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.GetSearchConfigRequest,
-        dict,
+        warehouse.GetSearchConfigRequest(),
+        {},
     ],
 )
 def test_get_search_config(request_type, transport: str = "grpc"):
@@ -9874,7 +10095,7 @@ def test_get_search_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9922,9 +10143,10 @@ def test_get_search_config_non_empty_request_with_auto_populated_field():
         client.get_search_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.GetSearchConfigRequest(
+        request_msg = warehouse.GetSearchConfigRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_search_config_use_cached_wrapped_rpc():
@@ -9948,9 +10170,9 @@ def test_get_search_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_search_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_search_config] = (
+            mock_rpc
+        )
         request = {}
         client.get_search_config(request)
 
@@ -10007,9 +10229,14 @@ async def test_get_search_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_search_config_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.GetSearchConfigRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.GetSearchConfigRequest(),
+        {},
+    ],
+)
+async def test_get_search_config_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10017,7 +10244,7 @@ async def test_get_search_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -10040,11 +10267,6 @@ async def test_get_search_config_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, warehouse.SearchConfig)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_search_config_async_from_dict():
-    await test_get_search_config_async(request_type=dict)
 
 
 def test_get_search_config_field_headers():
@@ -10201,8 +10423,8 @@ async def test_get_search_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.DeleteSearchConfigRequest,
-        dict,
+        warehouse.DeleteSearchConfigRequest(),
+        {},
     ],
 )
 def test_delete_search_config(request_type, transport: str = "grpc"):
@@ -10213,7 +10435,7 @@ def test_delete_search_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -10258,9 +10480,10 @@ def test_delete_search_config_non_empty_request_with_auto_populated_field():
         client.delete_search_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.DeleteSearchConfigRequest(
+        request_msg = warehouse.DeleteSearchConfigRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_search_config_use_cached_wrapped_rpc():
@@ -10286,9 +10509,9 @@ def test_delete_search_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_search_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_search_config] = (
+            mock_rpc
+        )
         request = {}
         client.delete_search_config(request)
 
@@ -10345,8 +10568,15 @@ async def test_delete_search_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.DeleteSearchConfigRequest(),
+        {},
+    ],
+)
 async def test_delete_search_config_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.DeleteSearchConfigRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -10355,7 +10585,7 @@ async def test_delete_search_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -10373,11 +10603,6 @@ async def test_delete_search_config_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_search_config_async_from_dict():
-    await test_delete_search_config_async(request_type=dict)
 
 
 def test_delete_search_config_field_headers():
@@ -10530,8 +10755,8 @@ async def test_delete_search_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.ListSearchConfigsRequest,
-        dict,
+        warehouse.ListSearchConfigsRequest(),
+        {},
     ],
 )
 def test_list_search_configs(request_type, transport: str = "grpc"):
@@ -10542,7 +10767,7 @@ def test_list_search_configs(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -10591,10 +10816,11 @@ def test_list_search_configs_non_empty_request_with_auto_populated_field():
         client.list_search_configs(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.ListSearchConfigsRequest(
+        request_msg = warehouse.ListSearchConfigsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_search_configs_use_cached_wrapped_rpc():
@@ -10620,9 +10846,9 @@ def test_list_search_configs_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_search_configs
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_search_configs] = (
+            mock_rpc
+        )
         request = {}
         client.list_search_configs(request)
 
@@ -10679,9 +10905,14 @@ async def test_list_search_configs_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_search_configs_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.ListSearchConfigsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.ListSearchConfigsRequest(),
+        {},
+    ],
+)
+async def test_list_search_configs_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10689,7 +10920,7 @@ async def test_list_search_configs_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -10712,11 +10943,6 @@ async def test_list_search_configs_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListSearchConfigsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_search_configs_async_from_dict():
-    await test_list_search_configs_async(request_type=dict)
 
 
 def test_list_search_configs_field_headers():
@@ -11062,11 +11288,7 @@ async def test_list_search_configs_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_search_configs(request={})
-        ).pages:
+        async for page_ in (await client.list_search_configs(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -11075,8 +11297,8 @@ async def test_list_search_configs_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        warehouse.SearchAssetsRequest,
-        dict,
+        warehouse.SearchAssetsRequest(),
+        {},
     ],
 )
 def test_search_assets(request_type, transport: str = "grpc"):
@@ -11087,7 +11309,7 @@ def test_search_assets(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.search_assets), "__call__") as call:
@@ -11132,10 +11354,11 @@ def test_search_assets_non_empty_request_with_auto_populated_field():
         client.search_assets(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == warehouse.SearchAssetsRequest(
+        request_msg = warehouse.SearchAssetsRequest(
             corpus="corpus_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_search_assets_use_cached_wrapped_rpc():
@@ -11216,9 +11439,14 @@ async def test_search_assets_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_search_assets_async(
-    transport: str = "grpc_asyncio", request_type=warehouse.SearchAssetsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        warehouse.SearchAssetsRequest(),
+        {},
+    ],
+)
+async def test_search_assets_async(request_type, transport: str = "grpc_asyncio"):
     client = WarehouseAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -11226,7 +11454,7 @@ async def test_search_assets_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.search_assets), "__call__") as call:
@@ -11247,11 +11475,6 @@ async def test_search_assets_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.SearchAssetsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_search_assets_async_from_dict():
-    await test_search_assets_async(request_type=dict)
 
 
 def test_search_assets_field_headers():
@@ -11499,11 +11722,7 @@ async def test_search_assets_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.search_assets(request={})
-        ).pages:
+        async for page_ in (await client.search_assets(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -11618,7 +11837,7 @@ def test_create_asset_rest_required_fields(request_type=warehouse.CreateAssetReq
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_asset_rest_unset_required_fields():
@@ -11806,7 +12025,7 @@ def test_update_asset_rest_required_fields(request_type=warehouse.UpdateAssetReq
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_asset_rest_unset_required_fields():
@@ -11988,7 +12207,7 @@ def test_get_asset_rest_required_fields(request_type=warehouse.GetAssetRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_asset_rest_unset_required_fields():
@@ -12173,7 +12392,7 @@ def test_list_assets_rest_required_fields(request_type=warehouse.ListAssetsReque
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_assets_rest_unset_required_fields():
@@ -12423,7 +12642,7 @@ def test_delete_asset_rest_required_fields(request_type=warehouse.DeleteAssetReq
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_asset_rest_unset_required_fields():
@@ -12601,7 +12820,7 @@ def test_create_corpus_rest_required_fields(request_type=warehouse.CreateCorpusR
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_corpus_rest_unset_required_fields():
@@ -12785,7 +13004,7 @@ def test_get_corpus_rest_required_fields(request_type=warehouse.GetCorpusRequest
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_corpus_rest_unset_required_fields():
@@ -12959,7 +13178,7 @@ def test_update_corpus_rest_required_fields(request_type=warehouse.UpdateCorpusR
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_corpus_rest_unset_required_fields():
@@ -13146,7 +13365,7 @@ def test_list_corpora_rest_required_fields(request_type=warehouse.ListCorporaReq
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_corpora_rest_unset_required_fields():
@@ -13388,7 +13607,7 @@ def test_delete_corpus_rest_required_fields(request_type=warehouse.DeleteCorpusR
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_corpus_rest_unset_required_fields():
@@ -13479,9 +13698,9 @@ def test_create_data_schema_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_data_schema
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_data_schema] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_data_schema(request)
@@ -13569,7 +13788,7 @@ def test_create_data_schema_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_data_schema_rest_unset_required_fields():
@@ -13674,9 +13893,9 @@ def test_update_data_schema_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_data_schema
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_data_schema] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_data_schema(request)
@@ -13761,7 +13980,7 @@ def test_update_data_schema_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_data_schema_rest_unset_required_fields():
@@ -13945,7 +14164,7 @@ def test_get_data_schema_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_data_schema_rest_unset_required_fields():
@@ -14040,9 +14259,9 @@ def test_delete_data_schema_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_data_schema
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_data_schema] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_data_schema(request)
@@ -14126,7 +14345,7 @@ def test_delete_data_schema_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_data_schema_rest_unset_required_fields():
@@ -14217,9 +14436,9 @@ def test_list_data_schemas_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_data_schemas
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_data_schemas] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_data_schemas(request)
@@ -14313,7 +14532,7 @@ def test_list_data_schemas_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_data_schemas_rest_unset_required_fields():
@@ -14477,9 +14696,9 @@ def test_create_annotation_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_annotation
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_annotation] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_annotation(request)
@@ -14569,7 +14788,7 @@ def test_create_annotation_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_annotation_rest_unset_required_fields():
@@ -14761,7 +14980,7 @@ def test_get_annotation_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_annotation_rest_unset_required_fields():
@@ -14854,9 +15073,9 @@ def test_list_annotations_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_annotations
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_annotations] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_annotations(request)
@@ -15015,9 +15234,9 @@ def test_update_annotation_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_annotation
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_annotation] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_annotation(request)
@@ -15102,7 +15321,7 @@ def test_update_annotation_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_annotation_rest_unset_required_fields():
@@ -15199,9 +15418,9 @@ def test_delete_annotation_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_annotation
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_annotation] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_annotation(request)
@@ -15285,7 +15504,7 @@ def test_delete_annotation_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_annotation_rest_unset_required_fields():
@@ -15473,7 +15692,7 @@ def test_clip_asset_rest_required_fields(request_type=warehouse.ClipAssetRequest
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_clip_asset_rest_unset_required_fields():
@@ -15514,9 +15733,9 @@ def test_generate_hls_uri_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.generate_hls_uri
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.generate_hls_uri] = (
+            mock_rpc
+        )
 
         request = {}
         client.generate_hls_uri(request)
@@ -15604,7 +15823,7 @@ def test_generate_hls_uri_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_generate_hls_uri_rest_unset_required_fields():
@@ -15647,9 +15866,9 @@ def test_create_search_config_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_search_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_search_config] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_search_config(request)
@@ -15752,7 +15971,7 @@ def test_create_search_config_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_search_config_rest_unset_required_fields():
@@ -15860,9 +16079,9 @@ def test_update_search_config_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_search_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_search_config] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_search_config(request)
@@ -15947,7 +16166,7 @@ def test_update_search_config_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_search_config_rest_unset_required_fields():
@@ -16044,9 +16263,9 @@ def test_get_search_config_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_search_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_search_config] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_search_config(request)
@@ -16133,7 +16352,7 @@ def test_get_search_config_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_search_config_rest_unset_required_fields():
@@ -16228,9 +16447,9 @@ def test_delete_search_config_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_search_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_search_config] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_search_config(request)
@@ -16314,7 +16533,7 @@ def test_delete_search_config_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_search_config_rest_unset_required_fields():
@@ -16407,9 +16626,9 @@ def test_list_search_configs_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_search_configs
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_search_configs] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_search_configs(request)
@@ -16503,7 +16722,7 @@ def test_list_search_configs_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_search_configs_rest_unset_required_fields():
@@ -16755,7 +16974,7 @@ def test_search_assets_rest_required_fields(request_type=warehouse.SearchAssetsR
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_search_assets_rest_unset_required_fields():
@@ -16966,7 +17185,6 @@ def test_create_asset_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -16987,7 +17205,6 @@ def test_update_asset_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -17008,7 +17225,6 @@ def test_get_asset_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -17029,7 +17245,6 @@ def test_list_assets_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListAssetsRequest()
-
         assert args[0] == request_msg
 
 
@@ -17050,7 +17265,6 @@ def test_delete_asset_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -17071,7 +17285,6 @@ def test_create_corpus_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateCorpusRequest()
-
         assert args[0] == request_msg
 
 
@@ -17092,7 +17305,6 @@ def test_get_corpus_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetCorpusRequest()
-
         assert args[0] == request_msg
 
 
@@ -17113,7 +17325,6 @@ def test_update_corpus_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateCorpusRequest()
-
         assert args[0] == request_msg
 
 
@@ -17134,7 +17345,6 @@ def test_list_corpora_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListCorporaRequest()
-
         assert args[0] == request_msg
 
 
@@ -17155,7 +17365,6 @@ def test_delete_corpus_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteCorpusRequest()
-
         assert args[0] == request_msg
 
 
@@ -17178,7 +17387,6 @@ def test_create_data_schema_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateDataSchemaRequest()
-
         assert args[0] == request_msg
 
 
@@ -17201,7 +17409,6 @@ def test_update_data_schema_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateDataSchemaRequest()
-
         assert args[0] == request_msg
 
 
@@ -17222,7 +17429,6 @@ def test_get_data_schema_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetDataSchemaRequest()
-
         assert args[0] == request_msg
 
 
@@ -17245,7 +17451,6 @@ def test_delete_data_schema_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteDataSchemaRequest()
-
         assert args[0] == request_msg
 
 
@@ -17268,7 +17473,6 @@ def test_list_data_schemas_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListDataSchemasRequest()
-
         assert args[0] == request_msg
 
 
@@ -17291,7 +17495,6 @@ def test_create_annotation_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateAnnotationRequest()
-
         assert args[0] == request_msg
 
 
@@ -17312,7 +17515,6 @@ def test_get_annotation_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetAnnotationRequest()
-
         assert args[0] == request_msg
 
 
@@ -17333,7 +17535,6 @@ def test_list_annotations_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListAnnotationsRequest()
-
         assert args[0] == request_msg
 
 
@@ -17356,7 +17557,6 @@ def test_update_annotation_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateAnnotationRequest()
-
         assert args[0] == request_msg
 
 
@@ -17379,7 +17579,6 @@ def test_delete_annotation_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteAnnotationRequest()
-
         assert args[0] == request_msg
 
 
@@ -17400,7 +17599,6 @@ def test_clip_asset_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ClipAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -17421,7 +17619,6 @@ def test_generate_hls_uri_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GenerateHlsUriRequest()
-
         assert args[0] == request_msg
 
 
@@ -17444,7 +17641,6 @@ def test_create_search_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateSearchConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -17467,7 +17663,6 @@ def test_update_search_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateSearchConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -17490,7 +17685,6 @@ def test_get_search_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetSearchConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -17513,7 +17707,6 @@ def test_delete_search_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteSearchConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -17536,7 +17729,6 @@ def test_list_search_configs_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListSearchConfigsRequest()
-
         assert args[0] == request_msg
 
 
@@ -17557,7 +17749,6 @@ def test_search_assets_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.SearchAssetsRequest()
-
         assert args[0] == request_msg
 
 
@@ -17598,7 +17789,6 @@ async def test_create_asset_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -17625,7 +17815,6 @@ async def test_update_asset_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -17652,7 +17841,6 @@ async def test_get_asset_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -17679,7 +17867,6 @@ async def test_list_assets_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListAssetsRequest()
-
         assert args[0] == request_msg
 
 
@@ -17704,7 +17891,6 @@ async def test_delete_asset_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -17729,7 +17915,6 @@ async def test_create_corpus_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateCorpusRequest()
-
         assert args[0] == request_msg
 
 
@@ -17758,7 +17943,6 @@ async def test_get_corpus_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetCorpusRequest()
-
         assert args[0] == request_msg
 
 
@@ -17787,7 +17971,6 @@ async def test_update_corpus_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateCorpusRequest()
-
         assert args[0] == request_msg
 
 
@@ -17814,7 +17997,6 @@ async def test_list_corpora_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListCorporaRequest()
-
         assert args[0] == request_msg
 
 
@@ -17837,7 +18019,6 @@ async def test_delete_corpus_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteCorpusRequest()
-
         assert args[0] == request_msg
 
 
@@ -17867,7 +18048,6 @@ async def test_create_data_schema_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateDataSchemaRequest()
-
         assert args[0] == request_msg
 
 
@@ -17897,7 +18077,6 @@ async def test_update_data_schema_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateDataSchemaRequest()
-
         assert args[0] == request_msg
 
 
@@ -17925,7 +18104,6 @@ async def test_get_data_schema_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetDataSchemaRequest()
-
         assert args[0] == request_msg
 
 
@@ -17950,7 +18128,6 @@ async def test_delete_data_schema_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteDataSchemaRequest()
-
         assert args[0] == request_msg
 
 
@@ -17979,7 +18156,6 @@ async def test_list_data_schemas_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListDataSchemasRequest()
-
         assert args[0] == request_msg
 
 
@@ -18008,7 +18184,6 @@ async def test_create_annotation_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateAnnotationRequest()
-
         assert args[0] == request_msg
 
 
@@ -18035,7 +18210,6 @@ async def test_get_annotation_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetAnnotationRequest()
-
         assert args[0] == request_msg
 
 
@@ -18062,7 +18236,6 @@ async def test_list_annotations_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListAnnotationsRequest()
-
         assert args[0] == request_msg
 
 
@@ -18091,7 +18264,6 @@ async def test_update_annotation_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateAnnotationRequest()
-
         assert args[0] == request_msg
 
 
@@ -18116,7 +18288,6 @@ async def test_delete_annotation_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteAnnotationRequest()
-
         assert args[0] == request_msg
 
 
@@ -18141,7 +18312,6 @@ async def test_clip_asset_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ClipAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -18168,7 +18338,6 @@ async def test_generate_hls_uri_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GenerateHlsUriRequest()
-
         assert args[0] == request_msg
 
 
@@ -18197,7 +18366,6 @@ async def test_create_search_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateSearchConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -18226,7 +18394,6 @@ async def test_update_search_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateSearchConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -18255,7 +18422,6 @@ async def test_get_search_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetSearchConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -18280,7 +18446,6 @@ async def test_delete_search_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteSearchConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -18309,7 +18474,6 @@ async def test_list_search_configs_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListSearchConfigsRequest()
-
         assert args[0] == request_msg
 
 
@@ -18336,7 +18500,6 @@ async def test_search_assets_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.SearchAssetsRequest()
-
         assert args[0] == request_msg
 
 
@@ -18356,8 +18519,9 @@ def test_create_asset_rest_bad_request(request_type=warehouse.CreateAssetRequest
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -18489,17 +18653,19 @@ def test_create_asset_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_create_asset"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_create_asset_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_create_asset"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_create_asset"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_create_asset_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_create_asset"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -18552,8 +18718,9 @@ def test_update_asset_rest_bad_request(request_type=warehouse.UpdateAssetRequest
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -18689,17 +18856,19 @@ def test_update_asset_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_update_asset"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_update_asset_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_update_asset"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_update_asset"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_update_asset_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_update_asset"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -18750,8 +18919,9 @@ def test_get_asset_rest_bad_request(request_type=warehouse.GetAssetRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -18814,17 +18984,17 @@ def test_get_asset_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_get_asset"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_get_asset_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_get_asset"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_get_asset"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_get_asset_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.WarehouseRestInterceptor, "pre_get_asset") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -18873,8 +19043,9 @@ def test_list_assets_rest_bad_request(request_type=warehouse.ListAssetsRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -18935,17 +19106,19 @@ def test_list_assets_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_list_assets"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_list_assets_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_list_assets"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_list_assets"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_list_assets_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_list_assets"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -18998,8 +19171,9 @@ def test_delete_asset_rest_bad_request(request_type=warehouse.DeleteAssetRequest
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -19056,19 +19230,20 @@ def test_delete_asset_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_delete_asset"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_delete_asset_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_delete_asset"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_delete_asset"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_delete_asset_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_delete_asset"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -19117,8 +19292,9 @@ def test_create_corpus_rest_bad_request(request_type=warehouse.CreateCorpusReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -19246,19 +19422,20 @@ def test_create_corpus_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_create_corpus"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_create_corpus_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_create_corpus"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_create_corpus"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_create_corpus_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_create_corpus"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -19307,8 +19484,9 @@ def test_get_corpus_rest_bad_request(request_type=warehouse.GetCorpusRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -19373,17 +19551,17 @@ def test_get_corpus_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_get_corpus"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_get_corpus_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_get_corpus"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_get_corpus"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_get_corpus_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.WarehouseRestInterceptor, "pre_get_corpus") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -19434,8 +19612,9 @@ def test_update_corpus_rest_bad_request(request_type=warehouse.UpdateCorpusReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -19575,17 +19754,19 @@ def test_update_corpus_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_update_corpus"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_update_corpus_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_update_corpus"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_update_corpus"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_update_corpus_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_update_corpus"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -19634,8 +19815,9 @@ def test_list_corpora_rest_bad_request(request_type=warehouse.ListCorporaRequest
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -19696,17 +19878,19 @@ def test_list_corpora_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_list_corpora"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_list_corpora_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_list_corpora"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_list_corpora"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_list_corpora_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_list_corpora"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -19757,8 +19941,9 @@ def test_delete_corpus_rest_bad_request(request_type=warehouse.DeleteCorpusReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -19813,13 +19998,13 @@ def test_delete_corpus_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_delete_corpus"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_delete_corpus"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = warehouse.DeleteCorpusRequest.pb(warehouse.DeleteCorpusRequest())
         transcode.return_value = {
@@ -19862,8 +20047,9 @@ def test_create_data_schema_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -20003,17 +20189,19 @@ def test_create_data_schema_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_create_data_schema"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_create_data_schema_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_create_data_schema"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_create_data_schema"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_create_data_schema_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_create_data_schema"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -20070,8 +20258,9 @@ def test_update_data_schema_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -20215,17 +20404,19 @@ def test_update_data_schema_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_update_data_schema"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_update_data_schema_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_update_data_schema"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_update_data_schema"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_update_data_schema_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_update_data_schema"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -20278,8 +20469,9 @@ def test_get_data_schema_rest_bad_request(request_type=warehouse.GetDataSchemaRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -20344,17 +20536,19 @@ def test_get_data_schema_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_get_data_schema"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_get_data_schema_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_get_data_schema"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_get_data_schema"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_get_data_schema_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_get_data_schema"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -20407,8 +20601,9 @@ def test_delete_data_schema_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -20465,13 +20660,13 @@ def test_delete_data_schema_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_delete_data_schema"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_delete_data_schema"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = warehouse.DeleteDataSchemaRequest.pb(
             warehouse.DeleteDataSchemaRequest()
@@ -20516,8 +20711,9 @@ def test_list_data_schemas_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -20578,17 +20774,19 @@ def test_list_data_schemas_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_list_data_schemas"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_list_data_schemas_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_list_data_schemas"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_list_data_schemas"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_list_data_schemas_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_list_data_schemas"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -20645,8 +20843,9 @@ def test_create_annotation_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -20807,17 +21006,19 @@ def test_create_annotation_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_create_annotation"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_create_annotation_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_create_annotation"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_create_annotation"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_create_annotation_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_create_annotation"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -20870,8 +21071,9 @@ def test_get_annotation_rest_bad_request(request_type=warehouse.GetAnnotationReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -20934,17 +21136,19 @@ def test_get_annotation_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_get_annotation"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_get_annotation_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_get_annotation"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_get_annotation"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_get_annotation_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_get_annotation"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -20997,8 +21201,9 @@ def test_list_annotations_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -21061,17 +21266,19 @@ def test_list_annotations_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_list_annotations"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_list_annotations_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_list_annotations"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_list_annotations"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_list_annotations_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_list_annotations"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -21130,8 +21337,9 @@ def test_update_annotation_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -21294,17 +21502,19 @@ def test_update_annotation_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_update_annotation"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_update_annotation_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_update_annotation"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_update_annotation"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_update_annotation_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_update_annotation"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -21359,8 +21569,9 @@ def test_delete_annotation_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -21417,13 +21628,13 @@ def test_delete_annotation_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_delete_annotation"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_delete_annotation"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = warehouse.DeleteAnnotationRequest.pb(
             warehouse.DeleteAnnotationRequest()
@@ -21480,8 +21691,9 @@ def test_clip_asset_rest_bad_request(request_type=warehouse.ClipAssetRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -21541,17 +21753,17 @@ def test_clip_asset_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_clip_asset"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_clip_asset_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_clip_asset"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_clip_asset"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_clip_asset_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.WarehouseRestInterceptor, "pre_clip_asset") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -21606,8 +21818,9 @@ def test_generate_hls_uri_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -21670,17 +21883,19 @@ def test_generate_hls_uri_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_generate_hls_uri"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_generate_hls_uri_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_generate_hls_uri"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_generate_hls_uri"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_generate_hls_uri_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_generate_hls_uri"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -21735,8 +21950,9 @@ def test_create_search_config_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -21897,17 +22113,20 @@ def test_create_search_config_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_create_search_config"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_create_search_config_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_create_search_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_create_search_config"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor,
+            "post_create_search_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_create_search_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -21964,8 +22183,9 @@ def test_update_search_config_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -22130,17 +22350,20 @@ def test_update_search_config_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_update_search_config"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_update_search_config_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_update_search_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_update_search_config"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor,
+            "post_update_search_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_update_search_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -22195,8 +22418,9 @@ def test_get_search_config_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -22259,17 +22483,19 @@ def test_get_search_config_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_get_search_config"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_get_search_config_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_get_search_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_get_search_config"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_get_search_config_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_get_search_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -22324,8 +22550,9 @@ def test_delete_search_config_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -22382,13 +22609,13 @@ def test_delete_search_config_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_delete_search_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_delete_search_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = warehouse.DeleteSearchConfigRequest.pb(
             warehouse.DeleteSearchConfigRequest()
@@ -22433,8 +22660,9 @@ def test_list_search_configs_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -22495,17 +22723,20 @@ def test_list_search_configs_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_list_search_configs"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_list_search_configs_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_list_search_configs"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_list_search_configs"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor,
+            "post_list_search_configs_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_list_search_configs"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -22561,8 +22792,9 @@ def test_search_assets_rest_bad_request(request_type=warehouse.SearchAssetsReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -22623,17 +22855,19 @@ def test_search_assets_rest_interceptors(null_interceptor):
     )
     client = WarehouseClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_search_assets"
-    ) as post, mock.patch.object(
-        transports.WarehouseRestInterceptor, "post_search_assets_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.WarehouseRestInterceptor, "pre_search_assets"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_search_assets"
+        ) as post,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "post_search_assets_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.WarehouseRestInterceptor, "pre_search_assets"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -22686,8 +22920,9 @@ def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationReq
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -22746,8 +22981,9 @@ def test_list_locations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -22808,8 +23044,9 @@ def test_get_iam_policy_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -22870,8 +23107,9 @@ def test_set_iam_policy_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -22932,8 +23170,9 @@ def test_test_iam_permissions_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -22994,8 +23233,9 @@ def test_cancel_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -23056,8 +23296,9 @@ def test_delete_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -23118,8 +23359,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -23180,8 +23422,9 @@ def test_list_operations_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -23252,7 +23495,6 @@ def test_create_asset_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -23272,7 +23514,6 @@ def test_update_asset_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -23292,7 +23533,6 @@ def test_get_asset_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -23312,7 +23552,6 @@ def test_list_assets_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListAssetsRequest()
-
         assert args[0] == request_msg
 
 
@@ -23332,7 +23571,6 @@ def test_delete_asset_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -23352,7 +23590,6 @@ def test_create_corpus_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateCorpusRequest()
-
         assert args[0] == request_msg
 
 
@@ -23372,7 +23609,6 @@ def test_get_corpus_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetCorpusRequest()
-
         assert args[0] == request_msg
 
 
@@ -23392,7 +23628,6 @@ def test_update_corpus_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateCorpusRequest()
-
         assert args[0] == request_msg
 
 
@@ -23412,7 +23647,6 @@ def test_list_corpora_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListCorporaRequest()
-
         assert args[0] == request_msg
 
 
@@ -23432,7 +23666,6 @@ def test_delete_corpus_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteCorpusRequest()
-
         assert args[0] == request_msg
 
 
@@ -23454,7 +23687,6 @@ def test_create_data_schema_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateDataSchemaRequest()
-
         assert args[0] == request_msg
 
 
@@ -23476,7 +23708,6 @@ def test_update_data_schema_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateDataSchemaRequest()
-
         assert args[0] == request_msg
 
 
@@ -23496,7 +23727,6 @@ def test_get_data_schema_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetDataSchemaRequest()
-
         assert args[0] == request_msg
 
 
@@ -23518,7 +23748,6 @@ def test_delete_data_schema_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteDataSchemaRequest()
-
         assert args[0] == request_msg
 
 
@@ -23540,7 +23769,6 @@ def test_list_data_schemas_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListDataSchemasRequest()
-
         assert args[0] == request_msg
 
 
@@ -23562,7 +23790,6 @@ def test_create_annotation_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateAnnotationRequest()
-
         assert args[0] == request_msg
 
 
@@ -23582,7 +23809,6 @@ def test_get_annotation_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetAnnotationRequest()
-
         assert args[0] == request_msg
 
 
@@ -23602,7 +23828,6 @@ def test_list_annotations_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListAnnotationsRequest()
-
         assert args[0] == request_msg
 
 
@@ -23624,7 +23849,6 @@ def test_update_annotation_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateAnnotationRequest()
-
         assert args[0] == request_msg
 
 
@@ -23646,7 +23870,6 @@ def test_delete_annotation_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteAnnotationRequest()
-
         assert args[0] == request_msg
 
 
@@ -23666,7 +23889,6 @@ def test_clip_asset_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ClipAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -23686,7 +23908,6 @@ def test_generate_hls_uri_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GenerateHlsUriRequest()
-
         assert args[0] == request_msg
 
 
@@ -23708,7 +23929,6 @@ def test_create_search_config_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.CreateSearchConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -23730,7 +23950,6 @@ def test_update_search_config_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.UpdateSearchConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -23752,7 +23971,6 @@ def test_get_search_config_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.GetSearchConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -23774,7 +23992,6 @@ def test_delete_search_config_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.DeleteSearchConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -23796,7 +24013,6 @@ def test_list_search_configs_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.ListSearchConfigsRequest()
-
         assert args[0] == request_msg
 
 
@@ -23816,7 +24032,6 @@ def test_search_assets_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = warehouse.SearchAssetsRequest()
-
         assert args[0] == request_msg
 
 
@@ -23932,11 +24147,14 @@ def test_warehouse_base_transport():
 
 def test_warehouse_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.visionai_v1alpha1.services.warehouse.transports.WarehouseTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.visionai_v1alpha1.services.warehouse.transports.WarehouseTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.WarehouseTransport(
@@ -23953,9 +24171,12 @@ def test_warehouse_base_transport_with_credentials_file():
 
 def test_warehouse_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.visionai_v1alpha1.services.warehouse.transports.WarehouseTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.visionai_v1alpha1.services.warehouse.transports.WarehouseTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.WarehouseTransport()
@@ -24027,11 +24248,12 @@ def test_warehouse_transport_auth_gdch_credentials(transport_class):
 def test_warehouse_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -24285,6 +24507,7 @@ def test_warehouse_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [transports.WarehouseGrpcTransport, transports.WarehouseGrpcAsyncIOTransport],
@@ -24825,6 +25048,38 @@ async def test_delete_operation_from_dict_async():
         call.assert_called()
 
 
+def test_delete_operation_flattened():
+    client = WarehouseClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_flattened_async():
+    client = WarehouseAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
 def test_cancel_operation(transport: str = "grpc"):
     client = WarehouseClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -24962,6 +25217,38 @@ async def test_cancel_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_cancel_operation_flattened():
+    client = WarehouseClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = WarehouseAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
 
 
 def test_get_operation(transport: str = "grpc"):
@@ -25109,6 +25396,40 @@ async def test_get_operation_from_dict_async():
         call.assert_called()
 
 
+def test_get_operation_flattened():
+    client = WarehouseClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = WarehouseAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
 def test_list_operations(transport: str = "grpc"):
     client = WarehouseClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -25252,6 +25573,40 @@ async def test_list_operations_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_list_operations_flattened():
+    client = WarehouseClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = WarehouseAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
 
 
 def test_list_locations(transport: str = "grpc"):
@@ -25399,6 +25754,40 @@ async def test_list_locations_from_dict_async():
         call.assert_called()
 
 
+def test_list_locations_flattened():
+    client = WarehouseClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_flattened_async():
+    client = WarehouseAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
 def test_get_location(transport: str = "grpc"):
     client = WarehouseClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -25538,6 +25927,40 @@ async def test_get_location_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_location_flattened():
+    client = WarehouseClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_location_flattened_async():
+    client = WarehouseAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
 
 
 def test_set_iam_policy(transport: str = "grpc"):
@@ -25702,6 +26125,41 @@ async def test_set_iam_policy_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_set_iam_policy_flattened():
+    client = WarehouseClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        client.set_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.SetIamPolicyRequest()
+
+
+@pytest.mark.asyncio
+async def test_set_iam_policy_flattened_async():
+    client = WarehouseAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.set_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.SetIamPolicyRequest()
 
 
 def test_get_iam_policy(transport: str = "grpc"):
@@ -25869,6 +26327,41 @@ async def test_get_iam_policy_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_iam_policy_flattened():
+    client = WarehouseClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        client.get_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.GetIamPolicyRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_iam_policy_flattened_async():
+    client = WarehouseAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.get_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.GetIamPolicyRequest()
 
 
 def test_test_iam_permissions(transport: str = "grpc"):
@@ -26046,6 +26539,47 @@ async def test_test_iam_permissions_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_test_iam_permissions_flattened():
+    client = WarehouseClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = iam_policy_pb2.TestIamPermissionsResponse()
+
+        client.test_iam_permissions()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.TestIamPermissionsRequest()
+
+
+@pytest.mark.asyncio
+async def test_test_iam_permissions_flattened_async():
+    client = WarehouseAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            iam_policy_pb2.TestIamPermissionsResponse()
+        )
+
+        await client.test_iam_permissions()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.TestIamPermissionsRequest()
 
 
 def test_transport_close_grpc():

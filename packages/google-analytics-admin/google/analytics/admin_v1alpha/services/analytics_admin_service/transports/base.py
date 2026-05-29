@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,26 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
+import google.auth  # type: ignore
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry as retries
-import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 
 from google.analytics.admin_v1alpha import gapic_version as package_version
+from google.analytics.admin_v1alpha.types import (
+    analytics_admin,
+    audience,
+    channel_group,
+    event_create_and_edit,
+    expanded_data_set,
+    resources,
+    subproperty_event_filter,
+)
+from google.analytics.admin_v1alpha.types import audience as gaa_audience
 from google.analytics.admin_v1alpha.types import channel_group as gaa_channel_group
 from google.analytics.admin_v1alpha.types import (
     expanded_data_set as gaa_expanded_data_set,
@@ -34,14 +44,6 @@ from google.analytics.admin_v1alpha.types import (
 from google.analytics.admin_v1alpha.types import (
     subproperty_event_filter as gaa_subproperty_event_filter,
 )
-from google.analytics.admin_v1alpha.types import analytics_admin
-from google.analytics.admin_v1alpha.types import audience
-from google.analytics.admin_v1alpha.types import audience as gaa_audience
-from google.analytics.admin_v1alpha.types import channel_group
-from google.analytics.admin_v1alpha.types import event_create_and_edit
-from google.analytics.admin_v1alpha.types import expanded_data_set
-from google.analytics.admin_v1alpha.types import resources
-from google.analytics.admin_v1alpha.types import subproperty_event_filter
 
 DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(
     gapic_version=package_version.__version__
@@ -86,9 +88,10 @@ class AnalyticsAdminServiceTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -99,9 +102,11 @@ class AnalyticsAdminServiceTransport(abc.ABC):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
-
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
 
         # Save the scopes.
         self._scopes = scopes
@@ -117,11 +122,16 @@ class AnalyticsAdminServiceTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -144,6 +154,8 @@ class AnalyticsAdminServiceTransport(abc.ABC):
         if ":" not in host:
             host += ":443"
         self._host = host
+
+        self._wrapped_methods: Dict[Callable, Callable] = {}
 
     @property
     def host(self):
@@ -672,16 +684,6 @@ class AnalyticsAdminServiceTransport(abc.ABC):
                 default_timeout=None,
                 client_info=client_info,
             ),
-            self.set_automated_ga4_configuration_opt_out: gapic_v1.method.wrap_method(
-                self.set_automated_ga4_configuration_opt_out,
-                default_timeout=None,
-                client_info=client_info,
-            ),
-            self.fetch_automated_ga4_configuration_opt_out: gapic_v1.method.wrap_method(
-                self.fetch_automated_ga4_configuration_opt_out,
-                default_timeout=None,
-                client_info=client_info,
-            ),
             self.create_big_query_link: gapic_v1.method.wrap_method(
                 self.create_big_query_link,
                 default_timeout=None,
@@ -715,26 +717,6 @@ class AnalyticsAdminServiceTransport(abc.ABC):
             self.update_enhanced_measurement_settings: gapic_v1.method.wrap_method(
                 self.update_enhanced_measurement_settings,
                 default_timeout=60.0,
-                client_info=client_info,
-            ),
-            self.create_connected_site_tag: gapic_v1.method.wrap_method(
-                self.create_connected_site_tag,
-                default_timeout=None,
-                client_info=client_info,
-            ),
-            self.delete_connected_site_tag: gapic_v1.method.wrap_method(
-                self.delete_connected_site_tag,
-                default_timeout=None,
-                client_info=client_info,
-            ),
-            self.list_connected_site_tags: gapic_v1.method.wrap_method(
-                self.list_connected_site_tags,
-                default_timeout=None,
-                client_info=client_info,
-            ),
-            self.fetch_connected_ga4_property: gapic_v1.method.wrap_method(
-                self.fetch_connected_ga4_property,
-                default_timeout=None,
                 client_info=client_info,
             ),
             self.get_ad_sense_link: gapic_v1.method.wrap_method(
@@ -929,6 +911,31 @@ class AnalyticsAdminServiceTransport(abc.ABC):
             ),
             self.submit_user_deletion: gapic_v1.method.wrap_method(
                 self.submit_user_deletion,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_subproperty_sync_configs: gapic_v1.method.wrap_method(
+                self.list_subproperty_sync_configs,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_subproperty_sync_config: gapic_v1.method.wrap_method(
+                self.update_subproperty_sync_config,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_subproperty_sync_config: gapic_v1.method.wrap_method(
+                self.get_subproperty_sync_config,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_reporting_identity_settings: gapic_v1.method.wrap_method(
+                self.get_reporting_identity_settings,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_user_provided_data_settings: gapic_v1.method.wrap_method(
+                self.get_user_provided_data_settings,
                 default_timeout=None,
                 client_info=client_info,
             ),
@@ -2022,30 +2029,6 @@ class AnalyticsAdminServiceTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
-    def set_automated_ga4_configuration_opt_out(
-        self,
-    ) -> Callable[
-        [analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest],
-        Union[
-            analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse,
-            Awaitable[analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse],
-        ],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def fetch_automated_ga4_configuration_opt_out(
-        self,
-    ) -> Callable[
-        [analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest],
-        Union[
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse,
-            Awaitable[analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse],
-        ],
-    ]:
-        raise NotImplementedError()
-
-    @property
     def create_big_query_link(
         self,
     ) -> Callable[
@@ -2113,51 +2096,6 @@ class AnalyticsAdminServiceTransport(abc.ABC):
         Union[
             resources.EnhancedMeasurementSettings,
             Awaitable[resources.EnhancedMeasurementSettings],
-        ],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def create_connected_site_tag(
-        self,
-    ) -> Callable[
-        [analytics_admin.CreateConnectedSiteTagRequest],
-        Union[
-            analytics_admin.CreateConnectedSiteTagResponse,
-            Awaitable[analytics_admin.CreateConnectedSiteTagResponse],
-        ],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def delete_connected_site_tag(
-        self,
-    ) -> Callable[
-        [analytics_admin.DeleteConnectedSiteTagRequest],
-        Union[empty_pb2.Empty, Awaitable[empty_pb2.Empty]],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def list_connected_site_tags(
-        self,
-    ) -> Callable[
-        [analytics_admin.ListConnectedSiteTagsRequest],
-        Union[
-            analytics_admin.ListConnectedSiteTagsResponse,
-            Awaitable[analytics_admin.ListConnectedSiteTagsResponse],
-        ],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def fetch_connected_ga4_property(
-        self,
-    ) -> Callable[
-        [analytics_admin.FetchConnectedGa4PropertyRequest],
-        Union[
-            analytics_admin.FetchConnectedGa4PropertyResponse,
-            Awaitable[analytics_admin.FetchConnectedGa4PropertyResponse],
         ],
     ]:
         raise NotImplementedError()
@@ -2585,6 +2523,64 @@ class AnalyticsAdminServiceTransport(abc.ABC):
         Union[
             analytics_admin.SubmitUserDeletionResponse,
             Awaitable[analytics_admin.SubmitUserDeletionResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def list_subproperty_sync_configs(
+        self,
+    ) -> Callable[
+        [analytics_admin.ListSubpropertySyncConfigsRequest],
+        Union[
+            analytics_admin.ListSubpropertySyncConfigsResponse,
+            Awaitable[analytics_admin.ListSubpropertySyncConfigsResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def update_subproperty_sync_config(
+        self,
+    ) -> Callable[
+        [analytics_admin.UpdateSubpropertySyncConfigRequest],
+        Union[
+            resources.SubpropertySyncConfig, Awaitable[resources.SubpropertySyncConfig]
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_subproperty_sync_config(
+        self,
+    ) -> Callable[
+        [analytics_admin.GetSubpropertySyncConfigRequest],
+        Union[
+            resources.SubpropertySyncConfig, Awaitable[resources.SubpropertySyncConfig]
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_reporting_identity_settings(
+        self,
+    ) -> Callable[
+        [analytics_admin.GetReportingIdentitySettingsRequest],
+        Union[
+            resources.ReportingIdentitySettings,
+            Awaitable[resources.ReportingIdentitySettings],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_user_provided_data_settings(
+        self,
+    ) -> Callable[
+        [analytics_admin.GetUserProvidedDataSettingsRequest],
+        Union[
+            resources.UserProvidedDataSettings,
+            Awaitable[resources.UserProvidedDataSettings],
         ],
     ]:
         raise NotImplementedError()

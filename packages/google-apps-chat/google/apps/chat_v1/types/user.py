@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,23 +45,23 @@ class User(proto.Message):
             For [human users][google.chat.v1.User.Type.HUMAN],
             ``{user}`` is the same user identifier as:
 
-            -  the ``id`` for the
-               `Person <https://developers.google.com/people/api/rest/v1/people>`__
-               in the People API. For example, ``users/123456789`` in
-               Chat API represents the same person as the ``123456789``
-               Person profile ID in People API.
+            - the ``id`` for the
+              `Person <https://developers.google.com/people/api/rest/v1/people>`__
+              in the People API. For example, ``users/123456789`` in
+              Chat API represents the same person as the ``123456789``
+              Person profile ID in People API.
 
-            -  the ``id`` for a
-               `user <https://developers.google.com/admin-sdk/directory/reference/rest/v1/users>`__
-               in the Admin SDK Directory API.
+            - the ``id`` for a
+              `user <https://developers.google.com/admin-sdk/directory/reference/rest/v1/users>`__
+              in the Admin SDK Directory API.
 
-            -  the user's email address can be used as an alias for
-               ``{user}`` in API requests. For example, if the People
-               API Person profile ID for ``user@example.com`` is
-               ``123456789``, you can use ``users/user@example.com`` as
-               an alias to reference ``users/123456789``. Only the
-               canonical resource name (for example ``users/123456789``)
-               will be returned from the API.
+            - the user's email address can be used as an alias for
+              ``{user}`` in API requests. For example, if the People API
+              Person profile ID for ``user@example.com`` is
+              ``123456789``, you can use ``users/user@example.com`` as
+              an alias to reference ``users/123456789``. Only the
+              canonical resource name (for example ``users/123456789``)
+              will be returned from the API.
         display_name (str):
             Output only. The user's display name.
         domain_id (str):
@@ -85,6 +85,7 @@ class User(proto.Message):
             BOT (2):
                 Chat app user.
         """
+
         TYPE_UNSPECIFIED = 0
         HUMAN = 1
         BOT = 2

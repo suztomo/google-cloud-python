@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,19 +16,17 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -100,6 +98,22 @@ class VmMigrationRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_cancel_disk_migration_job(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_cancel_disk_migration_job(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_cancel_image_import_job(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_cancel_image_import_job(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_create_clone_job(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
@@ -124,11 +138,27 @@ class VmMigrationRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_create_disk_migration_job(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_create_disk_migration_job(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_create_group(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
 
             def post_create_group(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_create_image_import(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_create_image_import(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -172,11 +202,27 @@ class VmMigrationRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_delete_disk_migration_job(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_delete_disk_migration_job(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_delete_group(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
 
             def post_delete_group(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_delete_image_import(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_delete_image_import(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -212,11 +258,27 @@ class VmMigrationRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_extend_migration(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_extend_migration(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_fetch_inventory(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
 
             def post_fetch_inventory(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_fetch_storage_inventory(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_fetch_storage_inventory(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -252,11 +314,35 @@ class VmMigrationRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_get_disk_migration_job(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_disk_migration_job(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_get_group(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
 
             def post_get_group(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_get_image_import(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_image_import(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_get_image_import_job(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_image_import_job(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -324,11 +410,35 @@ class VmMigrationRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_list_disk_migration_jobs(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_list_disk_migration_jobs(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_list_groups(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
 
             def post_list_groups(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_list_image_import_jobs(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_list_image_import_jobs(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_list_image_imports(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_list_image_imports(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -396,11 +506,27 @@ class VmMigrationRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_run_disk_migration_job(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_run_disk_migration_job(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_start_migration(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
 
             def post_start_migration(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_update_disk_migration_job(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_update_disk_migration_job(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -594,6 +720,103 @@ class VmMigrationRestInterceptor:
         """
         return response, metadata
 
+    def pre_cancel_disk_migration_job(
+        self,
+        request: vmmigration.CancelDiskMigrationJobRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.CancelDiskMigrationJobRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for cancel_disk_migration_job
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_cancel_disk_migration_job(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for cancel_disk_migration_job
+
+        DEPRECATED. Please use the `post_cancel_disk_migration_job_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_cancel_disk_migration_job` interceptor runs
+        before the `post_cancel_disk_migration_job_with_metadata` interceptor.
+        """
+        return response
+
+    def post_cancel_disk_migration_job_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for cancel_disk_migration_job
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_cancel_disk_migration_job_with_metadata`
+        interceptor in new development instead of the `post_cancel_disk_migration_job` interceptor.
+        When both interceptors are used, this `post_cancel_disk_migration_job_with_metadata` interceptor runs after the
+        `post_cancel_disk_migration_job` interceptor. The (possibly modified) response returned by
+        `post_cancel_disk_migration_job` will be passed to
+        `post_cancel_disk_migration_job_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_cancel_image_import_job(
+        self,
+        request: vmmigration.CancelImageImportJobRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.CancelImageImportJobRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for cancel_image_import_job
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_cancel_image_import_job(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for cancel_image_import_job
+
+        DEPRECATED. Please use the `post_cancel_image_import_job_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_cancel_image_import_job` interceptor runs
+        before the `post_cancel_image_import_job_with_metadata` interceptor.
+        """
+        return response
+
+    def post_cancel_image_import_job_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for cancel_image_import_job
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_cancel_image_import_job_with_metadata`
+        interceptor in new development instead of the `post_cancel_image_import_job` interceptor.
+        When both interceptors are used, this `post_cancel_image_import_job_with_metadata` interceptor runs after the
+        `post_cancel_image_import_job` interceptor. The (possibly modified) response returned by
+        `post_cancel_image_import_job` will be passed to
+        `post_cancel_image_import_job_with_metadata`.
+        """
+        return response, metadata
+
     def pre_create_clone_job(
         self,
         request: vmmigration.CreateCloneJobRequest,
@@ -739,6 +962,55 @@ class VmMigrationRestInterceptor:
         """
         return response, metadata
 
+    def pre_create_disk_migration_job(
+        self,
+        request: vmmigration.CreateDiskMigrationJobRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.CreateDiskMigrationJobRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for create_disk_migration_job
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_create_disk_migration_job(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for create_disk_migration_job
+
+        DEPRECATED. Please use the `post_create_disk_migration_job_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_create_disk_migration_job` interceptor runs
+        before the `post_create_disk_migration_job_with_metadata` interceptor.
+        """
+        return response
+
+    def post_create_disk_migration_job_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for create_disk_migration_job
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_create_disk_migration_job_with_metadata`
+        interceptor in new development instead of the `post_create_disk_migration_job` interceptor.
+        When both interceptors are used, this `post_create_disk_migration_job_with_metadata` interceptor runs after the
+        `post_create_disk_migration_job` interceptor. The (possibly modified) response returned by
+        `post_create_disk_migration_job` will be passed to
+        `post_create_disk_migration_job_with_metadata`.
+        """
+        return response, metadata
+
     def pre_create_group(
         self,
         request: vmmigration.CreateGroupRequest,
@@ -782,6 +1054,54 @@ class VmMigrationRestInterceptor:
         `post_create_group` interceptor. The (possibly modified) response returned by
         `post_create_group` will be passed to
         `post_create_group_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_create_image_import(
+        self,
+        request: vmmigration.CreateImageImportRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.CreateImageImportRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for create_image_import
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_create_image_import(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for create_image_import
+
+        DEPRECATED. Please use the `post_create_image_import_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_create_image_import` interceptor runs
+        before the `post_create_image_import_with_metadata` interceptor.
+        """
+        return response
+
+    def post_create_image_import_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for create_image_import
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_create_image_import_with_metadata`
+        interceptor in new development instead of the `post_create_image_import` interceptor.
+        When both interceptors are used, this `post_create_image_import_with_metadata` interceptor runs after the
+        `post_create_image_import` interceptor. The (possibly modified) response returned by
+        `post_create_image_import` will be passed to
+        `post_create_image_import_with_metadata`.
         """
         return response, metadata
 
@@ -1027,6 +1347,55 @@ class VmMigrationRestInterceptor:
         """
         return response, metadata
 
+    def pre_delete_disk_migration_job(
+        self,
+        request: vmmigration.DeleteDiskMigrationJobRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.DeleteDiskMigrationJobRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for delete_disk_migration_job
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_delete_disk_migration_job(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for delete_disk_migration_job
+
+        DEPRECATED. Please use the `post_delete_disk_migration_job_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_delete_disk_migration_job` interceptor runs
+        before the `post_delete_disk_migration_job_with_metadata` interceptor.
+        """
+        return response
+
+    def post_delete_disk_migration_job_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for delete_disk_migration_job
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_delete_disk_migration_job_with_metadata`
+        interceptor in new development instead of the `post_delete_disk_migration_job` interceptor.
+        When both interceptors are used, this `post_delete_disk_migration_job_with_metadata` interceptor runs after the
+        `post_delete_disk_migration_job` interceptor. The (possibly modified) response returned by
+        `post_delete_disk_migration_job` will be passed to
+        `post_delete_disk_migration_job_with_metadata`.
+        """
+        return response, metadata
+
     def pre_delete_group(
         self,
         request: vmmigration.DeleteGroupRequest,
@@ -1070,6 +1439,54 @@ class VmMigrationRestInterceptor:
         `post_delete_group` interceptor. The (possibly modified) response returned by
         `post_delete_group` will be passed to
         `post_delete_group_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_delete_image_import(
+        self,
+        request: vmmigration.DeleteImageImportRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.DeleteImageImportRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for delete_image_import
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_delete_image_import(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for delete_image_import
+
+        DEPRECATED. Please use the `post_delete_image_import_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_delete_image_import` interceptor runs
+        before the `post_delete_image_import_with_metadata` interceptor.
+        """
+        return response
+
+    def post_delete_image_import_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for delete_image_import
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_delete_image_import_with_metadata`
+        interceptor in new development instead of the `post_delete_image_import` interceptor.
+        When both interceptors are used, this `post_delete_image_import_with_metadata` interceptor runs after the
+        `post_delete_image_import` interceptor. The (possibly modified) response returned by
+        `post_delete_image_import` will be passed to
+        `post_delete_image_import_with_metadata`.
         """
         return response, metadata
 
@@ -1266,6 +1683,54 @@ class VmMigrationRestInterceptor:
         """
         return response, metadata
 
+    def pre_extend_migration(
+        self,
+        request: vmmigration.ExtendMigrationRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.ExtendMigrationRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for extend_migration
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_extend_migration(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for extend_migration
+
+        DEPRECATED. Please use the `post_extend_migration_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_extend_migration` interceptor runs
+        before the `post_extend_migration_with_metadata` interceptor.
+        """
+        return response
+
+    def post_extend_migration_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for extend_migration
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_extend_migration_with_metadata`
+        interceptor in new development instead of the `post_extend_migration` interceptor.
+        When both interceptors are used, this `post_extend_migration_with_metadata` interceptor runs after the
+        `post_extend_migration` interceptor. The (possibly modified) response returned by
+        `post_extend_migration` will be passed to
+        `post_extend_migration_with_metadata`.
+        """
+        return response, metadata
+
     def pre_fetch_inventory(
         self,
         request: vmmigration.FetchInventoryRequest,
@@ -1313,6 +1778,58 @@ class VmMigrationRestInterceptor:
         `post_fetch_inventory` interceptor. The (possibly modified) response returned by
         `post_fetch_inventory` will be passed to
         `post_fetch_inventory_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_fetch_storage_inventory(
+        self,
+        request: vmmigration.FetchStorageInventoryRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.FetchStorageInventoryRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for fetch_storage_inventory
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_fetch_storage_inventory(
+        self, response: vmmigration.FetchStorageInventoryResponse
+    ) -> vmmigration.FetchStorageInventoryResponse:
+        """Post-rpc interceptor for fetch_storage_inventory
+
+        DEPRECATED. Please use the `post_fetch_storage_inventory_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_fetch_storage_inventory` interceptor runs
+        before the `post_fetch_storage_inventory_with_metadata` interceptor.
+        """
+        return response
+
+    def post_fetch_storage_inventory_with_metadata(
+        self,
+        response: vmmigration.FetchStorageInventoryResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.FetchStorageInventoryResponse,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Post-rpc interceptor for fetch_storage_inventory
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_fetch_storage_inventory_with_metadata`
+        interceptor in new development instead of the `post_fetch_storage_inventory` interceptor.
+        When both interceptors are used, this `post_fetch_storage_inventory_with_metadata` interceptor runs after the
+        `post_fetch_storage_inventory` interceptor. The (possibly modified) response returned by
+        `post_fetch_storage_inventory` will be passed to
+        `post_fetch_storage_inventory_with_metadata`.
         """
         return response, metadata
 
@@ -1509,6 +2026,54 @@ class VmMigrationRestInterceptor:
         """
         return response, metadata
 
+    def pre_get_disk_migration_job(
+        self,
+        request: vmmigration.GetDiskMigrationJobRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.GetDiskMigrationJobRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for get_disk_migration_job
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_get_disk_migration_job(
+        self, response: vmmigration.DiskMigrationJob
+    ) -> vmmigration.DiskMigrationJob:
+        """Post-rpc interceptor for get_disk_migration_job
+
+        DEPRECATED. Please use the `post_get_disk_migration_job_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_get_disk_migration_job` interceptor runs
+        before the `post_get_disk_migration_job_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_disk_migration_job_with_metadata(
+        self,
+        response: vmmigration.DiskMigrationJob,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[vmmigration.DiskMigrationJob, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for get_disk_migration_job
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_get_disk_migration_job_with_metadata`
+        interceptor in new development instead of the `post_get_disk_migration_job` interceptor.
+        When both interceptors are used, this `post_get_disk_migration_job_with_metadata` interceptor runs after the
+        `post_get_disk_migration_job` interceptor. The (possibly modified) response returned by
+        `post_get_disk_migration_job` will be passed to
+        `post_get_disk_migration_job_with_metadata`.
+        """
+        return response, metadata
+
     def pre_get_group(
         self,
         request: vmmigration.GetGroupRequest,
@@ -1550,6 +2115,102 @@ class VmMigrationRestInterceptor:
         `post_get_group` interceptor. The (possibly modified) response returned by
         `post_get_group` will be passed to
         `post_get_group_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_get_image_import(
+        self,
+        request: vmmigration.GetImageImportRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.GetImageImportRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for get_image_import
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_get_image_import(
+        self, response: vmmigration.ImageImport
+    ) -> vmmigration.ImageImport:
+        """Post-rpc interceptor for get_image_import
+
+        DEPRECATED. Please use the `post_get_image_import_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_get_image_import` interceptor runs
+        before the `post_get_image_import_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_image_import_with_metadata(
+        self,
+        response: vmmigration.ImageImport,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[vmmigration.ImageImport, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for get_image_import
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_get_image_import_with_metadata`
+        interceptor in new development instead of the `post_get_image_import` interceptor.
+        When both interceptors are used, this `post_get_image_import_with_metadata` interceptor runs after the
+        `post_get_image_import` interceptor. The (possibly modified) response returned by
+        `post_get_image_import` will be passed to
+        `post_get_image_import_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_get_image_import_job(
+        self,
+        request: vmmigration.GetImageImportJobRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.GetImageImportJobRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for get_image_import_job
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_get_image_import_job(
+        self, response: vmmigration.ImageImportJob
+    ) -> vmmigration.ImageImportJob:
+        """Post-rpc interceptor for get_image_import_job
+
+        DEPRECATED. Please use the `post_get_image_import_job_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_get_image_import_job` interceptor runs
+        before the `post_get_image_import_job_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_image_import_job_with_metadata(
+        self,
+        response: vmmigration.ImageImportJob,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[vmmigration.ImageImportJob, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for get_image_import_job
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_get_image_import_job_with_metadata`
+        interceptor in new development instead of the `post_get_image_import_job` interceptor.
+        When both interceptors are used, this `post_get_image_import_job_with_metadata` interceptor runs after the
+        `post_get_image_import_job` interceptor. The (possibly modified) response returned by
+        `post_get_image_import_job` will be passed to
+        `post_get_image_import_job_with_metadata`.
         """
         return response, metadata
 
@@ -1941,6 +2602,58 @@ class VmMigrationRestInterceptor:
         """
         return response, metadata
 
+    def pre_list_disk_migration_jobs(
+        self,
+        request: vmmigration.ListDiskMigrationJobsRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.ListDiskMigrationJobsRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for list_disk_migration_jobs
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_list_disk_migration_jobs(
+        self, response: vmmigration.ListDiskMigrationJobsResponse
+    ) -> vmmigration.ListDiskMigrationJobsResponse:
+        """Post-rpc interceptor for list_disk_migration_jobs
+
+        DEPRECATED. Please use the `post_list_disk_migration_jobs_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_list_disk_migration_jobs` interceptor runs
+        before the `post_list_disk_migration_jobs_with_metadata` interceptor.
+        """
+        return response
+
+    def post_list_disk_migration_jobs_with_metadata(
+        self,
+        response: vmmigration.ListDiskMigrationJobsResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.ListDiskMigrationJobsResponse,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Post-rpc interceptor for list_disk_migration_jobs
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_list_disk_migration_jobs_with_metadata`
+        interceptor in new development instead of the `post_list_disk_migration_jobs` interceptor.
+        When both interceptors are used, this `post_list_disk_migration_jobs_with_metadata` interceptor runs after the
+        `post_list_disk_migration_jobs` interceptor. The (possibly modified) response returned by
+        `post_list_disk_migration_jobs` will be passed to
+        `post_list_disk_migration_jobs_with_metadata`.
+        """
+        return response, metadata
+
     def pre_list_groups(
         self,
         request: vmmigration.ListGroupsRequest,
@@ -1984,6 +2697,106 @@ class VmMigrationRestInterceptor:
         `post_list_groups` interceptor. The (possibly modified) response returned by
         `post_list_groups` will be passed to
         `post_list_groups_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_list_image_import_jobs(
+        self,
+        request: vmmigration.ListImageImportJobsRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.ListImageImportJobsRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for list_image_import_jobs
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_list_image_import_jobs(
+        self, response: vmmigration.ListImageImportJobsResponse
+    ) -> vmmigration.ListImageImportJobsResponse:
+        """Post-rpc interceptor for list_image_import_jobs
+
+        DEPRECATED. Please use the `post_list_image_import_jobs_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_list_image_import_jobs` interceptor runs
+        before the `post_list_image_import_jobs_with_metadata` interceptor.
+        """
+        return response
+
+    def post_list_image_import_jobs_with_metadata(
+        self,
+        response: vmmigration.ListImageImportJobsResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.ListImageImportJobsResponse, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Post-rpc interceptor for list_image_import_jobs
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_list_image_import_jobs_with_metadata`
+        interceptor in new development instead of the `post_list_image_import_jobs` interceptor.
+        When both interceptors are used, this `post_list_image_import_jobs_with_metadata` interceptor runs after the
+        `post_list_image_import_jobs` interceptor. The (possibly modified) response returned by
+        `post_list_image_import_jobs` will be passed to
+        `post_list_image_import_jobs_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_list_image_imports(
+        self,
+        request: vmmigration.ListImageImportsRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.ListImageImportsRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for list_image_imports
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_list_image_imports(
+        self, response: vmmigration.ListImageImportsResponse
+    ) -> vmmigration.ListImageImportsResponse:
+        """Post-rpc interceptor for list_image_imports
+
+        DEPRECATED. Please use the `post_list_image_imports_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_list_image_imports` interceptor runs
+        before the `post_list_image_imports_with_metadata` interceptor.
+        """
+        return response
+
+    def post_list_image_imports_with_metadata(
+        self,
+        response: vmmigration.ListImageImportsResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.ListImageImportsResponse, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Post-rpc interceptor for list_image_imports
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_list_image_imports_with_metadata`
+        interceptor in new development instead of the `post_list_image_imports` interceptor.
+        When both interceptors are used, this `post_list_image_imports_with_metadata` interceptor runs after the
+        `post_list_image_imports` interceptor. The (possibly modified) response returned by
+        `post_list_image_imports` will be passed to
+        `post_list_image_imports_with_metadata`.
         """
         return response, metadata
 
@@ -2383,6 +3196,54 @@ class VmMigrationRestInterceptor:
         """
         return response, metadata
 
+    def pre_run_disk_migration_job(
+        self,
+        request: vmmigration.RunDiskMigrationJobRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.RunDiskMigrationJobRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for run_disk_migration_job
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_run_disk_migration_job(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for run_disk_migration_job
+
+        DEPRECATED. Please use the `post_run_disk_migration_job_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_run_disk_migration_job` interceptor runs
+        before the `post_run_disk_migration_job_with_metadata` interceptor.
+        """
+        return response
+
+    def post_run_disk_migration_job_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for run_disk_migration_job
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_run_disk_migration_job_with_metadata`
+        interceptor in new development instead of the `post_run_disk_migration_job` interceptor.
+        When both interceptors are used, this `post_run_disk_migration_job_with_metadata` interceptor runs after the
+        `post_run_disk_migration_job` interceptor. The (possibly modified) response returned by
+        `post_run_disk_migration_job` will be passed to
+        `post_run_disk_migration_job_with_metadata`.
+        """
+        return response, metadata
+
     def pre_start_migration(
         self,
         request: vmmigration.StartMigrationRequest,
@@ -2428,6 +3289,55 @@ class VmMigrationRestInterceptor:
         `post_start_migration` interceptor. The (possibly modified) response returned by
         `post_start_migration` will be passed to
         `post_start_migration_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_update_disk_migration_job(
+        self,
+        request: vmmigration.UpdateDiskMigrationJobRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        vmmigration.UpdateDiskMigrationJobRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for update_disk_migration_job
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the VmMigration server.
+        """
+        return request, metadata
+
+    def post_update_disk_migration_job(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for update_disk_migration_job
+
+        DEPRECATED. Please use the `post_update_disk_migration_job_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the VmMigration server but before
+        it is returned to user code. This `post_update_disk_migration_job` interceptor runs
+        before the `post_update_disk_migration_job_with_metadata` interceptor.
+        """
+        return response
+
+    def post_update_disk_migration_job_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for update_disk_migration_job
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the VmMigration server but before it is returned to user code.
+
+        We recommend only using this `post_update_disk_migration_job_with_metadata`
+        interceptor in new development instead of the `post_update_disk_migration_job` interceptor.
+        When both interceptors are used, this `post_update_disk_migration_job_with_metadata` interceptor runs after the
+        `post_update_disk_migration_job` interceptor. The (possibly modified) response returned by
+        `post_update_disk_migration_job` will be passed to
+        `post_update_disk_migration_job_with_metadata`.
         """
         return response, metadata
 
@@ -2861,9 +3771,10 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -2881,6 +3792,12 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[VmMigrationRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -3043,7 +3960,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3197,7 +4114,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3351,7 +4268,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3412,6 +4329,310 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                     extra={
                         "serviceName": "google.cloud.vmmigration.v1.VmMigration",
                         "rpcName": "CancelCutoverJob",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _CancelDiskMigrationJob(
+        _BaseVmMigrationRestTransport._BaseCancelDiskMigrationJob, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.CancelDiskMigrationJob")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.CancelDiskMigrationJobRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the cancel disk migration job method over HTTP.
+
+            Args:
+                request (~.vmmigration.CancelDiskMigrationJobRequest):
+                    The request object. Request message for
+                'CancelDiskMigrationJob' request.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseVmMigrationRestTransport._BaseCancelDiskMigrationJob._get_http_options()
+
+            request, metadata = self._interceptor.pre_cancel_disk_migration_job(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseCancelDiskMigrationJob._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseVmMigrationRestTransport._BaseCancelDiskMigrationJob._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseCancelDiskMigrationJob._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.CancelDiskMigrationJob",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "CancelDiskMigrationJob",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._CancelDiskMigrationJob._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_cancel_disk_migration_job(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_cancel_disk_migration_job_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.cancel_disk_migration_job",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "CancelDiskMigrationJob",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _CancelImageImportJob(
+        _BaseVmMigrationRestTransport._BaseCancelImageImportJob, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.CancelImageImportJob")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.CancelImageImportJobRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the cancel image import job method over HTTP.
+
+            Args:
+                request (~.vmmigration.CancelImageImportJobRequest):
+                    The request object. Request message for
+                'CancelImageImportJob' request.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseVmMigrationRestTransport._BaseCancelImageImportJob._get_http_options()
+
+            request, metadata = self._interceptor.pre_cancel_image_import_job(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseCancelImageImportJob._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseVmMigrationRestTransport._BaseCancelImageImportJob._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseCancelImageImportJob._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.CancelImageImportJob",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "CancelImageImportJob",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._CancelImageImportJob._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_cancel_image_import_job(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_cancel_image_import_job_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.cancel_image_import_job",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "CancelImageImportJob",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -3505,7 +4726,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3659,7 +4880,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3787,9 +5008,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseCreateDatacenterConnector._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseCreateDatacenterConnector._get_http_options()
 
             request, metadata = self._interceptor.pre_create_datacenter_connector(
                 request, metadata
@@ -3815,7 +5034,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3878,6 +5097,158 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                     extra={
                         "serviceName": "google.cloud.vmmigration.v1.VmMigration",
                         "rpcName": "CreateDatacenterConnector",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _CreateDiskMigrationJob(
+        _BaseVmMigrationRestTransport._BaseCreateDiskMigrationJob, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.CreateDiskMigrationJob")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.CreateDiskMigrationJobRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the create disk migration job method over HTTP.
+
+            Args:
+                request (~.vmmigration.CreateDiskMigrationJobRequest):
+                    The request object. Request message for
+                'CreateDiskMigrationJob' request.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseVmMigrationRestTransport._BaseCreateDiskMigrationJob._get_http_options()
+
+            request, metadata = self._interceptor.pre_create_disk_migration_job(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseCreateDiskMigrationJob._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseVmMigrationRestTransport._BaseCreateDiskMigrationJob._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseCreateDiskMigrationJob._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.CreateDiskMigrationJob",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "CreateDiskMigrationJob",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._CreateDiskMigrationJob._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_create_disk_migration_job(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_create_disk_migration_job_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.create_disk_migration_job",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "CreateDiskMigrationJob",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -3975,7 +5346,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4036,6 +5407,160 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                     extra={
                         "serviceName": "google.cloud.vmmigration.v1.VmMigration",
                         "rpcName": "CreateGroup",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _CreateImageImport(
+        _BaseVmMigrationRestTransport._BaseCreateImageImport, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.CreateImageImport")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.CreateImageImportRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the create image import method over HTTP.
+
+            Args:
+                request (~.vmmigration.CreateImageImportRequest):
+                    The request object. Request message for
+                'CreateImageImport' request.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = (
+                _BaseVmMigrationRestTransport._BaseCreateImageImport._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_create_image_import(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseCreateImageImport._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseVmMigrationRestTransport._BaseCreateImageImport._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseCreateImageImport._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.CreateImageImport",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "CreateImageImport",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._CreateImageImport._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_create_image_import(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_create_image_import_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.create_image_import",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "CreateImageImport",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -4129,7 +5654,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4287,7 +5812,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4413,9 +5938,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseCreateTargetProject._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseCreateTargetProject._get_http_options()
 
             request, metadata = self._interceptor.pre_create_target_project(
                 request, metadata
@@ -4441,7 +5964,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4567,9 +6090,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseCreateUtilizationReport._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseCreateUtilizationReport._get_http_options()
 
             request, metadata = self._interceptor.pre_create_utilization_report(
                 request, metadata
@@ -4595,7 +6116,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4722,9 +6243,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseDeleteDatacenterConnector._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseDeleteDatacenterConnector._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_datacenter_connector(
                 request, metadata
@@ -4746,7 +6265,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4808,6 +6327,152 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                     extra={
                         "serviceName": "google.cloud.vmmigration.v1.VmMigration",
                         "rpcName": "DeleteDatacenterConnector",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _DeleteDiskMigrationJob(
+        _BaseVmMigrationRestTransport._BaseDeleteDiskMigrationJob, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.DeleteDiskMigrationJob")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.DeleteDiskMigrationJobRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the delete disk migration job method over HTTP.
+
+            Args:
+                request (~.vmmigration.DeleteDiskMigrationJobRequest):
+                    The request object. Request message for
+                'DeleteDiskMigrationJob' request.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseVmMigrationRestTransport._BaseDeleteDiskMigrationJob._get_http_options()
+
+            request, metadata = self._interceptor.pre_delete_disk_migration_job(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseDeleteDiskMigrationJob._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseDeleteDiskMigrationJob._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.DeleteDiskMigrationJob",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "DeleteDiskMigrationJob",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._DeleteDiskMigrationJob._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_delete_disk_migration_job(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_delete_disk_migration_job_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.delete_disk_migration_job",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "DeleteDiskMigrationJob",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -4898,7 +6563,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4958,6 +6623,154 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                     extra={
                         "serviceName": "google.cloud.vmmigration.v1.VmMigration",
                         "rpcName": "DeleteGroup",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _DeleteImageImport(
+        _BaseVmMigrationRestTransport._BaseDeleteImageImport, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.DeleteImageImport")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.DeleteImageImportRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the delete image import method over HTTP.
+
+            Args:
+                request (~.vmmigration.DeleteImageImportRequest):
+                    The request object. Request message for
+                'DeleteImageImport' request.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = (
+                _BaseVmMigrationRestTransport._BaseDeleteImageImport._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_delete_image_import(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseDeleteImageImport._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseDeleteImageImport._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.DeleteImageImport",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "DeleteImageImport",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._DeleteImageImport._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_delete_image_import(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_delete_image_import_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.delete_image_import",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "DeleteImageImport",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -5046,7 +6859,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5196,7 +7009,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5320,9 +7133,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseDeleteTargetProject._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseDeleteTargetProject._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_target_project(
                 request, metadata
@@ -5344,7 +7155,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5468,9 +7279,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseDeleteUtilizationReport._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseDeleteUtilizationReport._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_utilization_report(
                 request, metadata
@@ -5492,7 +7301,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5552,6 +7361,160 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                     extra={
                         "serviceName": "google.cloud.vmmigration.v1.VmMigration",
                         "rpcName": "DeleteUtilizationReport",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _ExtendMigration(
+        _BaseVmMigrationRestTransport._BaseExtendMigration, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.ExtendMigration")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.ExtendMigrationRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the extend migration method over HTTP.
+
+            Args:
+                request (~.vmmigration.ExtendMigrationRequest):
+                    The request object. Request message for
+                'ExtendMigrationRequest' request.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = (
+                _BaseVmMigrationRestTransport._BaseExtendMigration._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_extend_migration(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseExtendMigration._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseVmMigrationRestTransport._BaseExtendMigration._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseExtendMigration._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.ExtendMigration",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "ExtendMigration",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._ExtendMigration._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_extend_migration(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_extend_migration_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.extend_migration",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "ExtendMigration",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -5707,6 +7670,155 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
             return resp
 
+    class _FetchStorageInventory(
+        _BaseVmMigrationRestTransport._BaseFetchStorageInventory, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.FetchStorageInventory")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.FetchStorageInventoryRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> vmmigration.FetchStorageInventoryResponse:
+            r"""Call the fetch storage inventory method over HTTP.
+
+            Args:
+                request (~.vmmigration.FetchStorageInventoryRequest):
+                    The request object. Request message for
+                [fetchStorageInventory][google.cloud.vmmigration.v1.VmMigration.FetchStorageInventory].
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.vmmigration.FetchStorageInventoryResponse:
+                    Response message for
+                [fetchStorageInventory][google.cloud.vmmigration.v1.VmMigration.FetchStorageInventory].
+
+            """
+
+            http_options = _BaseVmMigrationRestTransport._BaseFetchStorageInventory._get_http_options()
+
+            request, metadata = self._interceptor.pre_fetch_storage_inventory(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseFetchStorageInventory._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseFetchStorageInventory._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.FetchStorageInventory",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "FetchStorageInventory",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._FetchStorageInventory._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = vmmigration.FetchStorageInventoryResponse()
+            pb_resp = vmmigration.FetchStorageInventoryResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_fetch_storage_inventory(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_fetch_storage_inventory_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = (
+                        vmmigration.FetchStorageInventoryResponse.to_json(response)
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.fetch_storage_inventory",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "FetchStorageInventory",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     class _FinalizeMigration(
         _BaseVmMigrationRestTransport._BaseFinalizeMigration, VmMigrationRestStub
     ):
@@ -5794,7 +7906,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -6079,7 +8191,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 cutover of a migrating VM. The
                 CutoverJob is the operation of shutting
                 down the VM, creating a snapshot and
-                clonning the VM using the replicated
+                cloning the VM using the replicated
                 snapshot.
 
             """
@@ -6238,9 +8350,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseGetDatacenterConnector._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseGetDatacenterConnector._get_http_options()
 
             request, metadata = self._interceptor.pre_get_datacenter_connector(
                 request, metadata
@@ -6324,6 +8434,154 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                     extra={
                         "serviceName": "google.cloud.vmmigration.v1.VmMigration",
                         "rpcName": "GetDatacenterConnector",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _GetDiskMigrationJob(
+        _BaseVmMigrationRestTransport._BaseGetDiskMigrationJob, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.GetDiskMigrationJob")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.GetDiskMigrationJobRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> vmmigration.DiskMigrationJob:
+            r"""Call the get disk migration job method over HTTP.
+
+            Args:
+                request (~.vmmigration.GetDiskMigrationJobRequest):
+                    The request object. Request message for
+                'GetDiskMigrationJob' request.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.vmmigration.DiskMigrationJob:
+                    Describes the disk which will be
+                migrated from the source environment.
+                The source disk has to be unattached.
+
+            """
+
+            http_options = _BaseVmMigrationRestTransport._BaseGetDiskMigrationJob._get_http_options()
+
+            request, metadata = self._interceptor.pre_get_disk_migration_job(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseGetDiskMigrationJob._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseGetDiskMigrationJob._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.GetDiskMigrationJob",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "GetDiskMigrationJob",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._GetDiskMigrationJob._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = vmmigration.DiskMigrationJob()
+            pb_resp = vmmigration.DiskMigrationJob.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_disk_migration_job(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_get_disk_migration_job_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = vmmigration.DiskMigrationJob.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.get_disk_migration_job",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "GetDiskMigrationJob",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -6474,6 +8732,305 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                     extra={
                         "serviceName": "google.cloud.vmmigration.v1.VmMigration",
                         "rpcName": "GetGroup",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _GetImageImport(
+        _BaseVmMigrationRestTransport._BaseGetImageImport, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.GetImageImport")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.GetImageImportRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> vmmigration.ImageImport:
+            r"""Call the get image import method over HTTP.
+
+            Args:
+                request (~.vmmigration.GetImageImportRequest):
+                    The request object. Request message for 'GetImageImport'
+                call.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.vmmigration.ImageImport:
+                    ImageImport describes the
+                configuration of the image import to
+                run.
+
+            """
+
+            http_options = (
+                _BaseVmMigrationRestTransport._BaseGetImageImport._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_get_image_import(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseGetImageImport._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseGetImageImport._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.GetImageImport",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "GetImageImport",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._GetImageImport._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = vmmigration.ImageImport()
+            pb_resp = vmmigration.ImageImport.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_image_import(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_get_image_import_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = vmmigration.ImageImport.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.get_image_import",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "GetImageImport",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _GetImageImportJob(
+        _BaseVmMigrationRestTransport._BaseGetImageImportJob, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.GetImageImportJob")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.GetImageImportJobRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> vmmigration.ImageImportJob:
+            r"""Call the get image import job method over HTTP.
+
+            Args:
+                request (~.vmmigration.GetImageImportJobRequest):
+                    The request object. Request message for
+                'GetImageImportJob' call.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.vmmigration.ImageImportJob:
+                    ImageImportJob describes the progress
+                and result of an image import.
+
+            """
+
+            http_options = (
+                _BaseVmMigrationRestTransport._BaseGetImageImportJob._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_get_image_import_job(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseGetImageImportJob._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseGetImageImportJob._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.GetImageImportJob",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "GetImageImportJob",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._GetImageImportJob._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = vmmigration.ImageImportJob()
+            pb_resp = vmmigration.ImageImportJob.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_image_import_job(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_get_image_import_job_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = vmmigration.ImageImportJob.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.get_image_import_job",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "GetImageImportJob",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -6688,9 +9245,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseGetReplicationCycle._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseGetReplicationCycle._get_http_options()
 
             request, metadata = self._interceptor.pre_get_replication_cycle(
                 request, metadata
@@ -7139,9 +9694,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseGetUtilizationReport._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseGetUtilizationReport._get_http_options()
 
             request, metadata = self._interceptor.pre_get_utilization_report(
                 request, metadata
@@ -7591,9 +10144,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseListDatacenterConnectors._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseListDatacenterConnectors._get_http_options()
 
             request, metadata = self._interceptor.pre_list_datacenter_connectors(
                 request, metadata
@@ -7679,6 +10230,155 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                     extra={
                         "serviceName": "google.cloud.vmmigration.v1.VmMigration",
                         "rpcName": "ListDatacenterConnectors",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _ListDiskMigrationJobs(
+        _BaseVmMigrationRestTransport._BaseListDiskMigrationJobs, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.ListDiskMigrationJobs")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.ListDiskMigrationJobsRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> vmmigration.ListDiskMigrationJobsResponse:
+            r"""Call the list disk migration jobs method over HTTP.
+
+            Args:
+                request (~.vmmigration.ListDiskMigrationJobsRequest):
+                    The request object. Request message for
+                'ListDiskMigrationJobsRequest' request.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.vmmigration.ListDiskMigrationJobsResponse:
+                    Response message for
+                'ListDiskMigrationJobs' request.
+
+            """
+
+            http_options = _BaseVmMigrationRestTransport._BaseListDiskMigrationJobs._get_http_options()
+
+            request, metadata = self._interceptor.pre_list_disk_migration_jobs(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseListDiskMigrationJobs._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseListDiskMigrationJobs._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.ListDiskMigrationJobs",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "ListDiskMigrationJobs",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._ListDiskMigrationJobs._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = vmmigration.ListDiskMigrationJobsResponse()
+            pb_resp = vmmigration.ListDiskMigrationJobsResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_list_disk_migration_jobs(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_list_disk_migration_jobs_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = (
+                        vmmigration.ListDiskMigrationJobsResponse.to_json(response)
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.list_disk_migration_jobs",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "ListDiskMigrationJobs",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -7830,6 +10530,306 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                     extra={
                         "serviceName": "google.cloud.vmmigration.v1.VmMigration",
                         "rpcName": "ListGroups",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _ListImageImportJobs(
+        _BaseVmMigrationRestTransport._BaseListImageImportJobs, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.ListImageImportJobs")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.ListImageImportJobsRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> vmmigration.ListImageImportJobsResponse:
+            r"""Call the list image import jobs method over HTTP.
+
+            Args:
+                request (~.vmmigration.ListImageImportJobsRequest):
+                    The request object. Request message for
+                'ListImageImportJobs' call.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.vmmigration.ListImageImportJobsResponse:
+                    Response message for
+                'ListImageImportJobs' call.
+
+            """
+
+            http_options = _BaseVmMigrationRestTransport._BaseListImageImportJobs._get_http_options()
+
+            request, metadata = self._interceptor.pre_list_image_import_jobs(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseListImageImportJobs._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseListImageImportJobs._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.ListImageImportJobs",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "ListImageImportJobs",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._ListImageImportJobs._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = vmmigration.ListImageImportJobsResponse()
+            pb_resp = vmmigration.ListImageImportJobsResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_list_image_import_jobs(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_list_image_import_jobs_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = vmmigration.ListImageImportJobsResponse.to_json(
+                        response
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.list_image_import_jobs",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "ListImageImportJobs",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _ListImageImports(
+        _BaseVmMigrationRestTransport._BaseListImageImports, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.ListImageImports")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.ListImageImportsRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> vmmigration.ListImageImportsResponse:
+            r"""Call the list image imports method over HTTP.
+
+            Args:
+                request (~.vmmigration.ListImageImportsRequest):
+                    The request object. Request message for
+                'ListImageImports' call.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.vmmigration.ListImageImportsResponse:
+                    Response message for
+                'ListImageImports' call.
+
+            """
+
+            http_options = (
+                _BaseVmMigrationRestTransport._BaseListImageImports._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_list_image_imports(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseListImageImports._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseListImageImports._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.ListImageImports",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "ListImageImports",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._ListImageImports._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = vmmigration.ListImageImportsResponse()
+            pb_resp = vmmigration.ListImageImportsResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_list_image_imports(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_list_image_imports_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = vmmigration.ListImageImportsResponse.to_json(
+                        response
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.list_image_imports",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "ListImageImports",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -8044,9 +11044,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseListReplicationCycles._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseListReplicationCycles._get_http_options()
 
             request, metadata = self._interceptor.pre_list_replication_cycles(
                 request, metadata
@@ -8346,9 +11344,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseListTargetProjects._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseListTargetProjects._get_http_options()
 
             request, metadata = self._interceptor.pre_list_target_projects(
                 request, metadata
@@ -8497,9 +11493,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseListUtilizationReports._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseListUtilizationReports._get_http_options()
 
             request, metadata = self._interceptor.pre_list_utilization_reports(
                 request, metadata
@@ -8676,7 +11670,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8802,9 +11796,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseRemoveGroupMigration._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseRemoveGroupMigration._get_http_options()
 
             request, metadata = self._interceptor.pre_remove_group_migration(
                 request, metadata
@@ -8830,7 +11822,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8984,7 +11976,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -9045,6 +12037,158 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                     extra={
                         "serviceName": "google.cloud.vmmigration.v1.VmMigration",
                         "rpcName": "ResumeMigration",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _RunDiskMigrationJob(
+        _BaseVmMigrationRestTransport._BaseRunDiskMigrationJob, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.RunDiskMigrationJob")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.RunDiskMigrationJobRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the run disk migration job method over HTTP.
+
+            Args:
+                request (~.vmmigration.RunDiskMigrationJobRequest):
+                    The request object. Request message for
+                'RunDiskMigrationJobRequest' request.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseVmMigrationRestTransport._BaseRunDiskMigrationJob._get_http_options()
+
+            request, metadata = self._interceptor.pre_run_disk_migration_job(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseRunDiskMigrationJob._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseVmMigrationRestTransport._BaseRunDiskMigrationJob._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseRunDiskMigrationJob._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.RunDiskMigrationJob",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "RunDiskMigrationJob",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._RunDiskMigrationJob._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_run_disk_migration_job(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_run_disk_migration_job_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.run_disk_migration_job",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "RunDiskMigrationJob",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -9136,7 +12280,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -9197,6 +12341,158 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                     extra={
                         "serviceName": "google.cloud.vmmigration.v1.VmMigration",
                         "rpcName": "StartMigration",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _UpdateDiskMigrationJob(
+        _BaseVmMigrationRestTransport._BaseUpdateDiskMigrationJob, VmMigrationRestStub
+    ):
+        def __hash__(self):
+            return hash("VmMigrationRestTransport.UpdateDiskMigrationJob")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: vmmigration.UpdateDiskMigrationJobRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the update disk migration job method over HTTP.
+
+            Args:
+                request (~.vmmigration.UpdateDiskMigrationJobRequest):
+                    The request object. Request message for
+                'UpdateDiskMigrationJob' request.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseVmMigrationRestTransport._BaseUpdateDiskMigrationJob._get_http_options()
+
+            request, metadata = self._interceptor.pre_update_disk_migration_job(
+                request, metadata
+            )
+            transcoded_request = _BaseVmMigrationRestTransport._BaseUpdateDiskMigrationJob._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseVmMigrationRestTransport._BaseUpdateDiskMigrationJob._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseVmMigrationRestTransport._BaseUpdateDiskMigrationJob._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.vmmigration_v1.VmMigrationClient.UpdateDiskMigrationJob",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "UpdateDiskMigrationJob",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = VmMigrationRestTransport._UpdateDiskMigrationJob._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_update_disk_migration_job(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_update_disk_migration_job_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.vmmigration_v1.VmMigrationClient.update_disk_migration_job",
+                    extra={
+                        "serviceName": "google.cloud.vmmigration.v1.VmMigration",
+                        "rpcName": "UpdateDiskMigrationJob",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -9294,7 +12590,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -9448,7 +12744,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -9606,7 +12902,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -9732,9 +13028,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
 
             """
 
-            http_options = (
-                _BaseVmMigrationRestTransport._BaseUpdateTargetProject._get_http_options()
-            )
+            http_options = _BaseVmMigrationRestTransport._BaseUpdateTargetProject._get_http_options()
 
             request, metadata = self._interceptor.pre_update_target_project(
                 request, metadata
@@ -9760,7 +13054,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -9914,7 +13208,7 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -10006,6 +13300,26 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
         return self._CancelCutoverJob(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def cancel_disk_migration_job(
+        self,
+    ) -> Callable[
+        [vmmigration.CancelDiskMigrationJobRequest], operations_pb2.Operation
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._CancelDiskMigrationJob(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
+
+    @property
+    def cancel_image_import_job(
+        self,
+    ) -> Callable[[vmmigration.CancelImageImportJobRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._CancelImageImportJob(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
     def create_clone_job(
         self,
     ) -> Callable[[vmmigration.CreateCloneJobRequest], operations_pb2.Operation]:
@@ -10029,7 +13343,21 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateDatacenterConnector(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateDatacenterConnector(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
+
+    @property
+    def create_disk_migration_job(
+        self,
+    ) -> Callable[
+        [vmmigration.CreateDiskMigrationJobRequest], operations_pb2.Operation
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._CreateDiskMigrationJob(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_group(
@@ -10038,6 +13366,14 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._CreateGroup(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def create_image_import(
+        self,
+    ) -> Callable[[vmmigration.CreateImageImportRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._CreateImageImport(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def create_migrating_vm(
@@ -10071,7 +13407,9 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateUtilizationReport(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateUtilizationReport(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_datacenter_connector(
@@ -10081,7 +13419,21 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteDatacenterConnector(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteDatacenterConnector(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
+
+    @property
+    def delete_disk_migration_job(
+        self,
+    ) -> Callable[
+        [vmmigration.DeleteDiskMigrationJobRequest], operations_pb2.Operation
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._DeleteDiskMigrationJob(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_group(
@@ -10090,6 +13442,14 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._DeleteGroup(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def delete_image_import(
+        self,
+    ) -> Callable[[vmmigration.DeleteImageImportRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._DeleteImageImport(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def delete_migrating_vm(
@@ -10123,7 +13483,17 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteUtilizationReport(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteUtilizationReport(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
+
+    @property
+    def extend_migration(
+        self,
+    ) -> Callable[[vmmigration.ExtendMigrationRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ExtendMigration(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def fetch_inventory(
@@ -10134,6 +13504,17 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._FetchInventory(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def fetch_storage_inventory(
+        self,
+    ) -> Callable[
+        [vmmigration.FetchStorageInventoryRequest],
+        vmmigration.FetchStorageInventoryResponse,
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._FetchStorageInventory(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def finalize_migration(
@@ -10167,13 +13548,41 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetDatacenterConnector(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetDatacenterConnector(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
+
+    @property
+    def get_disk_migration_job(
+        self,
+    ) -> Callable[
+        [vmmigration.GetDiskMigrationJobRequest], vmmigration.DiskMigrationJob
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetDiskMigrationJob(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def get_group(self) -> Callable[[vmmigration.GetGroupRequest], vmmigration.Group]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._GetGroup(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def get_image_import(
+        self,
+    ) -> Callable[[vmmigration.GetImageImportRequest], vmmigration.ImageImport]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetImageImport(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def get_image_import_job(
+        self,
+    ) -> Callable[[vmmigration.GetImageImportJobRequest], vmmigration.ImageImportJob]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetImageImportJob(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def get_migrating_vm(
@@ -10248,7 +13657,20 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListDatacenterConnectors(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListDatacenterConnectors(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
+
+    @property
+    def list_disk_migration_jobs(
+        self,
+    ) -> Callable[
+        [vmmigration.ListDiskMigrationJobsRequest],
+        vmmigration.ListDiskMigrationJobsResponse,
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ListDiskMigrationJobs(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def list_groups(
@@ -10257,6 +13679,27 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._ListGroups(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def list_image_import_jobs(
+        self,
+    ) -> Callable[
+        [vmmigration.ListImageImportJobsRequest],
+        vmmigration.ListImageImportJobsResponse,
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ListImageImportJobs(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def list_image_imports(
+        self,
+    ) -> Callable[
+        [vmmigration.ListImageImportsRequest], vmmigration.ListImageImportsResponse
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ListImageImports(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def list_migrating_vms(
@@ -10306,7 +13749,9 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListUtilizationReports(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListUtilizationReports(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def pause_migration(
@@ -10333,12 +13778,32 @@ class VmMigrationRestTransport(_BaseVmMigrationRestTransport):
         return self._ResumeMigration(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def run_disk_migration_job(
+        self,
+    ) -> Callable[[vmmigration.RunDiskMigrationJobRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._RunDiskMigrationJob(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
     def start_migration(
         self,
     ) -> Callable[[vmmigration.StartMigrationRequest], operations_pb2.Operation]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._StartMigration(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def update_disk_migration_job(
+        self,
+    ) -> Callable[
+        [vmmigration.UpdateDiskMigrationJobRequest], operations_pb2.Operation
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._UpdateDiskMigrationJob(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_group(

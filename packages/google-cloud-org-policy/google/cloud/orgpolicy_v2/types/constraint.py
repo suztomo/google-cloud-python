@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -60,9 +60,9 @@ class Constraint(proto.Message):
             Immutable. The resource name of the constraint. Must be in
             one of the following forms:
 
-            -  ``projects/{project_number}/constraints/{constraint_name}``
-            -  ``folders/{folder_id}/constraints/{constraint_name}``
-            -  ``organizations/{organization_id}/constraints/{constraint_name}``
+            - ``projects/{project_number}/constraints/{constraint_name}``
+            - ``folders/{folder_id}/constraints/{constraint_name}``
+            - ``organizations/{organization_id}/constraints/{constraint_name}``
 
             For example,
             "/projects/123/constraints/compute.disableSerialPortAccess".
@@ -121,6 +121,7 @@ class Constraint(proto.Message):
                 constraints. Indicate that enforcement is on for
                 boolean constraints.
         """
+
         CONSTRAINT_DEFAULT_UNSPECIFIED = 0
         ALLOW = 1
         DENY = 2
@@ -163,7 +164,7 @@ class Constraint(proto.Message):
                 Format will be of the form : ``<service name>/<type>``
                 Example:
 
-                -  ``compute.googleapis.com/Instance``.
+                - ``compute.googleapis.com/Instance``.
             method_types (MutableSequence[google.cloud.orgpolicy_v2.types.Constraint.CustomConstraintDefinition.MethodType]):
                 All the operations being applied for this
                 constraint.
@@ -213,6 +214,7 @@ class Constraint(proto.Message):
                     Constraint applied when enforcing forced
                     tagging.
             """
+
             METHOD_TYPE_UNSPECIFIED = 0
             CREATE = 1
             UPDATE = 2
@@ -233,6 +235,7 @@ class Constraint(proto.Message):
                 DENY (2):
                     Deny action type.
             """
+
             ACTION_TYPE_UNSPECIFIED = 0
             ALLOW = 1
             DENY = 2
@@ -275,6 +278,7 @@ class Constraint(proto.Message):
                     BOOLEAN (3):
                         Boolean parameter type.
                 """
+
                 TYPE_UNSPECIFIED = 0
                 LIST = 1
                 STRING = 2
@@ -428,7 +432,7 @@ class CustomConstraint(proto.Message):
             Immutable. Name of the constraint. This is unique within the
             organization. Format of the name should be
 
-            -  ``organizations/{organization_id}/customConstraints/{custom_constraint_id}``
+            - ``organizations/{organization_id}/customConstraints/{custom_constraint_id}``
 
             Example:
             ``organizations/123/customConstraints/custom.createOnlyE2TypeVms``
@@ -442,7 +446,7 @@ class CustomConstraint(proto.Message):
             applies. Format will be of the form :
             ``<service name>/<type>`` Example:
 
-            -  ``compute.googleapis.com/Instance``.
+            - ``compute.googleapis.com/Instance``.
         method_types (MutableSequence[google.cloud.orgpolicy_v2.types.CustomConstraint.MethodType]):
             All the operations being applied for this
             constraint.
@@ -500,6 +504,7 @@ class CustomConstraint(proto.Message):
                 Constraint applied when enforcing forced
                 tagging.
         """
+
         METHOD_TYPE_UNSPECIFIED = 0
         CREATE = 1
         UPDATE = 2
@@ -520,6 +525,7 @@ class CustomConstraint(proto.Message):
             DENY (2):
                 Deny action type.
         """
+
         ACTION_TYPE_UNSPECIFIED = 0
         ALLOW = 1
         DENY = 2

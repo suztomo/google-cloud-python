@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,19 +38,26 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api_core import gapic_v1, grpc_helpers, grpc_helpers_async, path_template
-from google.api_core import client_options
+import google.auth
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+from google.api_core import (
+    client_options,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import options_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    options_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
 
 from google.cloud.dataproc_v1.services.autoscaling_policy_service import (
     AutoscalingPolicyServiceAsyncClient,
@@ -113,12 +115,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert AutoscalingPolicyServiceClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -140,6 +158,10 @@ def test__get_default_mtls_endpoint():
     assert (
         AutoscalingPolicyServiceClient._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
+    )
+    assert (
+        AutoscalingPolicyServiceClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -167,12 +189,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            AutoscalingPolicyServiceClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                AutoscalingPolicyServiceClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert AutoscalingPolicyServiceClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert AutoscalingPolicyServiceClient._read_environment_variables() == (
@@ -209,6 +238,107 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert AutoscalingPolicyServiceClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert AutoscalingPolicyServiceClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert AutoscalingPolicyServiceClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert AutoscalingPolicyServiceClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert AutoscalingPolicyServiceClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert AutoscalingPolicyServiceClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert AutoscalingPolicyServiceClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert AutoscalingPolicyServiceClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert AutoscalingPolicyServiceClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                AutoscalingPolicyServiceClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert AutoscalingPolicyServiceClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert (
+                    AutoscalingPolicyServiceClient._use_client_cert_effective() is False
+                )
 
 
 def test__get_client_cert_source():
@@ -604,17 +734,6 @@ def test_autoscaling_policy_service_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -853,6 +972,117 @@ def test_autoscaling_policy_service_client_get_mtls_endpoint_and_cert_source(
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -885,10 +1115,9 @@ def test_autoscaling_policy_service_client_get_mtls_endpoint_and_cert_source(
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -901,18 +1130,6 @@ def test_autoscaling_policy_service_client_get_mtls_endpoint_and_cert_source(
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1157,13 +1374,13 @@ def test_autoscaling_policy_service_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1188,8 +1405,8 @@ def test_autoscaling_policy_service_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        autoscaling_policies.CreateAutoscalingPolicyRequest,
-        dict,
+        autoscaling_policies.CreateAutoscalingPolicyRequest(),
+        {},
     ],
 )
 def test_create_autoscaling_policy(request_type, transport: str = "grpc"):
@@ -1200,7 +1417,7 @@ def test_create_autoscaling_policy(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1210,6 +1427,7 @@ def test_create_autoscaling_policy(request_type, transport: str = "grpc"):
         call.return_value = autoscaling_policies.AutoscalingPolicy(
             id="id_value",
             name="name_value",
+            cluster_type=autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD,
         )
         response = client.create_autoscaling_policy(request)
 
@@ -1223,6 +1441,10 @@ def test_create_autoscaling_policy(request_type, transport: str = "grpc"):
     assert isinstance(response, autoscaling_policies.AutoscalingPolicy)
     assert response.id == "id_value"
     assert response.name == "name_value"
+    assert (
+        response.cluster_type
+        == autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD
+    )
 
 
 def test_create_autoscaling_policy_non_empty_request_with_auto_populated_field():
@@ -1250,9 +1472,10 @@ def test_create_autoscaling_policy_non_empty_request_with_auto_populated_field()
         client.create_autoscaling_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == autoscaling_policies.CreateAutoscalingPolicyRequest(
+        request_msg = autoscaling_policies.CreateAutoscalingPolicyRequest(
             parent="parent_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_autoscaling_policy_use_cached_wrapped_rpc():
@@ -1338,9 +1561,15 @@ async def test_create_autoscaling_policy_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        autoscaling_policies.CreateAutoscalingPolicyRequest(),
+        {},
+    ],
+)
 async def test_create_autoscaling_policy_async(
-    transport: str = "grpc_asyncio",
-    request_type=autoscaling_policies.CreateAutoscalingPolicyRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = AutoscalingPolicyServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -1349,7 +1578,7 @@ async def test_create_autoscaling_policy_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1360,6 +1589,7 @@ async def test_create_autoscaling_policy_async(
             autoscaling_policies.AutoscalingPolicy(
                 id="id_value",
                 name="name_value",
+                cluster_type=autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD,
             )
         )
         response = await client.create_autoscaling_policy(request)
@@ -1374,11 +1604,10 @@ async def test_create_autoscaling_policy_async(
     assert isinstance(response, autoscaling_policies.AutoscalingPolicy)
     assert response.id == "id_value"
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_create_autoscaling_policy_async_from_dict():
-    await test_create_autoscaling_policy_async(request_type=dict)
+    assert (
+        response.cluster_type
+        == autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD
+    )
 
 
 def test_create_autoscaling_policy_field_headers():
@@ -1545,8 +1774,8 @@ async def test_create_autoscaling_policy_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        autoscaling_policies.UpdateAutoscalingPolicyRequest,
-        dict,
+        autoscaling_policies.UpdateAutoscalingPolicyRequest(),
+        {},
     ],
 )
 def test_update_autoscaling_policy(request_type, transport: str = "grpc"):
@@ -1557,7 +1786,7 @@ def test_update_autoscaling_policy(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1567,6 +1796,7 @@ def test_update_autoscaling_policy(request_type, transport: str = "grpc"):
         call.return_value = autoscaling_policies.AutoscalingPolicy(
             id="id_value",
             name="name_value",
+            cluster_type=autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD,
         )
         response = client.update_autoscaling_policy(request)
 
@@ -1580,6 +1810,10 @@ def test_update_autoscaling_policy(request_type, transport: str = "grpc"):
     assert isinstance(response, autoscaling_policies.AutoscalingPolicy)
     assert response.id == "id_value"
     assert response.name == "name_value"
+    assert (
+        response.cluster_type
+        == autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD
+    )
 
 
 def test_update_autoscaling_policy_non_empty_request_with_auto_populated_field():
@@ -1605,7 +1839,8 @@ def test_update_autoscaling_policy_non_empty_request_with_auto_populated_field()
         client.update_autoscaling_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == autoscaling_policies.UpdateAutoscalingPolicyRequest()
+        request_msg = autoscaling_policies.UpdateAutoscalingPolicyRequest()
+        assert args[0] == request_msg
 
 
 def test_update_autoscaling_policy_use_cached_wrapped_rpc():
@@ -1691,9 +1926,15 @@ async def test_update_autoscaling_policy_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        autoscaling_policies.UpdateAutoscalingPolicyRequest(),
+        {},
+    ],
+)
 async def test_update_autoscaling_policy_async(
-    transport: str = "grpc_asyncio",
-    request_type=autoscaling_policies.UpdateAutoscalingPolicyRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = AutoscalingPolicyServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -1702,7 +1943,7 @@ async def test_update_autoscaling_policy_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1713,6 +1954,7 @@ async def test_update_autoscaling_policy_async(
             autoscaling_policies.AutoscalingPolicy(
                 id="id_value",
                 name="name_value",
+                cluster_type=autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD,
             )
         )
         response = await client.update_autoscaling_policy(request)
@@ -1727,11 +1969,10 @@ async def test_update_autoscaling_policy_async(
     assert isinstance(response, autoscaling_policies.AutoscalingPolicy)
     assert response.id == "id_value"
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_update_autoscaling_policy_async_from_dict():
-    await test_update_autoscaling_policy_async(request_type=dict)
+    assert (
+        response.cluster_type
+        == autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD
+    )
 
 
 def test_update_autoscaling_policy_field_headers():
@@ -1888,8 +2129,8 @@ async def test_update_autoscaling_policy_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        autoscaling_policies.GetAutoscalingPolicyRequest,
-        dict,
+        autoscaling_policies.GetAutoscalingPolicyRequest(),
+        {},
     ],
 )
 def test_get_autoscaling_policy(request_type, transport: str = "grpc"):
@@ -1900,7 +2141,7 @@ def test_get_autoscaling_policy(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1910,6 +2151,7 @@ def test_get_autoscaling_policy(request_type, transport: str = "grpc"):
         call.return_value = autoscaling_policies.AutoscalingPolicy(
             id="id_value",
             name="name_value",
+            cluster_type=autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD,
         )
         response = client.get_autoscaling_policy(request)
 
@@ -1923,6 +2165,10 @@ def test_get_autoscaling_policy(request_type, transport: str = "grpc"):
     assert isinstance(response, autoscaling_policies.AutoscalingPolicy)
     assert response.id == "id_value"
     assert response.name == "name_value"
+    assert (
+        response.cluster_type
+        == autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD
+    )
 
 
 def test_get_autoscaling_policy_non_empty_request_with_auto_populated_field():
@@ -1950,9 +2196,10 @@ def test_get_autoscaling_policy_non_empty_request_with_auto_populated_field():
         client.get_autoscaling_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == autoscaling_policies.GetAutoscalingPolicyRequest(
+        request_msg = autoscaling_policies.GetAutoscalingPolicyRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_autoscaling_policy_use_cached_wrapped_rpc():
@@ -1979,9 +2226,9 @@ def test_get_autoscaling_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_autoscaling_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_autoscaling_policy] = (
+            mock_rpc
+        )
         request = {}
         client.get_autoscaling_policy(request)
 
@@ -2038,9 +2285,15 @@ async def test_get_autoscaling_policy_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        autoscaling_policies.GetAutoscalingPolicyRequest(),
+        {},
+    ],
+)
 async def test_get_autoscaling_policy_async(
-    transport: str = "grpc_asyncio",
-    request_type=autoscaling_policies.GetAutoscalingPolicyRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = AutoscalingPolicyServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -2049,7 +2302,7 @@ async def test_get_autoscaling_policy_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2060,6 +2313,7 @@ async def test_get_autoscaling_policy_async(
             autoscaling_policies.AutoscalingPolicy(
                 id="id_value",
                 name="name_value",
+                cluster_type=autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD,
             )
         )
         response = await client.get_autoscaling_policy(request)
@@ -2074,11 +2328,10 @@ async def test_get_autoscaling_policy_async(
     assert isinstance(response, autoscaling_policies.AutoscalingPolicy)
     assert response.id == "id_value"
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_autoscaling_policy_async_from_dict():
-    await test_get_autoscaling_policy_async(request_type=dict)
+    assert (
+        response.cluster_type
+        == autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD
+    )
 
 
 def test_get_autoscaling_policy_field_headers():
@@ -2235,8 +2488,8 @@ async def test_get_autoscaling_policy_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        autoscaling_policies.ListAutoscalingPoliciesRequest,
-        dict,
+        autoscaling_policies.ListAutoscalingPoliciesRequest(),
+        {},
     ],
 )
 def test_list_autoscaling_policies(request_type, transport: str = "grpc"):
@@ -2247,7 +2500,7 @@ def test_list_autoscaling_policies(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2296,10 +2549,11 @@ def test_list_autoscaling_policies_non_empty_request_with_auto_populated_field()
         client.list_autoscaling_policies(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == autoscaling_policies.ListAutoscalingPoliciesRequest(
+        request_msg = autoscaling_policies.ListAutoscalingPoliciesRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_autoscaling_policies_use_cached_wrapped_rpc():
@@ -2385,9 +2639,15 @@ async def test_list_autoscaling_policies_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        autoscaling_policies.ListAutoscalingPoliciesRequest(),
+        {},
+    ],
+)
 async def test_list_autoscaling_policies_async(
-    transport: str = "grpc_asyncio",
-    request_type=autoscaling_policies.ListAutoscalingPoliciesRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = AutoscalingPolicyServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -2396,7 +2656,7 @@ async def test_list_autoscaling_policies_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2419,11 +2679,6 @@ async def test_list_autoscaling_policies_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListAutoscalingPoliciesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_autoscaling_policies_async_from_dict():
-    await test_list_autoscaling_policies_async(request_type=dict)
 
 
 def test_list_autoscaling_policies_field_headers():
@@ -2775,11 +3030,7 @@ async def test_list_autoscaling_policies_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_autoscaling_policies(request={})
-        ).pages:
+        async for page_ in (await client.list_autoscaling_policies(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -2788,8 +3039,8 @@ async def test_list_autoscaling_policies_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        autoscaling_policies.DeleteAutoscalingPolicyRequest,
-        dict,
+        autoscaling_policies.DeleteAutoscalingPolicyRequest(),
+        {},
     ],
 )
 def test_delete_autoscaling_policy(request_type, transport: str = "grpc"):
@@ -2800,7 +3051,7 @@ def test_delete_autoscaling_policy(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2845,9 +3096,10 @@ def test_delete_autoscaling_policy_non_empty_request_with_auto_populated_field()
         client.delete_autoscaling_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == autoscaling_policies.DeleteAutoscalingPolicyRequest(
+        request_msg = autoscaling_policies.DeleteAutoscalingPolicyRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_autoscaling_policy_use_cached_wrapped_rpc():
@@ -2933,9 +3185,15 @@ async def test_delete_autoscaling_policy_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        autoscaling_policies.DeleteAutoscalingPolicyRequest(),
+        {},
+    ],
+)
 async def test_delete_autoscaling_policy_async(
-    transport: str = "grpc_asyncio",
-    request_type=autoscaling_policies.DeleteAutoscalingPolicyRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = AutoscalingPolicyServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -2944,7 +3202,7 @@ async def test_delete_autoscaling_policy_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2962,11 +3220,6 @@ async def test_delete_autoscaling_policy_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_autoscaling_policy_async_from_dict():
-    await test_delete_autoscaling_policy_async(request_type=dict)
 
 
 def test_delete_autoscaling_policy_field_headers():
@@ -3230,7 +3483,7 @@ def test_create_autoscaling_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_autoscaling_policy_rest_unset_required_fields():
@@ -3419,7 +3672,7 @@ def test_update_autoscaling_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_autoscaling_policy_rest_unset_required_fields():
@@ -3517,9 +3770,9 @@ def test_get_autoscaling_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_autoscaling_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_autoscaling_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_autoscaling_policy(request)
@@ -3606,7 +3859,7 @@ def test_get_autoscaling_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_autoscaling_policy_rest_unset_required_fields():
@@ -3800,7 +4053,7 @@ def test_list_autoscaling_policies_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_autoscaling_policies_rest_unset_required_fields():
@@ -4056,7 +4309,7 @@ def test_delete_autoscaling_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_autoscaling_policy_rest_unset_required_fields():
@@ -4251,7 +4504,6 @@ def test_create_autoscaling_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.CreateAutoscalingPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -4274,7 +4526,6 @@ def test_update_autoscaling_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.UpdateAutoscalingPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -4297,7 +4548,6 @@ def test_get_autoscaling_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.GetAutoscalingPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -4320,7 +4570,6 @@ def test_list_autoscaling_policies_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.ListAutoscalingPoliciesRequest()
-
         assert args[0] == request_msg
 
 
@@ -4343,7 +4592,6 @@ def test_delete_autoscaling_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.DeleteAutoscalingPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -4379,6 +4627,7 @@ async def test_create_autoscaling_policy_empty_call_grpc_asyncio():
             autoscaling_policies.AutoscalingPolicy(
                 id="id_value",
                 name="name_value",
+                cluster_type=autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD,
             )
         )
         await client.create_autoscaling_policy(request=None)
@@ -4387,7 +4636,6 @@ async def test_create_autoscaling_policy_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.CreateAutoscalingPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -4409,6 +4657,7 @@ async def test_update_autoscaling_policy_empty_call_grpc_asyncio():
             autoscaling_policies.AutoscalingPolicy(
                 id="id_value",
                 name="name_value",
+                cluster_type=autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD,
             )
         )
         await client.update_autoscaling_policy(request=None)
@@ -4417,7 +4666,6 @@ async def test_update_autoscaling_policy_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.UpdateAutoscalingPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -4439,6 +4687,7 @@ async def test_get_autoscaling_policy_empty_call_grpc_asyncio():
             autoscaling_policies.AutoscalingPolicy(
                 id="id_value",
                 name="name_value",
+                cluster_type=autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD,
             )
         )
         await client.get_autoscaling_policy(request=None)
@@ -4447,7 +4696,6 @@ async def test_get_autoscaling_policy_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.GetAutoscalingPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -4476,7 +4724,6 @@ async def test_list_autoscaling_policies_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.ListAutoscalingPoliciesRequest()
-
         assert args[0] == request_msg
 
 
@@ -4501,7 +4748,6 @@ async def test_delete_autoscaling_policy_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.DeleteAutoscalingPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -4523,8 +4769,9 @@ def test_create_autoscaling_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -4567,6 +4814,7 @@ def test_create_autoscaling_policy_rest_call_success(request_type):
         "worker_config": {"min_instances": 1387, "max_instances": 1389, "weight": 648},
         "secondary_worker_config": {},
         "labels": {},
+        "cluster_type": 1,
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -4645,6 +4893,7 @@ def test_create_autoscaling_policy_rest_call_success(request_type):
         return_value = autoscaling_policies.AutoscalingPolicy(
             id="id_value",
             name="name_value",
+            cluster_type=autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD,
         )
 
         # Wrap the value into a proper Response obj
@@ -4663,6 +4912,10 @@ def test_create_autoscaling_policy_rest_call_success(request_type):
     assert isinstance(response, autoscaling_policies.AutoscalingPolicy)
     assert response.id == "id_value"
     assert response.name == "name_value"
+    assert (
+        response.cluster_type
+        == autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD
+    )
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -4675,20 +4928,22 @@ def test_create_autoscaling_policy_rest_interceptors(null_interceptor):
     )
     client = AutoscalingPolicyServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AutoscalingPolicyServiceRestInterceptor,
-        "post_create_autoscaling_policy",
-    ) as post, mock.patch.object(
-        transports.AutoscalingPolicyServiceRestInterceptor,
-        "post_create_autoscaling_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AutoscalingPolicyServiceRestInterceptor,
-        "pre_create_autoscaling_policy",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AutoscalingPolicyServiceRestInterceptor,
+            "post_create_autoscaling_policy",
+        ) as post,
+        mock.patch.object(
+            transports.AutoscalingPolicyServiceRestInterceptor,
+            "post_create_autoscaling_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AutoscalingPolicyServiceRestInterceptor,
+            "pre_create_autoscaling_policy",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -4750,8 +5005,9 @@ def test_update_autoscaling_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -4798,6 +5054,7 @@ def test_update_autoscaling_policy_rest_call_success(request_type):
         "worker_config": {"min_instances": 1387, "max_instances": 1389, "weight": 648},
         "secondary_worker_config": {},
         "labels": {},
+        "cluster_type": 1,
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -4876,6 +5133,7 @@ def test_update_autoscaling_policy_rest_call_success(request_type):
         return_value = autoscaling_policies.AutoscalingPolicy(
             id="id_value",
             name="name_value",
+            cluster_type=autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD,
         )
 
         # Wrap the value into a proper Response obj
@@ -4894,6 +5152,10 @@ def test_update_autoscaling_policy_rest_call_success(request_type):
     assert isinstance(response, autoscaling_policies.AutoscalingPolicy)
     assert response.id == "id_value"
     assert response.name == "name_value"
+    assert (
+        response.cluster_type
+        == autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD
+    )
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -4906,20 +5168,22 @@ def test_update_autoscaling_policy_rest_interceptors(null_interceptor):
     )
     client = AutoscalingPolicyServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AutoscalingPolicyServiceRestInterceptor,
-        "post_update_autoscaling_policy",
-    ) as post, mock.patch.object(
-        transports.AutoscalingPolicyServiceRestInterceptor,
-        "post_update_autoscaling_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AutoscalingPolicyServiceRestInterceptor,
-        "pre_update_autoscaling_policy",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AutoscalingPolicyServiceRestInterceptor,
+            "post_update_autoscaling_policy",
+        ) as post,
+        mock.patch.object(
+            transports.AutoscalingPolicyServiceRestInterceptor,
+            "post_update_autoscaling_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AutoscalingPolicyServiceRestInterceptor,
+            "pre_update_autoscaling_policy",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -4979,8 +5243,9 @@ def test_get_autoscaling_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5017,6 +5282,7 @@ def test_get_autoscaling_policy_rest_call_success(request_type):
         return_value = autoscaling_policies.AutoscalingPolicy(
             id="id_value",
             name="name_value",
+            cluster_type=autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD,
         )
 
         # Wrap the value into a proper Response obj
@@ -5035,6 +5301,10 @@ def test_get_autoscaling_policy_rest_call_success(request_type):
     assert isinstance(response, autoscaling_policies.AutoscalingPolicy)
     assert response.id == "id_value"
     assert response.name == "name_value"
+    assert (
+        response.cluster_type
+        == autoscaling_policies.AutoscalingPolicy.ClusterType.STANDARD
+    )
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -5047,19 +5317,22 @@ def test_get_autoscaling_policy_rest_interceptors(null_interceptor):
     )
     client = AutoscalingPolicyServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AutoscalingPolicyServiceRestInterceptor,
-        "post_get_autoscaling_policy",
-    ) as post, mock.patch.object(
-        transports.AutoscalingPolicyServiceRestInterceptor,
-        "post_get_autoscaling_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AutoscalingPolicyServiceRestInterceptor, "pre_get_autoscaling_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AutoscalingPolicyServiceRestInterceptor,
+            "post_get_autoscaling_policy",
+        ) as post,
+        mock.patch.object(
+            transports.AutoscalingPolicyServiceRestInterceptor,
+            "post_get_autoscaling_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AutoscalingPolicyServiceRestInterceptor,
+            "pre_get_autoscaling_policy",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -5117,8 +5390,9 @@ def test_list_autoscaling_policies_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5183,20 +5457,22 @@ def test_list_autoscaling_policies_rest_interceptors(null_interceptor):
     )
     client = AutoscalingPolicyServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AutoscalingPolicyServiceRestInterceptor,
-        "post_list_autoscaling_policies",
-    ) as post, mock.patch.object(
-        transports.AutoscalingPolicyServiceRestInterceptor,
-        "post_list_autoscaling_policies_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AutoscalingPolicyServiceRestInterceptor,
-        "pre_list_autoscaling_policies",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AutoscalingPolicyServiceRestInterceptor,
+            "post_list_autoscaling_policies",
+        ) as post,
+        mock.patch.object(
+            transports.AutoscalingPolicyServiceRestInterceptor,
+            "post_list_autoscaling_policies_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AutoscalingPolicyServiceRestInterceptor,
+            "pre_list_autoscaling_policies",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -5256,8 +5532,9 @@ def test_delete_autoscaling_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5316,14 +5593,14 @@ def test_delete_autoscaling_policy_rest_interceptors(null_interceptor):
     )
     client = AutoscalingPolicyServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AutoscalingPolicyServiceRestInterceptor,
-        "pre_delete_autoscaling_policy",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AutoscalingPolicyServiceRestInterceptor,
+            "pre_delete_autoscaling_policy",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = autoscaling_policies.DeleteAutoscalingPolicyRequest.pb(
             autoscaling_policies.DeleteAutoscalingPolicyRequest()
@@ -5370,8 +5647,9 @@ def test_get_iam_policy_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5432,8 +5710,9 @@ def test_set_iam_policy_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5494,8 +5773,9 @@ def test_test_iam_permissions_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5556,8 +5836,9 @@ def test_cancel_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5618,8 +5899,9 @@ def test_delete_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5680,8 +5962,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5742,8 +6025,9 @@ def test_list_operations_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5816,7 +6100,6 @@ def test_create_autoscaling_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.CreateAutoscalingPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -5838,7 +6121,6 @@ def test_update_autoscaling_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.UpdateAutoscalingPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -5860,7 +6142,6 @@ def test_get_autoscaling_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.GetAutoscalingPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -5882,7 +6163,6 @@ def test_list_autoscaling_policies_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.ListAutoscalingPoliciesRequest()
-
         assert args[0] == request_msg
 
 
@@ -5904,7 +6184,6 @@ def test_delete_autoscaling_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = autoscaling_policies.DeleteAutoscalingPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -5972,11 +6251,14 @@ def test_autoscaling_policy_service_base_transport():
 
 def test_autoscaling_policy_service_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.dataproc_v1.services.autoscaling_policy_service.transports.AutoscalingPolicyServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.dataproc_v1.services.autoscaling_policy_service.transports.AutoscalingPolicyServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.AutoscalingPolicyServiceTransport(
@@ -5993,9 +6275,12 @@ def test_autoscaling_policy_service_base_transport_with_credentials_file():
 
 def test_autoscaling_policy_service_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.dataproc_v1.services.autoscaling_policy_service.transports.AutoscalingPolicyServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.dataproc_v1.services.autoscaling_policy_service.transports.AutoscalingPolicyServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.AutoscalingPolicyServiceTransport()
@@ -6069,11 +6354,12 @@ def test_autoscaling_policy_service_transport_create_channel(
 ):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -6260,6 +6546,7 @@ def test_autoscaling_policy_service_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [
@@ -6651,6 +6938,38 @@ async def test_delete_operation_from_dict_async():
         call.assert_called()
 
 
+def test_delete_operation_flattened():
+    client = AutoscalingPolicyServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_flattened_async():
+    client = AutoscalingPolicyServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
 def test_cancel_operation(transport: str = "grpc"):
     client = AutoscalingPolicyServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -6788,6 +7107,38 @@ async def test_cancel_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_cancel_operation_flattened():
+    client = AutoscalingPolicyServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = AutoscalingPolicyServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
 
 
 def test_get_operation(transport: str = "grpc"):
@@ -6935,6 +7286,40 @@ async def test_get_operation_from_dict_async():
         call.assert_called()
 
 
+def test_get_operation_flattened():
+    client = AutoscalingPolicyServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = AutoscalingPolicyServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
 def test_list_operations(transport: str = "grpc"):
     client = AutoscalingPolicyServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -7078,6 +7463,40 @@ async def test_list_operations_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_list_operations_flattened():
+    client = AutoscalingPolicyServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = AutoscalingPolicyServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
 
 
 def test_set_iam_policy(transport: str = "grpc"):
@@ -7242,6 +7661,41 @@ async def test_set_iam_policy_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_set_iam_policy_flattened():
+    client = AutoscalingPolicyServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        client.set_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.SetIamPolicyRequest()
+
+
+@pytest.mark.asyncio
+async def test_set_iam_policy_flattened_async():
+    client = AutoscalingPolicyServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.set_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.SetIamPolicyRequest()
 
 
 def test_get_iam_policy(transport: str = "grpc"):
@@ -7409,6 +7863,41 @@ async def test_get_iam_policy_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_iam_policy_flattened():
+    client = AutoscalingPolicyServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        client.get_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.GetIamPolicyRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_iam_policy_flattened_async():
+    client = AutoscalingPolicyServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.get_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.GetIamPolicyRequest()
 
 
 def test_test_iam_permissions(transport: str = "grpc"):
@@ -7586,6 +8075,47 @@ async def test_test_iam_permissions_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_test_iam_permissions_flattened():
+    client = AutoscalingPolicyServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = iam_policy_pb2.TestIamPermissionsResponse()
+
+        client.test_iam_permissions()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.TestIamPermissionsRequest()
+
+
+@pytest.mark.asyncio
+async def test_test_iam_permissions_flattened_async():
+    client = AutoscalingPolicyServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            iam_policy_pb2.TestIamPermissionsResponse()
+        )
+
+        await client.test_iam_permissions()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.TestIamPermissionsRequest()
 
 
 def test_transport_close_grpc():

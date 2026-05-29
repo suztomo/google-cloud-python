@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +38,12 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.code_pb2 as code_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,18 +52,13 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import code_pb2  # type: ignore
 
 from google.cloud.storagebatchoperations_v1.services.storage_batch_operations import (
     StorageBatchOperationsAsyncClient,
@@ -124,12 +119,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert StorageBatchOperationsClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -151,6 +162,10 @@ def test__get_default_mtls_endpoint():
     assert (
         StorageBatchOperationsClient._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
+    )
+    assert (
+        StorageBatchOperationsClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -178,12 +193,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            StorageBatchOperationsClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                StorageBatchOperationsClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert StorageBatchOperationsClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert StorageBatchOperationsClient._read_environment_variables() == (
@@ -220,6 +242,107 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert StorageBatchOperationsClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert StorageBatchOperationsClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert StorageBatchOperationsClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert StorageBatchOperationsClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert StorageBatchOperationsClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert StorageBatchOperationsClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert StorageBatchOperationsClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert StorageBatchOperationsClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert StorageBatchOperationsClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                StorageBatchOperationsClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert StorageBatchOperationsClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert (
+                    StorageBatchOperationsClient._use_client_cert_effective() is False
+                )
 
 
 def test__get_client_cert_source():
@@ -611,17 +734,6 @@ def test_storage_batch_operations_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -859,6 +971,117 @@ def test_storage_batch_operations_client_get_mtls_endpoint_and_cert_source(
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -891,10 +1114,9 @@ def test_storage_batch_operations_client_get_mtls_endpoint_and_cert_source(
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -907,18 +1129,6 @@ def test_storage_batch_operations_client_get_mtls_endpoint_and_cert_source(
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1162,13 +1372,13 @@ def test_storage_batch_operations_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1193,8 +1403,8 @@ def test_storage_batch_operations_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        storage_batch_operations.ListJobsRequest,
-        dict,
+        storage_batch_operations.ListJobsRequest(),
+        {},
     ],
 )
 def test_list_jobs(request_type, transport: str = "grpc"):
@@ -1205,7 +1415,7 @@ def test_list_jobs(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_jobs), "__call__") as call:
@@ -1254,12 +1464,13 @@ def test_list_jobs_non_empty_request_with_auto_populated_field():
         client.list_jobs(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == storage_batch_operations.ListJobsRequest(
+        request_msg = storage_batch_operations.ListJobsRequest(
             parent="parent_value",
             filter="filter_value",
             page_token="page_token_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_jobs_use_cached_wrapped_rpc():
@@ -1338,10 +1549,14 @@ async def test_list_jobs_async_use_cached_wrapped_rpc(transport: str = "grpc_asy
 
 
 @pytest.mark.asyncio
-async def test_list_jobs_async(
-    transport: str = "grpc_asyncio",
-    request_type=storage_batch_operations.ListJobsRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_batch_operations.ListJobsRequest(),
+        {},
+    ],
+)
+async def test_list_jobs_async(request_type, transport: str = "grpc_asyncio"):
     client = StorageBatchOperationsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1349,7 +1564,7 @@ async def test_list_jobs_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_jobs), "__call__") as call:
@@ -1372,11 +1587,6 @@ async def test_list_jobs_async(
     assert isinstance(response, pagers.ListJobsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_jobs_async_from_dict():
-    await test_list_jobs_async(request_type=dict)
 
 
 def test_list_jobs_field_headers():
@@ -1706,11 +1916,7 @@ async def test_list_jobs_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_jobs(request={})
-        ).pages:
+        async for page_ in (await client.list_jobs(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -1719,8 +1925,8 @@ async def test_list_jobs_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        storage_batch_operations.GetJobRequest,
-        dict,
+        storage_batch_operations.GetJobRequest(),
+        {},
     ],
 )
 def test_get_job(request_type, transport: str = "grpc"):
@@ -1731,7 +1937,7 @@ def test_get_job(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_job), "__call__") as call:
@@ -1740,6 +1946,8 @@ def test_get_job(request_type, transport: str = "grpc"):
             name="name_value",
             description="description_value",
             state=storage_batch_operations_types.Job.State.RUNNING,
+            dry_run=True,
+            is_multi_bucket_job=True,
         )
         response = client.get_job(request)
 
@@ -1754,6 +1962,8 @@ def test_get_job(request_type, transport: str = "grpc"):
     assert response.name == "name_value"
     assert response.description == "description_value"
     assert response.state == storage_batch_operations_types.Job.State.RUNNING
+    assert response.dry_run is True
+    assert response.is_multi_bucket_job is True
 
 
 def test_get_job_non_empty_request_with_auto_populated_field():
@@ -1779,9 +1989,10 @@ def test_get_job_non_empty_request_with_auto_populated_field():
         client.get_job(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == storage_batch_operations.GetJobRequest(
+        request_msg = storage_batch_operations.GetJobRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_job_use_cached_wrapped_rpc():
@@ -1860,9 +2071,14 @@ async def test_get_job_async_use_cached_wrapped_rpc(transport: str = "grpc_async
 
 
 @pytest.mark.asyncio
-async def test_get_job_async(
-    transport: str = "grpc_asyncio", request_type=storage_batch_operations.GetJobRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_batch_operations.GetJobRequest(),
+        {},
+    ],
+)
+async def test_get_job_async(request_type, transport: str = "grpc_asyncio"):
     client = StorageBatchOperationsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1870,7 +2086,7 @@ async def test_get_job_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_job), "__call__") as call:
@@ -1880,6 +2096,8 @@ async def test_get_job_async(
                 name="name_value",
                 description="description_value",
                 state=storage_batch_operations_types.Job.State.RUNNING,
+                dry_run=True,
+                is_multi_bucket_job=True,
             )
         )
         response = await client.get_job(request)
@@ -1895,11 +2113,8 @@ async def test_get_job_async(
     assert response.name == "name_value"
     assert response.description == "description_value"
     assert response.state == storage_batch_operations_types.Job.State.RUNNING
-
-
-@pytest.mark.asyncio
-async def test_get_job_async_from_dict():
-    await test_get_job_async(request_type=dict)
+    assert response.dry_run is True
+    assert response.is_multi_bucket_job is True
 
 
 def test_get_job_field_headers():
@@ -2048,8 +2263,8 @@ async def test_get_job_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        storage_batch_operations.CreateJobRequest,
-        dict,
+        storage_batch_operations.CreateJobRequest(),
+        {},
     ],
 )
 def test_create_job(request_type, transport: str = "grpc"):
@@ -2060,7 +2275,7 @@ def test_create_job(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_job), "__call__") as call:
@@ -2092,7 +2307,6 @@ def test_create_job_non_empty_request_with_auto_populated_field():
     request = storage_batch_operations.CreateJobRequest(
         parent="parent_value",
         job_id="job_id_value",
-        request_id="request_id_value",
     )
 
     # Mock the actual call within the gRPC stub, and fake the request.
@@ -2103,11 +2317,11 @@ def test_create_job_non_empty_request_with_auto_populated_field():
         client.create_job(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == storage_batch_operations.CreateJobRequest(
+        request_msg = storage_batch_operations.CreateJobRequest(
             parent="parent_value",
             job_id="job_id_value",
-            request_id="request_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_job_use_cached_wrapped_rpc():
@@ -2196,10 +2410,14 @@ async def test_create_job_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_create_job_async(
-    transport: str = "grpc_asyncio",
-    request_type=storage_batch_operations.CreateJobRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_batch_operations.CreateJobRequest(),
+        {},
+    ],
+)
+async def test_create_job_async(request_type, transport: str = "grpc_asyncio"):
     client = StorageBatchOperationsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2207,7 +2425,7 @@ async def test_create_job_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_job), "__call__") as call:
@@ -2225,11 +2443,6 @@ async def test_create_job_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_job_async_from_dict():
-    await test_create_job_async(request_type=dict)
 
 
 def test_create_job_field_headers():
@@ -2398,8 +2611,8 @@ async def test_create_job_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        storage_batch_operations.DeleteJobRequest,
-        dict,
+        storage_batch_operations.DeleteJobRequest(),
+        {},
     ],
 )
 def test_delete_job(request_type, transport: str = "grpc"):
@@ -2410,7 +2623,7 @@ def test_delete_job(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_job), "__call__") as call:
@@ -2441,7 +2654,6 @@ def test_delete_job_non_empty_request_with_auto_populated_field():
     # if they meet the requirements of AIP 4235.
     request = storage_batch_operations.DeleteJobRequest(
         name="name_value",
-        request_id="request_id_value",
     )
 
     # Mock the actual call within the gRPC stub, and fake the request.
@@ -2452,10 +2664,10 @@ def test_delete_job_non_empty_request_with_auto_populated_field():
         client.delete_job(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == storage_batch_operations.DeleteJobRequest(
+        request_msg = storage_batch_operations.DeleteJobRequest(
             name="name_value",
-            request_id="request_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_job_use_cached_wrapped_rpc():
@@ -2534,10 +2746,14 @@ async def test_delete_job_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_delete_job_async(
-    transport: str = "grpc_asyncio",
-    request_type=storage_batch_operations.DeleteJobRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_batch_operations.DeleteJobRequest(),
+        {},
+    ],
+)
+async def test_delete_job_async(request_type, transport: str = "grpc_asyncio"):
     client = StorageBatchOperationsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2545,7 +2761,7 @@ async def test_delete_job_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_job), "__call__") as call:
@@ -2561,11 +2777,6 @@ async def test_delete_job_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_job_async_from_dict():
-    await test_delete_job_async(request_type=dict)
 
 
 def test_delete_job_field_headers():
@@ -2710,8 +2921,8 @@ async def test_delete_job_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        storage_batch_operations.CancelJobRequest,
-        dict,
+        storage_batch_operations.CancelJobRequest(),
+        {},
     ],
 )
 def test_cancel_job(request_type, transport: str = "grpc"):
@@ -2722,7 +2933,7 @@ def test_cancel_job(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.cancel_job), "__call__") as call:
@@ -2753,7 +2964,6 @@ def test_cancel_job_non_empty_request_with_auto_populated_field():
     # if they meet the requirements of AIP 4235.
     request = storage_batch_operations.CancelJobRequest(
         name="name_value",
-        request_id="request_id_value",
     )
 
     # Mock the actual call within the gRPC stub, and fake the request.
@@ -2764,10 +2974,10 @@ def test_cancel_job_non_empty_request_with_auto_populated_field():
         client.cancel_job(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == storage_batch_operations.CancelJobRequest(
+        request_msg = storage_batch_operations.CancelJobRequest(
             name="name_value",
-            request_id="request_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_cancel_job_use_cached_wrapped_rpc():
@@ -2846,10 +3056,14 @@ async def test_cancel_job_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_cancel_job_async(
-    transport: str = "grpc_asyncio",
-    request_type=storage_batch_operations.CancelJobRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_batch_operations.CancelJobRequest(),
+        {},
+    ],
+)
+async def test_cancel_job_async(request_type, transport: str = "grpc_asyncio"):
     client = StorageBatchOperationsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2857,7 +3071,7 @@ async def test_cancel_job_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.cancel_job), "__call__") as call:
@@ -2875,11 +3089,6 @@ async def test_cancel_job_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, storage_batch_operations.CancelJobResponse)
-
-
-@pytest.mark.asyncio
-async def test_cancel_job_async_from_dict():
-    await test_cancel_job_async(request_type=dict)
 
 
 def test_cancel_job_field_headers():
@@ -3025,6 +3234,917 @@ async def test_cancel_job_flattened_error_async():
         )
 
 
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_batch_operations.ListBucketOperationsRequest(),
+        {},
+    ],
+)
+def test_list_bucket_operations(request_type, transport: str = "grpc"):
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_bucket_operations), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = storage_batch_operations.ListBucketOperationsResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+        response = client.list_bucket_operations(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = storage_batch_operations.ListBucketOperationsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListBucketOperationsPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+def test_list_bucket_operations_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = storage_batch_operations.ListBucketOperationsRequest(
+        parent="parent_value",
+        filter="filter_value",
+        page_token="page_token_value",
+        order_by="order_by_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_bucket_operations), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.list_bucket_operations(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = storage_batch_operations.ListBucketOperationsRequest(
+            parent="parent_value",
+            filter="filter_value",
+            page_token="page_token_value",
+            order_by="order_by_value",
+        )
+        assert args[0] == request_msg
+
+
+def test_list_bucket_operations_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = StorageBatchOperationsClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_bucket_operations
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.list_bucket_operations] = (
+            mock_rpc
+        )
+        request = {}
+        client.list_bucket_operations(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_bucket_operations(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_bucket_operations_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = StorageBatchOperationsAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.list_bucket_operations
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.list_bucket_operations
+        ] = mock_rpc
+
+        request = {}
+        await client.list_bucket_operations(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.list_bucket_operations(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_batch_operations.ListBucketOperationsRequest(),
+        {},
+    ],
+)
+async def test_list_bucket_operations_async(
+    request_type, transport: str = "grpc_asyncio"
+):
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_bucket_operations), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            storage_batch_operations.ListBucketOperationsResponse(
+                next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
+            )
+        )
+        response = await client.list_bucket_operations(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = storage_batch_operations.ListBucketOperationsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListBucketOperationsAsyncPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+def test_list_bucket_operations_field_headers():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = storage_batch_operations.ListBucketOperationsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_bucket_operations), "__call__"
+    ) as call:
+        call.return_value = storage_batch_operations.ListBucketOperationsResponse()
+        client.list_bucket_operations(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_list_bucket_operations_field_headers_async():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = storage_batch_operations.ListBucketOperationsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_bucket_operations), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            storage_batch_operations.ListBucketOperationsResponse()
+        )
+        await client.list_bucket_operations(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+def test_list_bucket_operations_flattened():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_bucket_operations), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = storage_batch_operations.ListBucketOperationsResponse()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.list_bucket_operations(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+def test_list_bucket_operations_flattened_error():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_bucket_operations(
+            storage_batch_operations.ListBucketOperationsRequest(),
+            parent="parent_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_list_bucket_operations_flattened_async():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_bucket_operations), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = storage_batch_operations.ListBucketOperationsResponse()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            storage_batch_operations.ListBucketOperationsResponse()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.list_bucket_operations(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_list_bucket_operations_flattened_error_async():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.list_bucket_operations(
+            storage_batch_operations.ListBucketOperationsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_bucket_operations_pager(transport_name: str = "grpc"):
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_bucket_operations), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+                next_page_token="abc",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[],
+                next_page_token="def",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+                next_page_token="ghi",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+            ),
+            RuntimeError,
+        )
+
+        expected_metadata = ()
+        retry = retries.Retry()
+        timeout = 5
+        expected_metadata = tuple(expected_metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", ""),)),
+        )
+        pager = client.list_bucket_operations(request={}, retry=retry, timeout=timeout)
+
+        assert pager._metadata == expected_metadata
+        assert pager._retry == retry
+        assert pager._timeout == timeout
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(
+            isinstance(i, storage_batch_operations_types.BucketOperation)
+            for i in results
+        )
+
+
+def test_list_bucket_operations_pages(transport_name: str = "grpc"):
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_bucket_operations), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+                next_page_token="abc",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[],
+                next_page_token="def",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+                next_page_token="ghi",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = list(client.list_bucket_operations(request={}).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.asyncio
+async def test_list_bucket_operations_async_pager():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_bucket_operations),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+                next_page_token="abc",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[],
+                next_page_token="def",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+                next_page_token="ghi",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+            ),
+            RuntimeError,
+        )
+        async_pager = await client.list_bucket_operations(
+            request={},
+        )
+        assert async_pager.next_page_token == "abc"
+        responses = []
+        async for response in async_pager:  # pragma: no branch
+            responses.append(response)
+
+        assert len(responses) == 6
+        assert all(
+            isinstance(i, storage_batch_operations_types.BucketOperation)
+            for i in responses
+        )
+
+
+@pytest.mark.asyncio
+async def test_list_bucket_operations_async_pages():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_bucket_operations),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+                next_page_token="abc",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[],
+                next_page_token="def",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+                next_page_token="ghi",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = []
+        async for page_ in (await client.list_bucket_operations(request={})).pages:
+            pages.append(page_)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_batch_operations.GetBucketOperationRequest(),
+        {},
+    ],
+)
+def test_get_bucket_operation(request_type, transport: str = "grpc"):
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_bucket_operation), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = storage_batch_operations_types.BucketOperation(
+            name="name_value",
+            bucket_name="bucket_name_value",
+            state=storage_batch_operations_types.BucketOperation.State.QUEUED,
+        )
+        response = client.get_bucket_operation(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = storage_batch_operations.GetBucketOperationRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, storage_batch_operations_types.BucketOperation)
+    assert response.name == "name_value"
+    assert response.bucket_name == "bucket_name_value"
+    assert response.state == storage_batch_operations_types.BucketOperation.State.QUEUED
+
+
+def test_get_bucket_operation_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = storage_batch_operations.GetBucketOperationRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_bucket_operation), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.get_bucket_operation(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = storage_batch_operations.GetBucketOperationRequest(
+            name="name_value",
+        )
+        assert args[0] == request_msg
+
+
+def test_get_bucket_operation_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = StorageBatchOperationsClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_bucket_operation in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_bucket_operation] = (
+            mock_rpc
+        )
+        request = {}
+        client.get_bucket_operation(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_bucket_operation(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_bucket_operation_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = StorageBatchOperationsAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.get_bucket_operation
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.get_bucket_operation
+        ] = mock_rpc
+
+        request = {}
+        await client.get_bucket_operation(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.get_bucket_operation(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_batch_operations.GetBucketOperationRequest(),
+        {},
+    ],
+)
+async def test_get_bucket_operation_async(
+    request_type, transport: str = "grpc_asyncio"
+):
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_bucket_operation), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            storage_batch_operations_types.BucketOperation(
+                name="name_value",
+                bucket_name="bucket_name_value",
+                state=storage_batch_operations_types.BucketOperation.State.QUEUED,
+            )
+        )
+        response = await client.get_bucket_operation(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = storage_batch_operations.GetBucketOperationRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, storage_batch_operations_types.BucketOperation)
+    assert response.name == "name_value"
+    assert response.bucket_name == "bucket_name_value"
+    assert response.state == storage_batch_operations_types.BucketOperation.State.QUEUED
+
+
+def test_get_bucket_operation_field_headers():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = storage_batch_operations.GetBucketOperationRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_bucket_operation), "__call__"
+    ) as call:
+        call.return_value = storage_batch_operations_types.BucketOperation()
+        client.get_bucket_operation(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_bucket_operation_field_headers_async():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = storage_batch_operations.GetBucketOperationRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_bucket_operation), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            storage_batch_operations_types.BucketOperation()
+        )
+        await client.get_bucket_operation(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_get_bucket_operation_flattened():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_bucket_operation), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = storage_batch_operations_types.BucketOperation()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.get_bucket_operation(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_get_bucket_operation_flattened_error():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_bucket_operation(
+            storage_batch_operations.GetBucketOperationRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_bucket_operation_flattened_async():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_bucket_operation), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = storage_batch_operations_types.BucketOperation()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            storage_batch_operations_types.BucketOperation()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.get_bucket_operation(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_get_bucket_operation_flattened_error_async():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.get_bucket_operation(
+            storage_batch_operations.GetBucketOperationRequest(),
+            name="name_value",
+        )
+
+
 def test_list_jobs_rest_use_cached_wrapped_rpc():
     # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
     # instead of constructing them on each call
@@ -3142,7 +4262,7 @@ def test_list_jobs_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_jobs_rest_unset_required_fields():
@@ -3392,7 +4512,7 @@ def test_get_job_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_job_rest_unset_required_fields():
@@ -3591,7 +4711,7 @@ def test_create_job_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_job_rest_unset_required_fields():
@@ -3740,7 +4860,12 @@ def test_delete_job_rest_required_fields(
         credentials=ga_credentials.AnonymousCredentials()
     ).delete_job._get_unset_required_fields(jsonified_request)
     # Check that path parameters and body parameters are not mixing in.
-    assert not set(unset_fields) - set(("request_id",))
+    assert not set(unset_fields) - set(
+        (
+            "force",
+            "request_id",
+        )
+    )
     jsonified_request.update(unset_fields)
 
     # verify required fields with non-default values are left alone
@@ -3783,7 +4908,7 @@ def test_delete_job_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_job_rest_unset_required_fields():
@@ -3792,7 +4917,15 @@ def test_delete_job_rest_unset_required_fields():
     )
 
     unset_fields = transport.delete_job._get_unset_required_fields({})
-    assert set(unset_fields) == (set(("requestId",)) & set(("name",)))
+    assert set(unset_fields) == (
+        set(
+            (
+                "force",
+                "requestId",
+            )
+        )
+        & set(("name",))
+    )
 
 
 def test_delete_job_rest_flattened():
@@ -3959,7 +5092,7 @@ def test_cancel_job_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_cancel_job_rest_unset_required_fields():
@@ -4025,6 +5158,465 @@ def test_cancel_job_rest_flattened_error(transport: str = "rest"):
     with pytest.raises(ValueError):
         client.cancel_job(
             storage_batch_operations.CancelJobRequest(),
+            name="name_value",
+        )
+
+
+def test_list_bucket_operations_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = StorageBatchOperationsClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_bucket_operations
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.list_bucket_operations] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.list_bucket_operations(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_bucket_operations(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_bucket_operations_rest_required_fields(
+    request_type=storage_batch_operations.ListBucketOperationsRequest,
+):
+    transport_class = transports.StorageBatchOperationsRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_bucket_operations._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_bucket_operations._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "filter",
+            "order_by",
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = storage_batch_operations.ListBucketOperationsResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = storage_batch_operations.ListBucketOperationsResponse.pb(
+                return_value
+            )
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_bucket_operations(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_bucket_operations_rest_unset_required_fields():
+    transport = transports.StorageBatchOperationsRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_bucket_operations._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "filter",
+                "orderBy",
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_bucket_operations_rest_flattened():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = storage_batch_operations.ListBucketOperationsResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2/jobs/sample3"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = storage_batch_operations.ListBucketOperationsResponse.pb(
+            return_value
+        )
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_bucket_operations(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*/jobs/*}/bucketOperations"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_bucket_operations_rest_flattened_error(transport: str = "rest"):
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_bucket_operations(
+            storage_batch_operations.ListBucketOperationsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_bucket_operations_rest_pager(transport: str = "rest"):
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+                next_page_token="abc",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[],
+                next_page_token="def",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+                next_page_token="ghi",
+            ),
+            storage_batch_operations.ListBucketOperationsResponse(
+                bucket_operations=[
+                    storage_batch_operations_types.BucketOperation(),
+                    storage_batch_operations_types.BucketOperation(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(
+            storage_batch_operations.ListBucketOperationsResponse.to_json(x)
+            for x in response
+        )
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {"parent": "projects/sample1/locations/sample2/jobs/sample3"}
+
+        pager = client.list_bucket_operations(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(
+            isinstance(i, storage_batch_operations_types.BucketOperation)
+            for i in results
+        )
+
+        pages = list(client.list_bucket_operations(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+def test_get_bucket_operation_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = StorageBatchOperationsClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_bucket_operation in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_bucket_operation] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.get_bucket_operation(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_bucket_operation(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_bucket_operation_rest_required_fields(
+    request_type=storage_batch_operations.GetBucketOperationRequest,
+):
+    transport_class = transports.StorageBatchOperationsRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_bucket_operation._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_bucket_operation._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = storage_batch_operations_types.BucketOperation()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = storage_batch_operations_types.BucketOperation.pb(
+                return_value
+            )
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_bucket_operation(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_bucket_operation_rest_unset_required_fields():
+    transport = transports.StorageBatchOperationsRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_bucket_operation._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_bucket_operation_rest_flattened():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = storage_batch_operations_types.BucketOperation()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/jobs/sample3/bucketOperations/sample4"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = storage_batch_operations_types.BucketOperation.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_bucket_operation(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/jobs/*/bucketOperations/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_bucket_operation_rest_flattened_error(transport: str = "rest"):
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_bucket_operation(
+            storage_batch_operations.GetBucketOperationRequest(),
             name="name_value",
         )
 
@@ -4152,7 +5744,6 @@ def test_list_jobs_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.ListJobsRequest()
-
         assert args[0] == request_msg
 
 
@@ -4173,7 +5764,6 @@ def test_get_job_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.GetJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -4194,7 +5784,6 @@ def test_create_job_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.CreateJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -4215,7 +5804,6 @@ def test_delete_job_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.DeleteJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -4236,7 +5824,50 @@ def test_cancel_job_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.CancelJobRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_bucket_operations_empty_call_grpc():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_bucket_operations), "__call__"
+    ) as call:
+        call.return_value = storage_batch_operations.ListBucketOperationsResponse()
+        client.list_bucket_operations(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = storage_batch_operations.ListBucketOperationsRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_bucket_operation_empty_call_grpc():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_bucket_operation), "__call__"
+    ) as call:
+        call.return_value = storage_batch_operations_types.BucketOperation()
+        client.get_bucket_operation(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = storage_batch_operations.GetBucketOperationRequest()
         assert args[0] == request_msg
 
 
@@ -4278,7 +5909,6 @@ async def test_list_jobs_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.ListJobsRequest()
-
         assert args[0] == request_msg
 
 
@@ -4299,6 +5929,8 @@ async def test_get_job_empty_call_grpc_asyncio():
                 name="name_value",
                 description="description_value",
                 state=storage_batch_operations_types.Job.State.RUNNING,
+                dry_run=True,
+                is_multi_bucket_job=True,
             )
         )
         await client.get_job(request=None)
@@ -4307,7 +5939,6 @@ async def test_get_job_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.GetJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -4332,7 +5963,6 @@ async def test_create_job_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.CreateJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -4355,7 +5985,6 @@ async def test_delete_job_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.DeleteJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -4380,7 +6009,65 @@ async def test_cancel_job_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.CancelJobRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_list_bucket_operations_empty_call_grpc_asyncio():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_bucket_operations), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            storage_batch_operations.ListBucketOperationsResponse(
+                next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
+            )
+        )
+        await client.list_bucket_operations(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = storage_batch_operations.ListBucketOperationsRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_get_bucket_operation_empty_call_grpc_asyncio():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_bucket_operation), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            storage_batch_operations_types.BucketOperation(
+                name="name_value",
+                bucket_name="bucket_name_value",
+                state=storage_batch_operations_types.BucketOperation.State.QUEUED,
+            )
+        )
+        await client.get_bucket_operation(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = storage_batch_operations.GetBucketOperationRequest()
         assert args[0] == request_msg
 
 
@@ -4402,8 +6089,9 @@ def test_list_jobs_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -4468,17 +6156,20 @@ def test_list_jobs_rest_interceptors(null_interceptor):
     )
     client = StorageBatchOperationsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.StorageBatchOperationsRestInterceptor, "post_list_jobs"
-    ) as post, mock.patch.object(
-        transports.StorageBatchOperationsRestInterceptor, "post_list_jobs_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.StorageBatchOperationsRestInterceptor, "pre_list_jobs"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor, "post_list_jobs"
+        ) as post,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor,
+            "post_list_jobs_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor, "pre_list_jobs"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -4534,8 +6225,9 @@ def test_get_job_rest_bad_request(request_type=storage_batch_operations.GetJobRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -4571,6 +6263,8 @@ def test_get_job_rest_call_success(request_type):
             name="name_value",
             description="description_value",
             state=storage_batch_operations_types.Job.State.RUNNING,
+            dry_run=True,
+            is_multi_bucket_job=True,
         )
 
         # Wrap the value into a proper Response obj
@@ -4590,6 +6284,8 @@ def test_get_job_rest_call_success(request_type):
     assert response.name == "name_value"
     assert response.description == "description_value"
     assert response.state == storage_batch_operations_types.Job.State.RUNNING
+    assert response.dry_run is True
+    assert response.is_multi_bucket_job is True
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -4602,17 +6298,20 @@ def test_get_job_rest_interceptors(null_interceptor):
     )
     client = StorageBatchOperationsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.StorageBatchOperationsRestInterceptor, "post_get_job"
-    ) as post, mock.patch.object(
-        transports.StorageBatchOperationsRestInterceptor, "post_get_job_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.StorageBatchOperationsRestInterceptor, "pre_get_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor, "post_get_job"
+        ) as post,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor,
+            "post_get_job_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor, "pre_get_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -4667,8 +6366,9 @@ def test_create_job_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -4722,8 +6422,19 @@ def test_create_job_rest_call_success(request_type):
             "cache_control": "cache_control_value",
             "custom_time": "custom_time_value",
             "custom_metadata": {},
+            "object_retention": {
+                "retain_until_time": "retain_until_time_value",
+                "retention_mode": 1,
+            },
         },
         "rewrite_object": {"kms_key": "kms_key_value"},
+        "update_object_custom_context": {
+            "custom_context_updates": {
+                "updates": {},
+                "keys_to_clear": ["keys_to_clear_value1", "keys_to_clear_value2"],
+            },
+            "clear_all": True,
+        },
         "logging_config": {"log_actions": [6], "log_action_states": [1]},
         "create_time": {"seconds": 751, "nanos": 543},
         "schedule_time": {},
@@ -4732,6 +6443,10 @@ def test_create_job_rest_call_success(request_type):
             "total_object_count": 1922,
             "succeeded_object_count": 2307,
             "failed_object_count": 1987,
+            "total_bytes_found": 1829,
+            "object_custom_contexts_created": 3199,
+            "object_custom_contexts_deleted": 3198,
+            "object_custom_contexts_updated": 3214,
         },
         "error_summaries": [
             {
@@ -4749,6 +6464,8 @@ def test_create_job_rest_call_success(request_type):
             }
         ],
         "state": 1,
+        "dry_run": True,
+        "is_multi_bucket_job": True,
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -4847,20 +6564,21 @@ def test_create_job_rest_interceptors(null_interceptor):
     )
     client = StorageBatchOperationsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.StorageBatchOperationsRestInterceptor, "post_create_job"
-    ) as post, mock.patch.object(
-        transports.StorageBatchOperationsRestInterceptor,
-        "post_create_job_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.StorageBatchOperationsRestInterceptor, "pre_create_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor, "post_create_job"
+        ) as post,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor,
+            "post_create_job_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor, "pre_create_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -4913,8 +6631,9 @@ def test_delete_job_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -4971,13 +6690,13 @@ def test_delete_job_rest_interceptors(null_interceptor):
     )
     client = StorageBatchOperationsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.StorageBatchOperationsRestInterceptor, "pre_delete_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor, "pre_delete_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = storage_batch_operations.DeleteJobRequest.pb(
             storage_batch_operations.DeleteJobRequest()
@@ -5022,8 +6741,9 @@ def test_cancel_job_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5083,18 +6803,20 @@ def test_cancel_job_rest_interceptors(null_interceptor):
     )
     client = StorageBatchOperationsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.StorageBatchOperationsRestInterceptor, "post_cancel_job"
-    ) as post, mock.patch.object(
-        transports.StorageBatchOperationsRestInterceptor,
-        "post_cancel_job_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.StorageBatchOperationsRestInterceptor, "pre_cancel_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor, "post_cancel_job"
+        ) as post,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor,
+            "post_cancel_job_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor, "pre_cancel_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -5141,6 +6863,293 @@ def test_cancel_job_rest_interceptors(null_interceptor):
         post_with_metadata.assert_called_once()
 
 
+def test_list_bucket_operations_rest_bad_request(
+    request_type=storage_batch_operations.ListBucketOperationsRequest,
+):
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/jobs/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_bucket_operations(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_batch_operations.ListBucketOperationsRequest,
+        dict,
+    ],
+)
+def test_list_bucket_operations_rest_call_success(request_type):
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/jobs/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = storage_batch_operations.ListBucketOperationsResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = storage_batch_operations.ListBucketOperationsResponse.pb(
+            return_value
+        )
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_bucket_operations(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListBucketOperationsPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_bucket_operations_rest_interceptors(null_interceptor):
+    transport = transports.StorageBatchOperationsRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.StorageBatchOperationsRestInterceptor(),
+    )
+    client = StorageBatchOperationsClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor,
+            "post_list_bucket_operations",
+        ) as post,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor,
+            "post_list_bucket_operations_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor,
+            "pre_list_bucket_operations",
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = storage_batch_operations.ListBucketOperationsRequest.pb(
+            storage_batch_operations.ListBucketOperationsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = storage_batch_operations.ListBucketOperationsResponse.to_json(
+            storage_batch_operations.ListBucketOperationsResponse()
+        )
+        req.return_value.content = return_value
+
+        request = storage_batch_operations.ListBucketOperationsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = storage_batch_operations.ListBucketOperationsResponse()
+        post_with_metadata.return_value = (
+            storage_batch_operations.ListBucketOperationsResponse(),
+            metadata,
+        )
+
+        client.list_bucket_operations(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_bucket_operation_rest_bad_request(
+    request_type=storage_batch_operations.GetBucketOperationRequest,
+):
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/jobs/sample3/bucketOperations/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_bucket_operation(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_batch_operations.GetBucketOperationRequest,
+        dict,
+    ],
+)
+def test_get_bucket_operation_rest_call_success(request_type):
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/jobs/sample3/bucketOperations/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = storage_batch_operations_types.BucketOperation(
+            name="name_value",
+            bucket_name="bucket_name_value",
+            state=storage_batch_operations_types.BucketOperation.State.QUEUED,
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = storage_batch_operations_types.BucketOperation.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_bucket_operation(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, storage_batch_operations_types.BucketOperation)
+    assert response.name == "name_value"
+    assert response.bucket_name == "bucket_name_value"
+    assert response.state == storage_batch_operations_types.BucketOperation.State.QUEUED
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_bucket_operation_rest_interceptors(null_interceptor):
+    transport = transports.StorageBatchOperationsRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.StorageBatchOperationsRestInterceptor(),
+    )
+    client = StorageBatchOperationsClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor,
+            "post_get_bucket_operation",
+        ) as post,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor,
+            "post_get_bucket_operation_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.StorageBatchOperationsRestInterceptor, "pre_get_bucket_operation"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = storage_batch_operations.GetBucketOperationRequest.pb(
+            storage_batch_operations.GetBucketOperationRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = storage_batch_operations_types.BucketOperation.to_json(
+            storage_batch_operations_types.BucketOperation()
+        )
+        req.return_value.content = return_value
+
+        request = storage_batch_operations.GetBucketOperationRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = storage_batch_operations_types.BucketOperation()
+        post_with_metadata.return_value = (
+            storage_batch_operations_types.BucketOperation(),
+            metadata,
+        )
+
+        client.get_bucket_operation(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
 def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationRequest):
     client = StorageBatchOperationsClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -5152,8 +7161,9 @@ def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationReq
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5212,8 +7222,9 @@ def test_list_locations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5274,8 +7285,9 @@ def test_cancel_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5336,8 +7348,9 @@ def test_delete_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5398,8 +7411,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5460,8 +7474,9 @@ def test_list_operations_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5532,7 +7547,6 @@ def test_list_jobs_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.ListJobsRequest()
-
         assert args[0] == request_msg
 
 
@@ -5552,7 +7566,6 @@ def test_get_job_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.GetJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -5572,7 +7585,6 @@ def test_create_job_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.CreateJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -5592,7 +7604,6 @@ def test_delete_job_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.DeleteJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -5612,7 +7623,48 @@ def test_cancel_job_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_batch_operations.CancelJobRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_bucket_operations_empty_call_rest():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_bucket_operations), "__call__"
+    ) as call:
+        client.list_bucket_operations(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = storage_batch_operations.ListBucketOperationsRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_bucket_operation_empty_call_rest():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_bucket_operation), "__call__"
+    ) as call:
+        client.get_bucket_operation(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = storage_batch_operations.GetBucketOperationRequest()
         assert args[0] == request_msg
 
 
@@ -5671,6 +7723,8 @@ def test_storage_batch_operations_base_transport():
         "create_job",
         "delete_job",
         "cancel_job",
+        "list_bucket_operations",
+        "get_bucket_operation",
         "get_location",
         "list_locations",
         "get_operation",
@@ -5701,11 +7755,14 @@ def test_storage_batch_operations_base_transport():
 
 def test_storage_batch_operations_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.storagebatchoperations_v1.services.storage_batch_operations.transports.StorageBatchOperationsTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.storagebatchoperations_v1.services.storage_batch_operations.transports.StorageBatchOperationsTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.StorageBatchOperationsTransport(
@@ -5722,9 +7779,12 @@ def test_storage_batch_operations_base_transport_with_credentials_file():
 
 def test_storage_batch_operations_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.storagebatchoperations_v1.services.storage_batch_operations.transports.StorageBatchOperationsTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.storagebatchoperations_v1.services.storage_batch_operations.transports.StorageBatchOperationsTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.StorageBatchOperationsTransport()
@@ -5798,11 +7858,12 @@ def test_storage_batch_operations_transport_create_channel(
 ):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -5959,6 +8020,12 @@ def test_storage_batch_operations_client_transport_session_collision(transport_n
     session1 = client1.transport.cancel_job._session
     session2 = client2.transport.cancel_job._session
     assert session1 != session2
+    session1 = client1.transport.list_bucket_operations._session
+    session2 = client2.transport.list_bucket_operations._session
+    assert session1 != session2
+    session1 = client1.transport.get_bucket_operation._session
+    session2 = client2.transport.get_bucket_operation._session
+    assert session1 != session2
 
 
 def test_storage_batch_operations_grpc_transport_channel():
@@ -5989,6 +8056,7 @@ def test_storage_batch_operations_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [
@@ -6121,11 +8189,42 @@ def test_storage_batch_operations_grpc_lro_async_client():
     assert transport.operations_client is transport.operations_client
 
 
-def test_crypto_key_path():
+def test_bucket_operation_path():
     project = "squid"
     location = "clam"
-    key_ring = "whelk"
-    crypto_key = "octopus"
+    job = "whelk"
+    bucket_operation = "octopus"
+    expected = "projects/{project}/locations/{location}/jobs/{job}/bucketOperations/{bucket_operation}".format(
+        project=project,
+        location=location,
+        job=job,
+        bucket_operation=bucket_operation,
+    )
+    actual = StorageBatchOperationsClient.bucket_operation_path(
+        project, location, job, bucket_operation
+    )
+    assert expected == actual
+
+
+def test_parse_bucket_operation_path():
+    expected = {
+        "project": "oyster",
+        "location": "nudibranch",
+        "job": "cuttlefish",
+        "bucket_operation": "mussel",
+    }
+    path = StorageBatchOperationsClient.bucket_operation_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = StorageBatchOperationsClient.parse_bucket_operation_path(path)
+    assert expected == actual
+
+
+def test_crypto_key_path():
+    project = "winkle"
+    location = "nautilus"
+    key_ring = "scallop"
+    crypto_key = "abalone"
     expected = "projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{crypto_key}".format(
         project=project,
         location=location,
@@ -6140,10 +8239,10 @@ def test_crypto_key_path():
 
 def test_parse_crypto_key_path():
     expected = {
-        "project": "oyster",
-        "location": "nudibranch",
-        "key_ring": "cuttlefish",
-        "crypto_key": "mussel",
+        "project": "squid",
+        "location": "clam",
+        "key_ring": "whelk",
+        "crypto_key": "octopus",
     }
     path = StorageBatchOperationsClient.crypto_key_path(**expected)
 
@@ -6153,9 +8252,9 @@ def test_parse_crypto_key_path():
 
 
 def test_job_path():
-    project = "winkle"
-    location = "nautilus"
-    job = "scallop"
+    project = "oyster"
+    location = "nudibranch"
+    job = "cuttlefish"
     expected = "projects/{project}/locations/{location}/jobs/{job}".format(
         project=project,
         location=location,
@@ -6167,9 +8266,9 @@ def test_job_path():
 
 def test_parse_job_path():
     expected = {
-        "project": "abalone",
-        "location": "squid",
-        "job": "clam",
+        "project": "mussel",
+        "location": "winkle",
+        "job": "nautilus",
     }
     path = StorageBatchOperationsClient.job_path(**expected)
 
@@ -6179,7 +8278,7 @@ def test_parse_job_path():
 
 
 def test_common_billing_account_path():
-    billing_account = "whelk"
+    billing_account = "scallop"
     expected = "billingAccounts/{billing_account}".format(
         billing_account=billing_account,
     )
@@ -6189,7 +8288,7 @@ def test_common_billing_account_path():
 
 def test_parse_common_billing_account_path():
     expected = {
-        "billing_account": "octopus",
+        "billing_account": "abalone",
     }
     path = StorageBatchOperationsClient.common_billing_account_path(**expected)
 
@@ -6199,7 +8298,7 @@ def test_parse_common_billing_account_path():
 
 
 def test_common_folder_path():
-    folder = "oyster"
+    folder = "squid"
     expected = "folders/{folder}".format(
         folder=folder,
     )
@@ -6209,7 +8308,7 @@ def test_common_folder_path():
 
 def test_parse_common_folder_path():
     expected = {
-        "folder": "nudibranch",
+        "folder": "clam",
     }
     path = StorageBatchOperationsClient.common_folder_path(**expected)
 
@@ -6219,7 +8318,7 @@ def test_parse_common_folder_path():
 
 
 def test_common_organization_path():
-    organization = "cuttlefish"
+    organization = "whelk"
     expected = "organizations/{organization}".format(
         organization=organization,
     )
@@ -6229,7 +8328,7 @@ def test_common_organization_path():
 
 def test_parse_common_organization_path():
     expected = {
-        "organization": "mussel",
+        "organization": "octopus",
     }
     path = StorageBatchOperationsClient.common_organization_path(**expected)
 
@@ -6239,7 +8338,7 @@ def test_parse_common_organization_path():
 
 
 def test_common_project_path():
-    project = "winkle"
+    project = "oyster"
     expected = "projects/{project}".format(
         project=project,
     )
@@ -6249,7 +8348,7 @@ def test_common_project_path():
 
 def test_parse_common_project_path():
     expected = {
-        "project": "nautilus",
+        "project": "nudibranch",
     }
     path = StorageBatchOperationsClient.common_project_path(**expected)
 
@@ -6259,8 +8358,8 @@ def test_parse_common_project_path():
 
 
 def test_common_location_path():
-    project = "scallop"
-    location = "abalone"
+    project = "cuttlefish"
+    location = "mussel"
     expected = "projects/{project}/locations/{location}".format(
         project=project,
         location=location,
@@ -6271,8 +8370,8 @@ def test_common_location_path():
 
 def test_parse_common_location_path():
     expected = {
-        "project": "squid",
-        "location": "clam",
+        "project": "winkle",
+        "location": "nautilus",
     }
     path = StorageBatchOperationsClient.common_location_path(**expected)
 
@@ -6443,6 +8542,38 @@ async def test_delete_operation_from_dict_async():
         call.assert_called()
 
 
+def test_delete_operation_flattened():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_flattened_async():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
 def test_cancel_operation(transport: str = "grpc"):
     client = StorageBatchOperationsClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -6580,6 +8711,38 @@ async def test_cancel_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_cancel_operation_flattened():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
 
 
 def test_get_operation(transport: str = "grpc"):
@@ -6727,6 +8890,40 @@ async def test_get_operation_from_dict_async():
         call.assert_called()
 
 
+def test_get_operation_flattened():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
 def test_list_operations(transport: str = "grpc"):
     client = StorageBatchOperationsClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -6870,6 +9067,40 @@ async def test_list_operations_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_list_operations_flattened():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
 
 
 def test_list_locations(transport: str = "grpc"):
@@ -7017,6 +9248,40 @@ async def test_list_locations_from_dict_async():
         call.assert_called()
 
 
+def test_list_locations_flattened():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_flattened_async():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
 def test_get_location(transport: str = "grpc"):
     client = StorageBatchOperationsClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -7160,6 +9425,40 @@ async def test_get_location_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_location_flattened():
+    client = StorageBatchOperationsClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_location_flattened_async():
+    client = StorageBatchOperationsAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
 
 
 def test_transport_close_grpc():

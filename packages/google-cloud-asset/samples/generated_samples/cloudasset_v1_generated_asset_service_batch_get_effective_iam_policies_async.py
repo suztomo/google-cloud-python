@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ async def sample_batch_get_effective_iam_policies():
     # Initialize request argument(s)
     request = asset_v1.BatchGetEffectiveIamPoliciesRequest(
         scope="scope_value",
-        names=['names_value1', 'names_value2'],
+        names=["names_value1", "names_value2"],
     )
 
     # Make the request
@@ -49,5 +49,6 @@ async def sample_batch_get_effective_iam_policies():
 
     # Handle the response
     print(response)
+
 
 # [END cloudasset_v1_generated_AssetService_BatchGetEffectiveIamPolicies_async]

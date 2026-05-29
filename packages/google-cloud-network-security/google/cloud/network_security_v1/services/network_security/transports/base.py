@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,31 +17,55 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
+import google.auth  # type: ignore
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, operations_v1
 from google.api_core import retry as retries
-import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.network_security_v1 import gapic_version as package_version
 from google.cloud.network_security_v1.types import (
+    authorization_policy,
+    authz_policy,
+    backend_authentication_config,
+    client_tls_policy,
+    gateway_security_policy,
+    gateway_security_policy_rule,
+    server_tls_policy,
+    tls_inspection_policy,
+    url_list,
+)
+from google.cloud.network_security_v1.types import (
     authorization_policy as gcn_authorization_policy,
+)
+from google.cloud.network_security_v1.types import authz_policy as gcn_authz_policy
+from google.cloud.network_security_v1.types import (
+    backend_authentication_config as gcn_backend_authentication_config,
 )
 from google.cloud.network_security_v1.types import (
     client_tls_policy as gcn_client_tls_policy,
 )
 from google.cloud.network_security_v1.types import (
+    gateway_security_policy as gcn_gateway_security_policy,
+)
+from google.cloud.network_security_v1.types import (
+    gateway_security_policy_rule as gcn_gateway_security_policy_rule,
+)
+from google.cloud.network_security_v1.types import (
     server_tls_policy as gcn_server_tls_policy,
 )
-from google.cloud.network_security_v1.types import authorization_policy
-from google.cloud.network_security_v1.types import client_tls_policy
-from google.cloud.network_security_v1.types import server_tls_policy
+from google.cloud.network_security_v1.types import (
+    tls_inspection_policy as gcn_tls_inspection_policy,
+)
+from google.cloud.network_security_v1.types import url_list as gcn_url_list
 
 DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(
     gapic_version=package_version.__version__
@@ -81,9 +105,10 @@ class NetworkSecurityTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -94,9 +119,11 @@ class NetworkSecurityTransport(abc.ABC):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
-
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
 
         # Save the scopes.
         self._scopes = scopes
@@ -112,11 +139,16 @@ class NetworkSecurityTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -139,6 +171,8 @@ class NetworkSecurityTransport(abc.ABC):
         if ":" not in host:
             host += ":443"
         self._host = host
+
+        self._wrapped_methods: Dict[Callable, Callable] = {}
 
     @property
     def host(self):
@@ -169,6 +203,31 @@ class NetworkSecurityTransport(abc.ABC):
             ),
             self.delete_authorization_policy: gapic_v1.method.wrap_method(
                 self.delete_authorization_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_backend_authentication_configs: gapic_v1.method.wrap_method(
+                self.list_backend_authentication_configs,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_backend_authentication_config: gapic_v1.method.wrap_method(
+                self.get_backend_authentication_config,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.create_backend_authentication_config: gapic_v1.method.wrap_method(
+                self.create_backend_authentication_config,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_backend_authentication_config: gapic_v1.method.wrap_method(
+                self.update_backend_authentication_config,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.delete_backend_authentication_config: gapic_v1.method.wrap_method(
+                self.delete_backend_authentication_config,
                 default_timeout=None,
                 client_info=client_info,
             ),
@@ -219,6 +278,131 @@ class NetworkSecurityTransport(abc.ABC):
             ),
             self.delete_client_tls_policy: gapic_v1.method.wrap_method(
                 self.delete_client_tls_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_gateway_security_policies: gapic_v1.method.wrap_method(
+                self.list_gateway_security_policies,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_gateway_security_policy: gapic_v1.method.wrap_method(
+                self.get_gateway_security_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.create_gateway_security_policy: gapic_v1.method.wrap_method(
+                self.create_gateway_security_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_gateway_security_policy: gapic_v1.method.wrap_method(
+                self.update_gateway_security_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.delete_gateway_security_policy: gapic_v1.method.wrap_method(
+                self.delete_gateway_security_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_gateway_security_policy_rules: gapic_v1.method.wrap_method(
+                self.list_gateway_security_policy_rules,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_gateway_security_policy_rule: gapic_v1.method.wrap_method(
+                self.get_gateway_security_policy_rule,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.create_gateway_security_policy_rule: gapic_v1.method.wrap_method(
+                self.create_gateway_security_policy_rule,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_gateway_security_policy_rule: gapic_v1.method.wrap_method(
+                self.update_gateway_security_policy_rule,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.delete_gateway_security_policy_rule: gapic_v1.method.wrap_method(
+                self.delete_gateway_security_policy_rule,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_url_lists: gapic_v1.method.wrap_method(
+                self.list_url_lists,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_url_list: gapic_v1.method.wrap_method(
+                self.get_url_list,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.create_url_list: gapic_v1.method.wrap_method(
+                self.create_url_list,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_url_list: gapic_v1.method.wrap_method(
+                self.update_url_list,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.delete_url_list: gapic_v1.method.wrap_method(
+                self.delete_url_list,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_tls_inspection_policies: gapic_v1.method.wrap_method(
+                self.list_tls_inspection_policies,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_tls_inspection_policy: gapic_v1.method.wrap_method(
+                self.get_tls_inspection_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.create_tls_inspection_policy: gapic_v1.method.wrap_method(
+                self.create_tls_inspection_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_tls_inspection_policy: gapic_v1.method.wrap_method(
+                self.update_tls_inspection_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.delete_tls_inspection_policy: gapic_v1.method.wrap_method(
+                self.delete_tls_inspection_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_authz_policies: gapic_v1.method.wrap_method(
+                self.list_authz_policies,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_authz_policy: gapic_v1.method.wrap_method(
+                self.get_authz_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.create_authz_policy: gapic_v1.method.wrap_method(
+                self.create_authz_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_authz_policy: gapic_v1.method.wrap_method(
+                self.update_authz_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.delete_authz_policy: gapic_v1.method.wrap_method(
+                self.delete_authz_policy,
                 default_timeout=None,
                 client_info=client_info,
             ),
@@ -335,6 +519,59 @@ class NetworkSecurityTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
+    def list_backend_authentication_configs(
+        self,
+    ) -> Callable[
+        [backend_authentication_config.ListBackendAuthenticationConfigsRequest],
+        Union[
+            backend_authentication_config.ListBackendAuthenticationConfigsResponse,
+            Awaitable[
+                backend_authentication_config.ListBackendAuthenticationConfigsResponse
+            ],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_backend_authentication_config(
+        self,
+    ) -> Callable[
+        [backend_authentication_config.GetBackendAuthenticationConfigRequest],
+        Union[
+            backend_authentication_config.BackendAuthenticationConfig,
+            Awaitable[backend_authentication_config.BackendAuthenticationConfig],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def create_backend_authentication_config(
+        self,
+    ) -> Callable[
+        [gcn_backend_authentication_config.CreateBackendAuthenticationConfigRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def update_backend_authentication_config(
+        self,
+    ) -> Callable[
+        [gcn_backend_authentication_config.UpdateBackendAuthenticationConfigRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_backend_authentication_config(
+        self,
+    ) -> Callable[
+        [backend_authentication_config.DeleteBackendAuthenticationConfigRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
     def list_server_tls_policies(
         self,
     ) -> Callable[
@@ -437,6 +674,254 @@ class NetworkSecurityTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
+    def list_gateway_security_policies(
+        self,
+    ) -> Callable[
+        [gateway_security_policy.ListGatewaySecurityPoliciesRequest],
+        Union[
+            gateway_security_policy.ListGatewaySecurityPoliciesResponse,
+            Awaitable[gateway_security_policy.ListGatewaySecurityPoliciesResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_gateway_security_policy(
+        self,
+    ) -> Callable[
+        [gateway_security_policy.GetGatewaySecurityPolicyRequest],
+        Union[
+            gateway_security_policy.GatewaySecurityPolicy,
+            Awaitable[gateway_security_policy.GatewaySecurityPolicy],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def create_gateway_security_policy(
+        self,
+    ) -> Callable[
+        [gcn_gateway_security_policy.CreateGatewaySecurityPolicyRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def update_gateway_security_policy(
+        self,
+    ) -> Callable[
+        [gcn_gateway_security_policy.UpdateGatewaySecurityPolicyRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_gateway_security_policy(
+        self,
+    ) -> Callable[
+        [gateway_security_policy.DeleteGatewaySecurityPolicyRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def list_gateway_security_policy_rules(
+        self,
+    ) -> Callable[
+        [gateway_security_policy_rule.ListGatewaySecurityPolicyRulesRequest],
+        Union[
+            gateway_security_policy_rule.ListGatewaySecurityPolicyRulesResponse,
+            Awaitable[
+                gateway_security_policy_rule.ListGatewaySecurityPolicyRulesResponse
+            ],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_gateway_security_policy_rule(
+        self,
+    ) -> Callable[
+        [gateway_security_policy_rule.GetGatewaySecurityPolicyRuleRequest],
+        Union[
+            gateway_security_policy_rule.GatewaySecurityPolicyRule,
+            Awaitable[gateway_security_policy_rule.GatewaySecurityPolicyRule],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def create_gateway_security_policy_rule(
+        self,
+    ) -> Callable[
+        [gcn_gateway_security_policy_rule.CreateGatewaySecurityPolicyRuleRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def update_gateway_security_policy_rule(
+        self,
+    ) -> Callable[
+        [gcn_gateway_security_policy_rule.UpdateGatewaySecurityPolicyRuleRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_gateway_security_policy_rule(
+        self,
+    ) -> Callable[
+        [gateway_security_policy_rule.DeleteGatewaySecurityPolicyRuleRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def list_url_lists(
+        self,
+    ) -> Callable[
+        [url_list.ListUrlListsRequest],
+        Union[url_list.ListUrlListsResponse, Awaitable[url_list.ListUrlListsResponse]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_url_list(
+        self,
+    ) -> Callable[
+        [url_list.GetUrlListRequest],
+        Union[url_list.UrlList, Awaitable[url_list.UrlList]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def create_url_list(
+        self,
+    ) -> Callable[
+        [gcn_url_list.CreateUrlListRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def update_url_list(
+        self,
+    ) -> Callable[
+        [gcn_url_list.UpdateUrlListRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_url_list(
+        self,
+    ) -> Callable[
+        [url_list.DeleteUrlListRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def list_tls_inspection_policies(
+        self,
+    ) -> Callable[
+        [tls_inspection_policy.ListTlsInspectionPoliciesRequest],
+        Union[
+            tls_inspection_policy.ListTlsInspectionPoliciesResponse,
+            Awaitable[tls_inspection_policy.ListTlsInspectionPoliciesResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_tls_inspection_policy(
+        self,
+    ) -> Callable[
+        [tls_inspection_policy.GetTlsInspectionPolicyRequest],
+        Union[
+            tls_inspection_policy.TlsInspectionPolicy,
+            Awaitable[tls_inspection_policy.TlsInspectionPolicy],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def create_tls_inspection_policy(
+        self,
+    ) -> Callable[
+        [gcn_tls_inspection_policy.CreateTlsInspectionPolicyRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def update_tls_inspection_policy(
+        self,
+    ) -> Callable[
+        [gcn_tls_inspection_policy.UpdateTlsInspectionPolicyRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_tls_inspection_policy(
+        self,
+    ) -> Callable[
+        [tls_inspection_policy.DeleteTlsInspectionPolicyRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def list_authz_policies(
+        self,
+    ) -> Callable[
+        [authz_policy.ListAuthzPoliciesRequest],
+        Union[
+            authz_policy.ListAuthzPoliciesResponse,
+            Awaitable[authz_policy.ListAuthzPoliciesResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_authz_policy(
+        self,
+    ) -> Callable[
+        [authz_policy.GetAuthzPolicyRequest],
+        Union[authz_policy.AuthzPolicy, Awaitable[authz_policy.AuthzPolicy]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def create_authz_policy(
+        self,
+    ) -> Callable[
+        [gcn_authz_policy.CreateAuthzPolicyRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def update_authz_policy(
+        self,
+    ) -> Callable[
+        [gcn_authz_policy.UpdateAuthzPolicyRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_authz_policy(
+        self,
+    ) -> Callable[
+        [authz_policy.DeleteAuthzPolicyRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
     def list_operations(
         self,
     ) -> Callable[
@@ -460,13 +945,19 @@ class NetworkSecurityTransport(abc.ABC):
     @property
     def cancel_operation(
         self,
-    ) -> Callable[[operations_pb2.CancelOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.CancelOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property
     def delete_operation(
         self,
-    ) -> Callable[[operations_pb2.DeleteOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.DeleteOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property

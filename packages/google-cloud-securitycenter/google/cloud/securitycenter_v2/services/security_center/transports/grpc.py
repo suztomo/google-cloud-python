@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,24 +16,36 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers, operations_v1
 import google.auth  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf.json_format import MessageToJson
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 import google.protobuf.message
 import grpc  # type: ignore
 import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers, operations_v1
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.grpc import SslCredentials  # type: ignore
+from google.longrunning import operations_pb2  # type: ignore
+from google.protobuf.json_format import MessageToJson
 
-from google.cloud.securitycenter_v2.types import securitycenter_service, simulation
+from google.cloud.securitycenter_v2.types import (
+    bigquery_export,
+    finding,
+    mute_config,
+    notification_config,
+    resource_value_config,
+    securitycenter_service,
+    simulation,
+    source,
+    valued_resource,
+)
 from google.cloud.securitycenter_v2.types import external_system as gcs_external_system
+from google.cloud.securitycenter_v2.types import finding as gcs_finding
+from google.cloud.securitycenter_v2.types import mute_config as gcs_mute_config
 from google.cloud.securitycenter_v2.types import (
     notification_config as gcs_notification_config,
 )
@@ -41,16 +53,7 @@ from google.cloud.securitycenter_v2.types import (
     resource_value_config as gcs_resource_value_config,
 )
 from google.cloud.securitycenter_v2.types import security_marks as gcs_security_marks
-from google.cloud.securitycenter_v2.types import bigquery_export
-from google.cloud.securitycenter_v2.types import finding
-from google.cloud.securitycenter_v2.types import finding as gcs_finding
-from google.cloud.securitycenter_v2.types import mute_config
-from google.cloud.securitycenter_v2.types import mute_config as gcs_mute_config
-from google.cloud.securitycenter_v2.types import notification_config
-from google.cloud.securitycenter_v2.types import resource_value_config
-from google.cloud.securitycenter_v2.types import source
 from google.cloud.securitycenter_v2.types import source as gcs_source
-from google.cloud.securitycenter_v2.types import valued_resource
 
 from .base import DEFAULT_CLIENT_INFO, SecurityCenterTransport
 
@@ -76,7 +79,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -111,7 +114,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -172,9 +175,10 @@ class SecurityCenterGrpcTransport(SecurityCenterTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -205,6 +209,10 @@ class SecurityCenterGrpcTransport(SecurityCenterTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -308,9 +316,10 @@ class SecurityCenterGrpcTransport(SecurityCenterTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -383,12 +392,12 @@ class SecurityCenterGrpcTransport(SecurityCenterTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "batch_create_resource_value_configs" not in self._stubs:
-            self._stubs[
-                "batch_create_resource_value_configs"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.securitycenter.v2.SecurityCenter/BatchCreateResourceValueConfigs",
-                request_serializer=securitycenter_service.BatchCreateResourceValueConfigsRequest.serialize,
-                response_deserializer=securitycenter_service.BatchCreateResourceValueConfigsResponse.deserialize,
+            self._stubs["batch_create_resource_value_configs"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.securitycenter.v2.SecurityCenter/BatchCreateResourceValueConfigs",
+                    request_serializer=securitycenter_service.BatchCreateResourceValueConfigsRequest.serialize,
+                    response_deserializer=securitycenter_service.BatchCreateResourceValueConfigsResponse.deserialize,
+                )
             )
         return self._stubs["batch_create_resource_value_configs"]
 
@@ -530,12 +539,12 @@ class SecurityCenterGrpcTransport(SecurityCenterTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_notification_config" not in self._stubs:
-            self._stubs[
-                "create_notification_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.securitycenter.v2.SecurityCenter/CreateNotificationConfig",
-                request_serializer=securitycenter_service.CreateNotificationConfigRequest.serialize,
-                response_deserializer=gcs_notification_config.NotificationConfig.deserialize,
+            self._stubs["create_notification_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.securitycenter.v2.SecurityCenter/CreateNotificationConfig",
+                    request_serializer=securitycenter_service.CreateNotificationConfigRequest.serialize,
+                    response_deserializer=gcs_notification_config.NotificationConfig.deserialize,
+                )
             )
         return self._stubs["create_notification_config"]
 
@@ -641,12 +650,12 @@ class SecurityCenterGrpcTransport(SecurityCenterTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "delete_notification_config" not in self._stubs:
-            self._stubs[
-                "delete_notification_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.securitycenter.v2.SecurityCenter/DeleteNotificationConfig",
-                request_serializer=securitycenter_service.DeleteNotificationConfigRequest.serialize,
-                response_deserializer=empty_pb2.Empty.FromString,
+            self._stubs["delete_notification_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.securitycenter.v2.SecurityCenter/DeleteNotificationConfig",
+                    request_serializer=securitycenter_service.DeleteNotificationConfigRequest.serialize,
+                    response_deserializer=empty_pb2.Empty.FromString,
+                )
             )
         return self._stubs["delete_notification_config"]
 
@@ -671,12 +680,12 @@ class SecurityCenterGrpcTransport(SecurityCenterTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "delete_resource_value_config" not in self._stubs:
-            self._stubs[
-                "delete_resource_value_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.securitycenter.v2.SecurityCenter/DeleteResourceValueConfig",
-                request_serializer=securitycenter_service.DeleteResourceValueConfigRequest.serialize,
-                response_deserializer=empty_pb2.Empty.FromString,
+            self._stubs["delete_resource_value_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.securitycenter.v2.SecurityCenter/DeleteResourceValueConfig",
+                    request_serializer=securitycenter_service.DeleteResourceValueConfigRequest.serialize,
+                    response_deserializer=empty_pb2.Empty.FromString,
+                )
             )
         return self._stubs["delete_resource_value_config"]
 
@@ -921,15 +930,15 @@ class SecurityCenterGrpcTransport(SecurityCenterTransport):
         To group across all sources provide a ``-`` as the source id.
         The following list shows some examples:
 
-        -  ``/v2/organizations/{organization_id}/sources/-/findings``
+        - ``/v2/organizations/{organization_id}/sources/-/findings``
         -
 
         ``/v2/organizations/{organization_id}/sources/-/locations/{location_id}/findings``
 
-        -  ``/v2/folders/{folder_id}/sources/-/findings``
-        -  ``/v2/folders/{folder_id}/sources/-/locations/{location_id}/findings``
-        -  ``/v2/projects/{project_id}/sources/-/findings``
-        -  ``/v2/projects/{project_id}/sources/-/locations/{location_id}/findings``
+        - ``/v2/folders/{folder_id}/sources/-/findings``
+        - ``/v2/folders/{folder_id}/sources/-/locations/{location_id}/findings``
+        - ``/v2/projects/{project_id}/sources/-/findings``
+        - ``/v2/projects/{project_id}/sources/-/locations/{location_id}/findings``
 
         Returns:
             Callable[[~.GroupFindingsRequest],
@@ -1028,7 +1037,7 @@ class SecurityCenterGrpcTransport(SecurityCenterTransport):
         as the source id. If no location is specified, finding are
         assumed to be in global. The following list shows some examples:
 
-        -  ``/v2/organizations/{organization_id}/sources/-/findings``
+        - ``/v2/organizations/{organization_id}/sources/-/findings``
         -
 
         ``/v2/organizations/{organization_id}/sources/-/locations/{location_id}/findings``
@@ -1132,12 +1141,12 @@ class SecurityCenterGrpcTransport(SecurityCenterTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_resource_value_configs" not in self._stubs:
-            self._stubs[
-                "list_resource_value_configs"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.securitycenter.v2.SecurityCenter/ListResourceValueConfigs",
-                request_serializer=securitycenter_service.ListResourceValueConfigsRequest.serialize,
-                response_deserializer=securitycenter_service.ListResourceValueConfigsResponse.deserialize,
+            self._stubs["list_resource_value_configs"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.securitycenter.v2.SecurityCenter/ListResourceValueConfigs",
+                    request_serializer=securitycenter_service.ListResourceValueConfigsRequest.serialize,
+                    response_deserializer=securitycenter_service.ListResourceValueConfigsResponse.deserialize,
+                )
             )
         return self._stubs["list_resource_value_configs"]
 
@@ -1452,12 +1461,12 @@ class SecurityCenterGrpcTransport(SecurityCenterTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_notification_config" not in self._stubs:
-            self._stubs[
-                "update_notification_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.securitycenter.v2.SecurityCenter/UpdateNotificationConfig",
-                request_serializer=securitycenter_service.UpdateNotificationConfigRequest.serialize,
-                response_deserializer=gcs_notification_config.NotificationConfig.deserialize,
+            self._stubs["update_notification_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.securitycenter.v2.SecurityCenter/UpdateNotificationConfig",
+                    request_serializer=securitycenter_service.UpdateNotificationConfigRequest.serialize,
+                    response_deserializer=gcs_notification_config.NotificationConfig.deserialize,
+                )
             )
         return self._stubs["update_notification_config"]
 
@@ -1484,12 +1493,12 @@ class SecurityCenterGrpcTransport(SecurityCenterTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_resource_value_config" not in self._stubs:
-            self._stubs[
-                "update_resource_value_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.securitycenter.v2.SecurityCenter/UpdateResourceValueConfig",
-                request_serializer=securitycenter_service.UpdateResourceValueConfigRequest.serialize,
-                response_deserializer=gcs_resource_value_config.ResourceValueConfig.deserialize,
+            self._stubs["update_resource_value_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.securitycenter.v2.SecurityCenter/UpdateResourceValueConfig",
+                    request_serializer=securitycenter_service.UpdateResourceValueConfigRequest.serialize,
+                    response_deserializer=gcs_resource_value_config.ResourceValueConfig.deserialize,
+                )
             )
         return self._stubs["update_resource_value_config"]
 

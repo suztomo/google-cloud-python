@@ -1,17 +1,16 @@
 {
-    "name": "google-cloud-cloudcontrolspartner",
-    "name_pretty": "Cloud Controls Partner API",
-    "api_description": "Provides insights about your customers and their Assured Workloads based on your Sovereign Controls by Partners offering.",
-    "product_documentation": "https://cloud.google.com/sovereign-controls-by-partners/docs/sovereign-partners/reference/rest",
+    "api_description": "Provides insights about your customers and their Assured Workloads based on\nyour Sovereign Controls by Partners offering.",
+    "api_id": "cloudcontrolspartner.googleapis.com",
+    "api_shortname": "cloudcontrolspartner",
     "client_documentation": "https://cloud.google.com/python/docs/reference/google-cloud-cloudcontrolspartner/latest",
-    "issue_tracker": "https://github.com/googleapis/google-cloud-python/issues",
-    "release_level": "preview",
+    "default_version": "v1",
+    "distribution_name": "google-cloud-cloudcontrolspartner",
+    "issue_tracker": "https://issuetracker.google.com/issues/new?component=1504051",
     "language": "python",
     "library_type": "GAPIC_AUTO",
-    "repo": "googleapis/google-cloud-python",
-    "distribution_name": "google-cloud-cloudcontrolspartner",
-    "api_id": "cloudcontrolspartner.googleapis.com",
-    "default_version": "v1",
-    "codeowner_team": "",
-    "api_shortname": "cloudcontrolspartner"
+    "name": "google-cloud-cloudcontrolspartner",
+    "name_pretty": "Cloud Controls Partner",
+    "product_documentation": "https://cloud.google.com/sovereign-controls-by-partners/",
+    "release_level": "preview",
+    "repo": "googleapis/google-cloud-python"
 }

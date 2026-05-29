@@ -1,5 +1,146 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-compute/#history
+
+## [1.47.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.46.0...google-cloud-compute-v1.47.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.46.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.45.0...google-cloud-compute-v1.46.0) (2026-03-12)
+
+
+### Features
+
+* Update Compute Engine v1 API to revision 20260227 (#1166) ([7b22ea2d3be55fe4520bdb14881a9e8d4dec498d](https://github.com/googleapis/google-cloud-python/commit/7b22ea2d3be55fe4520bdb14881a9e8d4dec498d))
+
+## [1.45.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.44.0...google-cloud-compute-v1.45.0) (2026-03-05)
+
+
+### Features
+
+* Update Compute Engine v1 API to revision 20260213 The breaking change exemption is approved in internal http://b/488396206 ([22601c79a6c0d6c470d338245ee247e9320b733f](https://github.com/googleapis/google-cloud-python/commit/22601c79a6c0d6c470d338245ee247e9320b733f))
+
+## [1.44.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.43.0...google-cloud-compute-v1.44.0) (2026-02-26)
+
+
+### Features
+
+* Update Compute Engine v1 API to revision 20260106 (#1148) ([d1ce4d35f751d9c64d1ee8bf86251c0983bf1725](https://github.com/googleapis/google-cloud-python/commit/d1ce4d35f751d9c64d1ee8bf86251c0983bf1725))
+
+## [1.43.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.42.0...google-cloud-compute-v1.43.0) (2026-01-29)
+
+
+### Features
+
+* Update Compute Engine v1 API to revision 20251230 (#1144) ([e2fea25d67791741143cafc944b09037c86d6a80](https://github.com/googleapis/google-cloud-python/commit/e2fea25d67791741143cafc944b09037c86d6a80))
+
+## [1.42.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.41.0...google-cloud-compute-v1.42.0) (2026-01-09)
+
+
+### Features
+
+* Update Compute Engine v1 API to revision 20251210 (#1137) ([63cc1cdfdc37c409bf13260147aef028adace2b2](https://github.com/googleapis/google-cloud-python/commit/63cc1cdfdc37c409bf13260147aef028adace2b2))
+* Update Compute Engine v1 API to revision 20251031 ([63cc1cdfdc37c409bf13260147aef028adace2b2](https://github.com/googleapis/google-cloud-python/commit/63cc1cdfdc37c409bf13260147aef028adace2b2))
+
+## [1.41.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.40.0...google-cloud-compute-v1.41.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.40.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.39.0...google-cloud-compute-v1.40.0) (2025-10-16)
+
+
+### Features
+
+* Update Compute Engine v1 API to revision 20250916 (#1107)  ([4dc7381c2121c9e13b24cb3aae59523f8ff31a3a](https://github.com/googleapis/google-cloud-python/commit/4dc7381c2121c9e13b24cb3aae59523f8ff31a3a))
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [1.39.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.38.0...google-cloud-compute-v1.39.0) (2025-10-07)
+
+
+### Features
+
+* [google-cloud-compute] Update Compute Engine v1 API to revision 20250909  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-compute] Update Compute Engine v1 API to revision 20250902  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+
+## [1.38.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.37.0...google-cloud-compute-v1.38.0) (2025-09-22)
+
+
+### Features
+
+* [google-cloud-compute] Update Compute Engine v1 API to revision 20250902 ([#14434](https://github.com/googleapis/google-cloud-python/issues/14434)) ([daf5ab8](https://github.com/googleapis/google-cloud-python/commit/daf5ab81499ccb7bf29c74b616af9f6235c12526))
+
+## [1.37.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.36.0...google-cloud-compute-v1.37.0) (2025-09-04)
+
+
+### Features
+
+* [google-cloud-compute] Update Compute Engine v1 API to revision 20250810 ([#1091](https://github.com/googleapis/google-cloud-python/issues/1091)) ([#14324](https://github.com/googleapis/google-cloud-python/issues/14324)) ([6cdbcee](https://github.com/googleapis/google-cloud-python/commit/6cdbcee600286643cba8caf3c2219e9810b317fe))
+
+## [1.36.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.35.0...google-cloud-compute-v1.36.0) (2025-08-29)
+
+
+### Features
+
+* [google-cloud-compute] Update Compute Engine v1 API to revision 20250807 ([51732d3](https://github.com/googleapis/google-cloud-python/commit/51732d38da49f8a0598d58b204dc7d9c86ee0e52))
+
+## [1.35.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.34.0...google-cloud-compute-v1.35.0) (2025-08-10)
+
+
+### Features
+
+* [google-cloud-compute] Update Compute Engine v1 API to revision 20250728 ([#1081](https://github.com/googleapis/google-cloud-python/issues/1081)) ([#14196](https://github.com/googleapis/google-cloud-python/issues/14196)) ([9abaf2f](https://github.com/googleapis/google-cloud-python/commit/9abaf2fd0eb864f21f246a257ec796fe4e11717f))
+* [google-cloud-compute] Update Compute Engine v1 API to revision 20250729 ([#1085](https://github.com/googleapis/google-cloud-python/issues/1085)) ([#14199](https://github.com/googleapis/google-cloud-python/issues/14199)) ([17c935f](https://github.com/googleapis/google-cloud-python/commit/17c935fb57e5e76e44b5590dcf74b27cd6dfe285))
+
+## [1.34.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.33.0...google-cloud-compute-v1.34.0) (2025-08-06)
+
+
+### Features
+
+* [google-cloud-compute] Update Compute Engine v1 API to revision 20250717 ([#1074](https://github.com/googleapis/google-cloud-python/issues/1074)) ([#14169](https://github.com/googleapis/google-cloud-python/issues/14169)) ([0c26f13](https://github.com/googleapis/google-cloud-python/commit/0c26f13efca3b91fc1981f3cab67d8c9305ca3a9))
+
+## [1.33.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.32.0...google-cloud-compute-v1.33.0) (2025-07-16)
+
+
+### Features
+
+* [google-cloud-compute] Update Compute Engine v1 API to revision 20250708 ([#1073](https://github.com/googleapis/google-cloud-python/issues/1073)) ([#14107](https://github.com/googleapis/google-cloud-python/issues/14107)) ([723ac5d](https://github.com/googleapis/google-cloud-python/commit/723ac5deb793fa180bacb52841ff73893b58076e))
+
+## [1.32.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.31.0...google-cloud-compute-v1.32.0) (2025-07-10)
+
+
+### Features
+
+* Update Compute Engine v1 API to revision 20250626 ([3ad8819](https://github.com/googleapis/google-cloud-python/commit/3ad8819a1967ba00374e6be26062d5c7e94200c8))
+
+## [1.31.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.30.0...google-cloud-compute-v1.31.0) (2025-06-05)
+
+
+### Features
+
+* [google-cloud-compute] Update Compute Engine v1 API to revision 20250601 ([#13970](https://github.com/googleapis/google-cloud-python/issues/13970)) ([8083640](https://github.com/googleapis/google-cloud-python/commit/808364041835ed14e55839cfb33325c9d1cb1f15))
+* Update Compute Engine v1 API to revision 20250511 ([#1047](https://github.com/googleapis/google-cloud-python/issues/1047)) ([8083640](https://github.com/googleapis/google-cloud-python/commit/808364041835ed14e55839cfb33325c9d1cb1f15))
+
 ## [1.30.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-compute-v1.29.0...google-cloud-compute-v1.30.0) (2025-04-17)
 
 

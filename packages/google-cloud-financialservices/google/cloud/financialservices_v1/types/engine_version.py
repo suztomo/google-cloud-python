@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.financialservices_v1.types import (
@@ -79,6 +79,7 @@ class EngineVersion(proto.Message):
                 Version is deprecated, listed for
                 informational purposes only.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         LIMITED = 2
@@ -132,7 +133,7 @@ class ListEngineVersionsRequest(proto.Message):
         filter (str):
             Optional. Specify a filter to narrow search results. If
             empty or unset will default to "state!=DEPRECATED", to view
-            deprecated versions use `state:*` or any other filter.
+            deprecated versions use "state:\*" or any other filter.
         order_by (str):
             Optional. Specify a field to use for
             ordering.

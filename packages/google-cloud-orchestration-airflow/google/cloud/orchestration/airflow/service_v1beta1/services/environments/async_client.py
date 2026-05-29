@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.orchestration.airflow.service_v1beta1 import (
     gapic_version as package_version,
@@ -46,12 +46,12 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.orchestration.airflow.service_v1beta1.services.environments import (
     pagers,
@@ -135,7 +135,10 @@ class EnvironmentsAsyncClient:
         Returns:
             EnvironmentsAsyncClient: The constructed client.
         """
-        return EnvironmentsClient.from_service_account_info.__func__(EnvironmentsAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            EnvironmentsClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(EnvironmentsAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -151,7 +154,10 @@ class EnvironmentsAsyncClient:
         Returns:
             EnvironmentsAsyncClient: The constructed client.
         """
-        return EnvironmentsClient.from_service_account_file.__func__(EnvironmentsAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            EnvironmentsClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(EnvironmentsAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -201,7 +207,7 @@ class EnvironmentsAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -341,11 +347,11 @@ class EnvironmentsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_environment(request=request)
+                operation = await client.create_environment(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -710,11 +716,11 @@ class EnvironmentsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_environment(request=request)
+                operation = await client.update_environment(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -814,146 +820,140 @@ class EnvironmentsAsyncClient:
 
                 **Note:** Only the following fields can be updated:
 
-                -  ``config.softwareConfig.pypiPackages``
+                - ``config.softwareConfig.pypiPackages``
 
-                   -  Replace all custom custom PyPI packages. If a
-                      replacement package map is not included in
-                      ``environment``, all custom PyPI packages are
-                      cleared. It is an error to provide both this mask
-                      and a mask specifying an individual package.
+                  - Replace all custom custom PyPI packages. If a
+                    replacement package map is not included in
+                    ``environment``, all custom PyPI packages are
+                    cleared. It is an error to provide both this mask
+                    and a mask specifying an individual package.
 
-                -  ``config.softwareConfig.pypiPackages.``\ packagename
+                - ``config.softwareConfig.pypiPackages.``\ packagename
 
-                   -  Update the custom PyPI package *packagename*,
-                      preserving other packages. To delete the package,
-                      include it in ``updateMask``, and omit the mapping
-                      for it in
-                      ``environment.config.softwareConfig.pypiPackages``.
-                      It is an error to provide both a mask of this form
-                      and the ``config.softwareConfig.pypiPackages``
-                      mask.
+                  - Update the custom PyPI package *packagename*,
+                    preserving other packages. To delete the package,
+                    include it in ``updateMask``, and omit the mapping
+                    for it in
+                    ``environment.config.softwareConfig.pypiPackages``.
+                    It is an error to provide both a mask of this form
+                    and the ``config.softwareConfig.pypiPackages`` mask.
 
-                -  ``labels``
+                - ``labels``
 
-                   -  Replace all environment labels. If a replacement
-                      labels map is not included in ``environment``, all
-                      labels are cleared. It is an error to provide both
-                      this mask and a mask specifying one or more
-                      individual labels.
+                  - Replace all environment labels. If a replacement
+                    labels map is not included in ``environment``, all
+                    labels are cleared. It is an error to provide both
+                    this mask and a mask specifying one or more
+                    individual labels.
 
-                -  ``labels.``\ labelName
+                - ``labels.``\ labelName
 
-                   -  Set the label named *labelName*, while preserving
-                      other labels. To delete the label, include it in
-                      ``updateMask`` and omit its mapping in
-                      ``environment.labels``. It is an error to provide
-                      both a mask of this form and the ``labels`` mask.
+                  - Set the label named *labelName*, while preserving
+                    other labels. To delete the label, include it in
+                    ``updateMask`` and omit its mapping in
+                    ``environment.labels``. It is an error to provide
+                    both a mask of this form and the ``labels`` mask.
 
-                -  ``config.nodeCount``
+                - ``config.nodeCount``
 
-                   -  Horizontally scale the number of nodes in the
-                      environment. An integer greater than or equal to 3
-                      must be provided in the ``config.nodeCount``
-                      field. Supported for Cloud Composer environments
-                      in versions composer-1.\ *.*-airflow-*.*.*.
+                  - Horizontally scale the number of nodes in the
+                    environment. An integer greater than or equal to 3
+                    must be provided in the ``config.nodeCount`` field.
+                    Supported for Cloud Composer environments in
+                    versions composer-1.\ *.*-airflow-*.*.\*.
 
-                -  ``config.webServerNetworkAccessControl``
+                - ``config.webServerNetworkAccessControl``
 
-                   -  Replace the environment's current
-                      WebServerNetworkAccessControl.
+                  - Replace the environment's current
+                    WebServerNetworkAccessControl.
 
-                -  ``config.softwareConfig.airflowConfigOverrides``
+                - ``config.softwareConfig.airflowConfigOverrides``
 
-                   -  Replace all Apache Airflow config overrides. If a
-                      replacement config overrides map is not included
-                      in ``environment``, all config overrides are
-                      cleared. It is an error to provide both this mask
-                      and a mask specifying one or more individual
-                      config overrides.
+                  - Replace all Apache Airflow config overrides. If a
+                    replacement config overrides map is not included in
+                    ``environment``, all config overrides are cleared.
+                    It is an error to provide both this mask and a mask
+                    specifying one or more individual config overrides.
 
-                -  ``config.softwareConfig.airflowConfigOverrides.``\ section-name
+                - ``config.softwareConfig.airflowConfigOverrides.``\ section-name
 
-                   -  Override the Apache Airflow config property *name*
-                      in the section named *section*, preserving other
-                      properties. To delete the property override,
-                      include it in ``updateMask`` and omit its mapping
-                      in
-                      ``environment.config.softwareConfig.airflowConfigOverrides``.
-                      It is an error to provide both a mask of this form
-                      and the
-                      ``config.softwareConfig.airflowConfigOverrides``
-                      mask.
+                  - Override the Apache Airflow config property *name*
+                    in the section named *section*, preserving other
+                    properties. To delete the property override, include
+                    it in ``updateMask`` and omit its mapping in
+                    ``environment.config.softwareConfig.airflowConfigOverrides``.
+                    It is an error to provide both a mask of this form
+                    and the
+                    ``config.softwareConfig.airflowConfigOverrides``
+                    mask.
 
-                -  ``config.softwareConfig.envVariables``
+                - ``config.softwareConfig.envVariables``
 
-                   -  Replace all environment variables. If a
-                      replacement environment variable map is not
-                      included in ``environment``, all custom
-                      environment variables are cleared.
+                  - Replace all environment variables. If a replacement
+                    environment variable map is not included in
+                    ``environment``, all custom environment variables
+                    are cleared.
 
-                -  ``config.softwareConfig.imageVersion``
+                - ``config.softwareConfig.imageVersion``
 
-                   -  Upgrade the version of the environment in-place.
-                      Refer to ``SoftwareConfig.image_version`` for
-                      information on how to format the new image
-                      version. Additionally, the new image version
-                      cannot effect a version downgrade, and must match
-                      the current image version's Composer and Airflow
-                      major versions. Consult the `Cloud Composer
-                      version
-                      list </composer/docs/concepts/versioning/composer-versions>`__
-                      for valid values.
+                  - Upgrade the version of the environment in-place.
+                    Refer to ``SoftwareConfig.image_version`` for
+                    information on how to format the new image version.
+                    Additionally, the new image version cannot effect a
+                    version downgrade, and must match the current image
+                    version's Composer and Airflow major versions.
+                    Consult the `Cloud Composer version
+                    list </composer/docs/concepts/versioning/composer-versions>`__
+                    for valid values.
 
-                -  ``config.softwareConfig.schedulerCount``
+                - ``config.softwareConfig.schedulerCount``
 
-                   -  Horizontally scale the number of schedulers in
-                      Airflow. A positive integer not greater than the
-                      number of nodes must be provided in the
-                      ``config.softwareConfig.schedulerCount`` field.
-                      Supported for Cloud Composer environments in
-                      versions composer-1.\ *.*-airflow-2.*.*.
+                  - Horizontally scale the number of schedulers in
+                    Airflow. A positive integer not greater than the
+                    number of nodes must be provided in the
+                    ``config.softwareConfig.schedulerCount`` field.
+                    Supported for Cloud Composer environments in
+                    versions composer-1.\ *.*-airflow-2.\ *.*.
 
-                -  ``config.softwareConfig.cloudDataLineageIntegration``
+                - ``config.softwareConfig.cloudDataLineageIntegration``
 
-                   -  Configuration for Cloud Data Lineage integration.
+                  - Configuration for Cloud Data Lineage integration.
 
-                -  ``config.databaseConfig.machineType``
+                - ``config.databaseConfig.machineType``
 
-                   -  Cloud SQL machine type used by Airflow database.
-                      It has to be one of: db-n1-standard-2,
-                      db-n1-standard-4, db-n1-standard-8 or
-                      db-n1-standard-16. Supported for Cloud Composer
-                      environments in versions
-                      composer-1.\ *.*-airflow-*.*.*.
+                  - Cloud SQL machine type used by Airflow database. It
+                    has to be one of: db-n1-standard-2,
+                    db-n1-standard-4, db-n1-standard-8 or
+                    db-n1-standard-16. Supported for Cloud Composer
+                    environments in versions
+                    composer-1.\ *.*-airflow-*.*.\*.
 
-                -  ``config.webServerConfig.machineType``
+                - ``config.webServerConfig.machineType``
 
-                   -  Machine type on which Airflow web server is
-                      running. It has to be one of:
-                      composer-n1-webserver-2, composer-n1-webserver-4
-                      or composer-n1-webserver-8. Supported for Cloud
-                      Composer environments in versions
-                      composer-1.\ *.*-airflow-*.*.*.
+                  - Machine type on which Airflow web server is running.
+                    It has to be one of: composer-n1-webserver-2,
+                    composer-n1-webserver-4 or composer-n1-webserver-8.
+                    Supported for Cloud Composer environments in
+                    versions composer-1.\ *.*-airflow-*.*.\*.
 
-                -  ``config.maintenanceWindow``
+                - ``config.maintenanceWindow``
 
-                   -  Maintenance window during which Cloud Composer
-                      components may be under maintenance.
+                  - Maintenance window during which Cloud Composer
+                    components may be under maintenance.
 
-                -  ``config.workloadsConfig``
+                - ``config.workloadsConfig``
 
-                   -  The workloads configuration settings for the GKE
-                      cluster associated with the Cloud Composer
-                      environment. Supported for Cloud Composer
-                      environments in versions
-                      composer-2.\ *.*-airflow-*.*.\* and newer.
+                  - The workloads configuration settings for the GKE
+                    cluster associated with the Cloud Composer
+                    environment. Supported for Cloud Composer
+                    environments in versions
+                    composer-2.\ *.*-airflow-*.*.\* and newer.
 
-                -  ``config.environmentSize``
+                - ``config.environmentSize``
 
-                   -  The size of the Cloud Composer environment.
-                      Supported for Cloud Composer environments in
-                      versions composer-2.\ *.*-airflow-*.*.\* and
-                      newer.
+                  - The size of the Cloud Composer environment.
+                    Supported for Cloud Composer environments in
+                    versions composer-2.\ *.*-airflow-*.*.\* and newer.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1067,11 +1067,11 @@ class EnvironmentsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_environment(request=request)
+                operation = await client.delete_environment(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1198,11 +1198,11 @@ class EnvironmentsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.restart_web_server(request=request)
+                operation = await client.restart_web_server(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1300,11 +1300,11 @@ class EnvironmentsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.check_upgrade(request=request)
+                operation = await client.check_upgrade(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1777,7 +1777,7 @@ class EnvironmentsAsyncClient:
         r"""Creates a user workloads Secret.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -1904,7 +1904,7 @@ class EnvironmentsAsyncClient:
         field in the response are cleared.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2021,7 +2021,7 @@ class EnvironmentsAsyncClient:
         r"""Lists user workloads Secrets.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2152,7 +2152,7 @@ class EnvironmentsAsyncClient:
         r"""Updates a user workloads Secret.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2269,7 +2269,7 @@ class EnvironmentsAsyncClient:
         r"""Deletes a user workloads Secret.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2374,7 +2374,7 @@ class EnvironmentsAsyncClient:
         r"""Creates a user workloads ConfigMap.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2501,7 +2501,7 @@ class EnvironmentsAsyncClient:
         r"""Gets an existing user workloads ConfigMap.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2618,7 +2618,7 @@ class EnvironmentsAsyncClient:
         r"""Lists user workloads ConfigMaps.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2750,7 +2750,7 @@ class EnvironmentsAsyncClient:
         r"""Updates a user workloads ConfigMap.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2873,7 +2873,7 @@ class EnvironmentsAsyncClient:
         r"""Deletes a user workloads ConfigMap.
 
         This method is supported for Cloud Composer environments in
-        versions composer-3-airflow-\ *.*.\ *-build.* and newer.
+        versions composer-3-airflow-*.*.\ *-build.* and newer.
 
         .. code-block:: python
 
@@ -2998,11 +2998,11 @@ class EnvironmentsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.save_snapshot(request=request)
+                operation = await client.save_snapshot(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3104,11 +3104,11 @@ class EnvironmentsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.load_snapshot(request=request)
+                operation = await client.load_snapshot(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3207,11 +3207,11 @@ class EnvironmentsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.database_failover(request=request)
+                operation = await client.database_failover(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3372,7 +3372,7 @@ class EnvironmentsAsyncClient:
 
     async def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3398,8 +3398,12 @@ class EnvironmentsAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3408,7 +3412,7 @@ class EnvironmentsAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3416,7 +3420,7 @@ class EnvironmentsAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -3427,7 +3431,7 @@ class EnvironmentsAsyncClient:
 
     async def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3453,8 +3457,12 @@ class EnvironmentsAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3463,7 +3471,7 @@ class EnvironmentsAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3471,7 +3479,7 @@ class EnvironmentsAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -3482,7 +3490,7 @@ class EnvironmentsAsyncClient:
 
     async def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3512,8 +3520,12 @@ class EnvironmentsAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3522,7 +3534,7 @@ class EnvironmentsAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3530,7 +3542,7 @@ class EnvironmentsAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

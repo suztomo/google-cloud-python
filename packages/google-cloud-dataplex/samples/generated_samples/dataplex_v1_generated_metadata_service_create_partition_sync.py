@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ def sample_create_partition():
 
     # Initialize request argument(s)
     partition = dataplex_v1.Partition()
-    partition.values = ['values_value1', 'values_value2']
+    partition.values = ["values_value1", "values_value2"]
     partition.location = "location_value"
 
     request = dataplex_v1.CreatePartitionRequest(
@@ -53,5 +53,6 @@ def sample_create_partition():
 
     # Handle the response
     print(response)
+
 
 # [END dataplex_v1_generated_MetadataService_CreatePartition_sync]

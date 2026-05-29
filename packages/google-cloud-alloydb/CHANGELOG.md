@@ -1,5 +1,133 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-alloydb/#history
+
+## [0.9.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-alloydb-v0.8.0...google-cloud-alloydb-v0.9.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.8.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-alloydb-v0.7.0...google-cloud-alloydb-v0.8.0) (2026-03-05)
+
+
+### Features
+
+* Add a new field to support Dataplex integration configuration ([6120fb0db084f5e8d1502fb1bb37594ac9976f6e](https://github.com/googleapis/google-cloud-python/commit/6120fb0db084f5e8d1502fb1bb37594ac9976f6e))
+
+## [0.7.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-alloydb-v0.6.0...google-cloud-alloydb-v0.7.0) (2026-01-08)
+
+
+### Features
+
+* add POSTGRES_18 to DatabaseVersion ([b3cb4de3ce50c3ec55af2b132d756252a32641f3](https://github.com/googleapis/google-cloud-python/commit/b3cb4de3ce50c3ec55af2b132d756252a32641f3))
+* add POSTGRES_18 to DatabaseVersion ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.6.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-alloydb-v0.5.0...google-cloud-alloydb-v0.6.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-alloydb-v0.4.9...google-cloud-alloydb-v0.5.0) (2025-10-07)
+
+
+### Documentation
+
+* [google-cloud-alloydb] specify that the STOPPED state is not used for clusters anymore  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] specify that the STOPPED state is not used for clusters anymore  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] specify that the STOPPED state is not used for clusters anymore  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+
+
+### Features
+
+* [google-cloud-alloydb] update `Database.charset` to be immutable  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add fields on the estimated/actual start/end times for an Upgrade Cluster operation  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add field to ExecuteSQL request to just validate the sql statement  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add additional fields to Database object to specify the collation type, character type, if it is a template database, and the template to use for the database  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add configuration for Managed Connection Pool  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add PG 17 as a Database version  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add CRUD APIs on Databases  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add CRUD APIs on Databases  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add additional fields to Database object to specify the collation type, character type, if it is a template database, and the template to use for the database  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add PG 17 as a Database version  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add configuration for Managed Connection Pool  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] update `Database.charset` to be immutable  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add field to ExecuteSQL request to just validate the sql statement  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add fields on the estimated/actual start/end times for an Upgrade Cluster operation  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add CRUD APIs on Databases  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add fields on the estimated/actual start/end times for an Upgrade Cluster operation  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add configuration for Managed Connection Pool  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] update `Database.charset` to be immutable  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add PG 17 as a Database version  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add field to ExecuteSQL request to just validate the sql statement  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] add additional fields to Database object to specify the collation type, character type, if it is a template database, and the template to use for the database  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+
+
+### Bug Fixes
+
+* [google-cloud-alloydb] An existing enum `PoolMode` is removed from the `ConnectionPoolConfig`  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+* [google-cloud-alloydb] An existing enum `PoolMode` is removed from the `ConnectionPoolConfig`  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+
+## [0.4.9](https://github.com/googleapis/google-cloud-python/compare/google-cloud-alloydb-v0.4.8...google-cloud-alloydb-v0.4.9) (2025-08-29)
+
+
+### Features
+
+* [google-cloud-alloydb] add data foundry service synthetic data generation API for v1 ([#14252](https://github.com/googleapis/google-cloud-python/issues/14252)) ([da7c91d](https://github.com/googleapis/google-cloud-python/commit/da7c91dea3f36d80240e9a9c2498bdc1524c433e))
+
+## [0.4.8](https://github.com/googleapis/google-cloud-python/compare/google-cloud-alloydb-v0.4.7...google-cloud-alloydb-v0.4.8) (2025-06-19)
+
+
+### Features
+
+* Backup.create_completion_time output field ([73aef85](https://github.com/googleapis/google-cloud-python/commit/73aef854d209149f2ae896a9b97a52387e3e08b3))
+* Cluster.DenyMaintenancePeriod field ([73aef85](https://github.com/googleapis/google-cloud-python/commit/73aef854d209149f2ae896a9b97a52387e3e08b3))
+* Instance.ActivationPolicy field ([73aef85](https://github.com/googleapis/google-cloud-python/commit/73aef854d209149f2ae896a9b97a52387e3e08b3))
+* InstanceNetworkConfig.allocated_ip_range_override field ([73aef85](https://github.com/googleapis/google-cloud-python/commit/73aef854d209149f2ae896a9b97a52387e3e08b3))
+* InstanceNetworkConfig.network output field ([73aef85](https://github.com/googleapis/google-cloud-python/commit/73aef854d209149f2ae896a9b97a52387e3e08b3))
+
+
+### Documentation
+
+* A comment for field `earliest_restorable_time` ([73aef85](https://github.com/googleapis/google-cloud-python/commit/73aef854d209149f2ae896a9b97a52387e3e08b3))
+* A comment for field `status` in message `PscAutoConnectionConfig` ([73aef85](https://github.com/googleapis/google-cloud-python/commit/73aef854d209149f2ae896a9b97a52387e3e08b3))
+
+## [0.4.7](https://github.com/googleapis/google-cloud-python/compare/google-cloud-alloydb-v0.4.6...google-cloud-alloydb-v0.4.7) (2025-06-11)
+
+
+### Features
+
+* Add Backup.create_completion_time output field ([3d6ac66](https://github.com/googleapis/google-cloud-python/commit/3d6ac66d3fb77149616f6167c89ebc5ac9ed5d15))
+* Add Cluster.DenyMaintenancePeriod field ([3d6ac66](https://github.com/googleapis/google-cloud-python/commit/3d6ac66d3fb77149616f6167c89ebc5ac9ed5d15))
+* Add Instance.ActivationPolicy field ([3d6ac66](https://github.com/googleapis/google-cloud-python/commit/3d6ac66d3fb77149616f6167c89ebc5ac9ed5d15))
+* Add InstanceNetworkConfig.allocated_ip_range_override field ([3d6ac66](https://github.com/googleapis/google-cloud-python/commit/3d6ac66d3fb77149616f6167c89ebc5ac9ed5d15))
+* Add InstanceNetworkConfig.network output field ([3d6ac66](https://github.com/googleapis/google-cloud-python/commit/3d6ac66d3fb77149616f6167c89ebc5ac9ed5d15))
+
+
+### Documentation
+
+* A comment for field `earliest_restorable_time` ([3d6ac66](https://github.com/googleapis/google-cloud-python/commit/3d6ac66d3fb77149616f6167c89ebc5ac9ed5d15))
+* A comment for field `status` in message `PscAutoConnectionConfig` ([3d6ac66](https://github.com/googleapis/google-cloud-python/commit/3d6ac66d3fb77149616f6167c89ebc5ac9ed5d15))
+
 ## [0.4.6](https://github.com/googleapis/google-cloud-python/compare/google-cloud-alloydb-v0.4.5...google-cloud-alloydb-v0.4.6) (2025-05-15)
 
 

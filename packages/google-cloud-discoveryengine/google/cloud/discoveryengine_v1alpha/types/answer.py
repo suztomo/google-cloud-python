@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -73,6 +73,7 @@ class Answer(proto.Message):
             SUCCEEDED (3):
                 Answer generation has succeeded.
         """
+
         STATE_UNSPECIFIED = 0
         IN_PROGRESS = 1
         FAILED = 2
@@ -118,6 +119,7 @@ class Answer(proto.Message):
                 policy violation detected. The policy is defined
                 by the customer.
         """
+
         ANSWER_SKIPPED_REASON_UNSPECIFIED = 0
         ADVERSARIAL_QUERY_IGNORED = 1
         NON_ANSWER_SEEKING_QUERY_IGNORED = 2
@@ -425,6 +427,7 @@ class Answer(proto.Message):
                 SUCCEEDED (3):
                     Step has succeeded.
             """
+
             STATE_UNSPECIFIED = 0
             IN_PROGRESS = 1
             FAILED = 2
@@ -649,6 +652,7 @@ class Answer(proto.Message):
                     JAIL_BREAKING_QUERY (3):
                         Jail-breaking query classification type.
                 """
+
                 TYPE_UNSPECIFIED = 0
                 ADVERSARIAL_QUERY = 1
                 NON_ANSWER_SEEKING_QUERY = 2

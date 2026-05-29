@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.iam.v1 import policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -118,6 +118,7 @@ class Rule(proto.Message):
             ON_DELETE_LINK (8):
                 Trigger for delete link action.
         """
+
         UNKNOWN = 0
         ON_CREATE = 1
         ON_UPDATE = 4
@@ -271,6 +272,7 @@ class AccessControlAction(proto.Message):
                 Replaces existing policy bindings with the
                 given policy binding list
         """
+
         UNKNOWN = 0
         ADD_POLICY_BINDING = 1
         REMOVE_POLICY_BINDING = 2
@@ -561,6 +563,7 @@ class ActionOutput(proto.Message):
             ACTION_PENDING (4):
                 State indicating action is pending.
         """
+
         UNKNOWN = 0
         ACTION_SUCCEEDED = 1
         ACTION_FAILED = 2

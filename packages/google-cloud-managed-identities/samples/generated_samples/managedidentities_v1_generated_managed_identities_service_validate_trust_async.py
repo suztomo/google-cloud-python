@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +43,10 @@ async def sample_validate_trust():
     trust.target_domain_name = "target_domain_name_value"
     trust.trust_type = "EXTERNAL"
     trust.trust_direction = "BIDIRECTIONAL"
-    trust.target_dns_ip_addresses = ['target_dns_ip_addresses_value1', 'target_dns_ip_addresses_value2']
+    trust.target_dns_ip_addresses = [
+        "target_dns_ip_addresses_value1",
+        "target_dns_ip_addresses_value2",
+    ]
     trust.trust_handshake_secret = "trust_handshake_secret_value"
 
     request = managedidentities_v1.ValidateTrustRequest(
@@ -52,13 +55,14 @@ async def sample_validate_trust():
     )
 
     # Make the request
-    operation = client.validate_trust(request=request)
+    operation = await client.validate_trust(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END managedidentities_v1_generated_ManagedIdentitiesService_ValidateTrust_async]

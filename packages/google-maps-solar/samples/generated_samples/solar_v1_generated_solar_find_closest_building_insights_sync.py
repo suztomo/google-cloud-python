@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_find_closest_building_insights():
     client = solar_v1.SolarClient()
 
     # Initialize request argument(s)
-    request = solar_v1.FindClosestBuildingInsightsRequest(
-    )
+    request = solar_v1.FindClosestBuildingInsightsRequest()
 
     # Make the request
     response = client.find_closest_building_insights(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END solar_v1_generated_Solar_FindClosestBuildingInsights_sync]

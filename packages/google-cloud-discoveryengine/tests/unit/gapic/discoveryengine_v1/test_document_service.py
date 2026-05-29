@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +38,16 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.any_pb2 as any_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,22 +56,13 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import any_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
 
 from google.cloud.discoveryengine_v1.services.document_service import (
     DocumentServiceAsyncClient,
@@ -76,11 +71,12 @@ from google.cloud.discoveryengine_v1.services.document_service import (
     transports,
 )
 from google.cloud.discoveryengine_v1.types import (
+    common,
+    document,
     document_service,
     import_config,
     purge_config,
 )
-from google.cloud.discoveryengine_v1.types import document
 from google.cloud.discoveryengine_v1.types import document as gcd_document
 
 CRED_INFO_JSON = {
@@ -131,12 +127,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert DocumentServiceClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -157,6 +169,10 @@ def test__get_default_mtls_endpoint():
     )
     assert (
         DocumentServiceClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    )
+    assert (
+        DocumentServiceClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -180,12 +196,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            DocumentServiceClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                DocumentServiceClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert DocumentServiceClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert DocumentServiceClient._read_environment_variables() == (
@@ -222,6 +245,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert DocumentServiceClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert DocumentServiceClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert DocumentServiceClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert DocumentServiceClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert DocumentServiceClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert DocumentServiceClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert DocumentServiceClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert DocumentServiceClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert DocumentServiceClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                DocumentServiceClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert DocumentServiceClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert DocumentServiceClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -593,17 +715,6 @@ def test_document_service_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -839,6 +950,117 @@ def test_document_service_client_get_mtls_endpoint_and_cert_source(client_class)
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -871,10 +1093,9 @@ def test_document_service_client_get_mtls_endpoint_and_cert_source(client_class)
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -887,18 +1108,6 @@ def test_document_service_client_get_mtls_endpoint_and_cert_source(client_class)
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1129,13 +1338,13 @@ def test_document_service_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1160,8 +1369,8 @@ def test_document_service_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        document_service.GetDocumentRequest,
-        dict,
+        document_service.GetDocumentRequest(),
+        {},
     ],
 )
 def test_get_document(request_type, transport: str = "grpc"):
@@ -1172,7 +1381,7 @@ def test_get_document(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_document), "__call__") as call:
@@ -1223,9 +1432,10 @@ def test_get_document_non_empty_request_with_auto_populated_field():
         client.get_document(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == document_service.GetDocumentRequest(
+        request_msg = document_service.GetDocumentRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_document_use_cached_wrapped_rpc():
@@ -1306,9 +1516,14 @@ async def test_get_document_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_document_async(
-    transport: str = "grpc_asyncio", request_type=document_service.GetDocumentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        document_service.GetDocumentRequest(),
+        {},
+    ],
+)
+async def test_get_document_async(request_type, transport: str = "grpc_asyncio"):
     client = DocumentServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1316,7 +1531,7 @@ async def test_get_document_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_document), "__call__") as call:
@@ -1343,11 +1558,6 @@ async def test_get_document_async(
     assert response.id == "id_value"
     assert response.schema_id == "schema_id_value"
     assert response.parent_document_id == "parent_document_id_value"
-
-
-@pytest.mark.asyncio
-async def test_get_document_async_from_dict():
-    await test_get_document_async(request_type=dict)
 
 
 def test_get_document_field_headers():
@@ -1492,8 +1702,8 @@ async def test_get_document_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        document_service.ListDocumentsRequest,
-        dict,
+        document_service.ListDocumentsRequest(),
+        {},
     ],
 )
 def test_list_documents(request_type, transport: str = "grpc"):
@@ -1504,7 +1714,7 @@ def test_list_documents(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_documents), "__call__") as call:
@@ -1549,10 +1759,11 @@ def test_list_documents_non_empty_request_with_auto_populated_field():
         client.list_documents(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == document_service.ListDocumentsRequest(
+        request_msg = document_service.ListDocumentsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_documents_use_cached_wrapped_rpc():
@@ -1633,9 +1844,14 @@ async def test_list_documents_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_documents_async(
-    transport: str = "grpc_asyncio", request_type=document_service.ListDocumentsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        document_service.ListDocumentsRequest(),
+        {},
+    ],
+)
+async def test_list_documents_async(request_type, transport: str = "grpc_asyncio"):
     client = DocumentServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1643,7 +1859,7 @@ async def test_list_documents_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_documents), "__call__") as call:
@@ -1664,11 +1880,6 @@ async def test_list_documents_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListDocumentsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_documents_async_from_dict():
-    await test_list_documents_async(request_type=dict)
 
 
 def test_list_documents_field_headers():
@@ -1998,11 +2209,7 @@ async def test_list_documents_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_documents(request={})
-        ).pages:
+        async for page_ in (await client.list_documents(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -2011,8 +2218,8 @@ async def test_list_documents_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        document_service.CreateDocumentRequest,
-        dict,
+        document_service.CreateDocumentRequest(),
+        {},
     ],
 )
 def test_create_document(request_type, transport: str = "grpc"):
@@ -2023,7 +2230,7 @@ def test_create_document(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_document), "__call__") as call:
@@ -2075,10 +2282,11 @@ def test_create_document_non_empty_request_with_auto_populated_field():
         client.create_document(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == document_service.CreateDocumentRequest(
+        request_msg = document_service.CreateDocumentRequest(
             parent="parent_value",
             document_id="document_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_document_use_cached_wrapped_rpc():
@@ -2159,9 +2367,14 @@ async def test_create_document_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_document_async(
-    transport: str = "grpc_asyncio", request_type=document_service.CreateDocumentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        document_service.CreateDocumentRequest(),
+        {},
+    ],
+)
+async def test_create_document_async(request_type, transport: str = "grpc_asyncio"):
     client = DocumentServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2169,7 +2382,7 @@ async def test_create_document_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_document), "__call__") as call:
@@ -2196,11 +2409,6 @@ async def test_create_document_async(
     assert response.id == "id_value"
     assert response.schema_id == "schema_id_value"
     assert response.parent_document_id == "parent_document_id_value"
-
-
-@pytest.mark.asyncio
-async def test_create_document_async_from_dict():
-    await test_create_document_async(request_type=dict)
 
 
 def test_create_document_field_headers():
@@ -2417,8 +2625,8 @@ async def test_create_document_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        document_service.UpdateDocumentRequest,
-        dict,
+        document_service.UpdateDocumentRequest(),
+        {},
     ],
 )
 def test_update_document(request_type, transport: str = "grpc"):
@@ -2429,7 +2637,7 @@ def test_update_document(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_document), "__call__") as call:
@@ -2478,7 +2686,8 @@ def test_update_document_non_empty_request_with_auto_populated_field():
         client.update_document(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == document_service.UpdateDocumentRequest()
+        request_msg = document_service.UpdateDocumentRequest()
+        assert args[0] == request_msg
 
 
 def test_update_document_use_cached_wrapped_rpc():
@@ -2559,9 +2768,14 @@ async def test_update_document_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_document_async(
-    transport: str = "grpc_asyncio", request_type=document_service.UpdateDocumentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        document_service.UpdateDocumentRequest(),
+        {},
+    ],
+)
+async def test_update_document_async(request_type, transport: str = "grpc_asyncio"):
     client = DocumentServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2569,7 +2783,7 @@ async def test_update_document_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_document), "__call__") as call:
@@ -2596,11 +2810,6 @@ async def test_update_document_async(
     assert response.id == "id_value"
     assert response.schema_id == "schema_id_value"
     assert response.parent_document_id == "parent_document_id_value"
-
-
-@pytest.mark.asyncio
-async def test_update_document_async_from_dict():
-    await test_update_document_async(request_type=dict)
 
 
 def test_update_document_field_headers():
@@ -2807,8 +3016,8 @@ async def test_update_document_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        document_service.DeleteDocumentRequest,
-        dict,
+        document_service.DeleteDocumentRequest(),
+        {},
     ],
 )
 def test_delete_document(request_type, transport: str = "grpc"):
@@ -2819,7 +3028,7 @@ def test_delete_document(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_document), "__call__") as call:
@@ -2860,9 +3069,10 @@ def test_delete_document_non_empty_request_with_auto_populated_field():
         client.delete_document(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == document_service.DeleteDocumentRequest(
+        request_msg = document_service.DeleteDocumentRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_document_use_cached_wrapped_rpc():
@@ -2943,9 +3153,14 @@ async def test_delete_document_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_document_async(
-    transport: str = "grpc_asyncio", request_type=document_service.DeleteDocumentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        document_service.DeleteDocumentRequest(),
+        {},
+    ],
+)
+async def test_delete_document_async(request_type, transport: str = "grpc_asyncio"):
     client = DocumentServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2953,7 +3168,7 @@ async def test_delete_document_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_document), "__call__") as call:
@@ -2969,11 +3184,6 @@ async def test_delete_document_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_document_async_from_dict():
-    await test_delete_document_async(request_type=dict)
 
 
 def test_delete_document_field_headers():
@@ -3118,8 +3328,8 @@ async def test_delete_document_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        import_config.ImportDocumentsRequest,
-        dict,
+        import_config.ImportDocumentsRequest(),
+        {},
     ],
 )
 def test_import_documents(request_type, transport: str = "grpc"):
@@ -3130,7 +3340,7 @@ def test_import_documents(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.import_documents), "__call__") as call:
@@ -3172,10 +3382,11 @@ def test_import_documents_non_empty_request_with_auto_populated_field():
         client.import_documents(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == import_config.ImportDocumentsRequest(
+        request_msg = import_config.ImportDocumentsRequest(
             parent="parent_value",
             id_field="id_field_value",
         )
+        assert args[0] == request_msg
 
 
 def test_import_documents_use_cached_wrapped_rpc():
@@ -3199,9 +3410,9 @@ def test_import_documents_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.import_documents
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.import_documents] = (
+            mock_rpc
+        )
         request = {}
         client.import_documents(request)
 
@@ -3268,9 +3479,14 @@ async def test_import_documents_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_import_documents_async(
-    transport: str = "grpc_asyncio", request_type=import_config.ImportDocumentsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        import_config.ImportDocumentsRequest(),
+        {},
+    ],
+)
+async def test_import_documents_async(request_type, transport: str = "grpc_asyncio"):
     client = DocumentServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3278,7 +3494,7 @@ async def test_import_documents_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.import_documents), "__call__") as call:
@@ -3296,11 +3512,6 @@ async def test_import_documents_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_import_documents_async_from_dict():
-    await test_import_documents_async(request_type=dict)
 
 
 def test_import_documents_field_headers():
@@ -3367,8 +3578,8 @@ async def test_import_documents_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        purge_config.PurgeDocumentsRequest,
-        dict,
+        purge_config.PurgeDocumentsRequest(),
+        {},
     ],
 )
 def test_purge_documents(request_type, transport: str = "grpc"):
@@ -3379,7 +3590,7 @@ def test_purge_documents(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.purge_documents), "__call__") as call:
@@ -3421,10 +3632,11 @@ def test_purge_documents_non_empty_request_with_auto_populated_field():
         client.purge_documents(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == purge_config.PurgeDocumentsRequest(
+        request_msg = purge_config.PurgeDocumentsRequest(
             parent="parent_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_purge_documents_use_cached_wrapped_rpc():
@@ -3515,9 +3727,14 @@ async def test_purge_documents_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_purge_documents_async(
-    transport: str = "grpc_asyncio", request_type=purge_config.PurgeDocumentsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        purge_config.PurgeDocumentsRequest(),
+        {},
+    ],
+)
+async def test_purge_documents_async(request_type, transport: str = "grpc_asyncio"):
     client = DocumentServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3525,7 +3742,7 @@ async def test_purge_documents_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.purge_documents), "__call__") as call:
@@ -3543,11 +3760,6 @@ async def test_purge_documents_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_purge_documents_async_from_dict():
-    await test_purge_documents_async(request_type=dict)
 
 
 def test_purge_documents_field_headers():
@@ -3614,8 +3826,8 @@ async def test_purge_documents_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        document_service.BatchGetDocumentsMetadataRequest,
-        dict,
+        document_service.BatchGetDocumentsMetadataRequest(),
+        {},
     ],
 )
 def test_batch_get_documents_metadata(request_type, transport: str = "grpc"):
@@ -3626,7 +3838,7 @@ def test_batch_get_documents_metadata(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3671,9 +3883,10 @@ def test_batch_get_documents_metadata_non_empty_request_with_auto_populated_fiel
         client.batch_get_documents_metadata(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == document_service.BatchGetDocumentsMetadataRequest(
+        request_msg = document_service.BatchGetDocumentsMetadataRequest(
             parent="parent_value",
         )
+        assert args[0] == request_msg
 
 
 def test_batch_get_documents_metadata_use_cached_wrapped_rpc():
@@ -3759,9 +3972,15 @@ async def test_batch_get_documents_metadata_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        document_service.BatchGetDocumentsMetadataRequest(),
+        {},
+    ],
+)
 async def test_batch_get_documents_metadata_async(
-    transport: str = "grpc_asyncio",
-    request_type=document_service.BatchGetDocumentsMetadataRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = DocumentServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -3770,7 +3989,7 @@ async def test_batch_get_documents_metadata_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3790,11 +4009,6 @@ async def test_batch_get_documents_metadata_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, document_service.BatchGetDocumentsMetadataResponse)
-
-
-@pytest.mark.asyncio
-async def test_batch_get_documents_metadata_async_from_dict():
-    await test_batch_get_documents_metadata_async(request_type=dict)
 
 
 def test_batch_get_documents_metadata_field_headers():
@@ -4056,7 +4270,7 @@ def test_get_document_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_document_rest_unset_required_fields():
@@ -4243,7 +4457,7 @@ def test_list_documents_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_documents_rest_unset_required_fields():
@@ -4512,7 +4726,7 @@ def test_create_document_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_document_rest_unset_required_fields():
@@ -4724,7 +4938,7 @@ def test_update_document_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_document_rest_unset_required_fields():
@@ -4929,7 +5143,7 @@ def test_delete_document_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_document_rest_unset_required_fields():
@@ -5020,9 +5234,9 @@ def test_import_documents_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.import_documents
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.import_documents] = (
+            mock_rpc
+        )
 
         request = {}
         client.import_documents(request)
@@ -5111,7 +5325,7 @@ def test_import_documents_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_import_documents_rest_unset_required_fields():
@@ -5237,7 +5451,7 @@ def test_purge_documents_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_purge_documents_rest_unset_required_fields():
@@ -5374,7 +5588,7 @@ def test_batch_get_documents_metadata_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_batch_get_documents_metadata_rest_unset_required_fields():
@@ -5579,7 +5793,6 @@ def test_get_document_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.GetDocumentRequest()
-
         assert args[0] == request_msg
 
 
@@ -5600,7 +5813,6 @@ def test_list_documents_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.ListDocumentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -5621,7 +5833,6 @@ def test_create_document_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.CreateDocumentRequest()
-
         assert args[0] == request_msg
 
 
@@ -5642,7 +5853,6 @@ def test_update_document_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.UpdateDocumentRequest()
-
         assert args[0] == request_msg
 
 
@@ -5663,7 +5873,6 @@ def test_delete_document_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.DeleteDocumentRequest()
-
         assert args[0] == request_msg
 
 
@@ -5684,7 +5893,6 @@ def test_import_documents_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = import_config.ImportDocumentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -5705,7 +5913,6 @@ def test_purge_documents_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = purge_config.PurgeDocumentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -5728,7 +5935,6 @@ def test_batch_get_documents_metadata_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.BatchGetDocumentsMetadataRequest()
-
         assert args[0] == request_msg
 
 
@@ -5772,7 +5978,6 @@ async def test_get_document_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.GetDocumentRequest()
-
         assert args[0] == request_msg
 
 
@@ -5799,7 +6004,6 @@ async def test_list_documents_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.ListDocumentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -5829,7 +6033,6 @@ async def test_create_document_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.CreateDocumentRequest()
-
         assert args[0] == request_msg
 
 
@@ -5859,7 +6062,6 @@ async def test_update_document_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.UpdateDocumentRequest()
-
         assert args[0] == request_msg
 
 
@@ -5882,7 +6084,6 @@ async def test_delete_document_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.DeleteDocumentRequest()
-
         assert args[0] == request_msg
 
 
@@ -5907,7 +6108,6 @@ async def test_import_documents_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = import_config.ImportDocumentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -5932,7 +6132,6 @@ async def test_purge_documents_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = purge_config.PurgeDocumentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -5959,7 +6158,6 @@ async def test_batch_get_documents_metadata_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.BatchGetDocumentsMetadataRequest()
-
         assert args[0] == request_msg
 
 
@@ -5983,8 +6181,9 @@ def test_get_document_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6056,17 +6255,19 @@ def test_get_document_rest_interceptors(null_interceptor):
     )
     client = DocumentServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "post_get_document"
-    ) as post, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "post_get_document_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "pre_get_document"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor, "post_get_document"
+        ) as post,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor, "post_get_document_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor, "pre_get_document"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6121,8 +6322,9 @@ def test_list_documents_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6187,17 +6389,20 @@ def test_list_documents_rest_interceptors(null_interceptor):
     )
     client = DocumentServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "post_list_documents"
-    ) as post, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "post_list_documents_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "pre_list_documents"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor, "post_list_documents"
+        ) as post,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor,
+            "post_list_documents_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor, "pre_list_documents"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6257,8 +6462,9 @@ def test_create_document_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6300,6 +6506,20 @@ def test_create_document_rest_call_success(request_type):
         },
         "parent_document_id": "parent_document_id_value",
         "derived_struct_data": {},
+        "acl_info": {
+            "readers": [
+                {
+                    "principals": [
+                        {
+                            "user_id": "user_id_value",
+                            "group_id": "group_id_value",
+                            "external_entity_id": "external_entity_id_value",
+                        }
+                    ],
+                    "idp_wide": True,
+                }
+            ]
+        },
         "index_time": {"seconds": 751, "nanos": 543},
         "index_status": {
             "index_time": {},
@@ -6428,17 +6648,20 @@ def test_create_document_rest_interceptors(null_interceptor):
     )
     client = DocumentServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "post_create_document"
-    ) as post, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "post_create_document_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "pre_create_document"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor, "post_create_document"
+        ) as post,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor,
+            "post_create_document_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor, "pre_create_document"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6495,8 +6718,9 @@ def test_update_document_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6540,6 +6764,20 @@ def test_update_document_rest_call_success(request_type):
         },
         "parent_document_id": "parent_document_id_value",
         "derived_struct_data": {},
+        "acl_info": {
+            "readers": [
+                {
+                    "principals": [
+                        {
+                            "user_id": "user_id_value",
+                            "group_id": "group_id_value",
+                            "external_entity_id": "external_entity_id_value",
+                        }
+                    ],
+                    "idp_wide": True,
+                }
+            ]
+        },
         "index_time": {"seconds": 751, "nanos": 543},
         "index_status": {
             "index_time": {},
@@ -6668,17 +6906,20 @@ def test_update_document_rest_interceptors(null_interceptor):
     )
     client = DocumentServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "post_update_document"
-    ) as post, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "post_update_document_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "pre_update_document"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor, "post_update_document"
+        ) as post,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor,
+            "post_update_document_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor, "pre_update_document"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6733,8 +6974,9 @@ def test_delete_document_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6793,13 +7035,13 @@ def test_delete_document_rest_interceptors(null_interceptor):
     )
     client = DocumentServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "pre_delete_document"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor, "pre_delete_document"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = document_service.DeleteDocumentRequest.pb(
             document_service.DeleteDocumentRequest()
@@ -6846,8 +7088,9 @@ def test_import_documents_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6906,19 +7149,21 @@ def test_import_documents_rest_interceptors(null_interceptor):
     )
     client = DocumentServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "post_import_documents"
-    ) as post, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "post_import_documents_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "pre_import_documents"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor, "post_import_documents"
+        ) as post,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor,
+            "post_import_documents_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor, "pre_import_documents"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6973,8 +7218,9 @@ def test_purge_documents_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7033,19 +7279,21 @@ def test_purge_documents_rest_interceptors(null_interceptor):
     )
     client = DocumentServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "post_purge_documents"
-    ) as post, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "post_purge_documents_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "pre_purge_documents"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor, "post_purge_documents"
+        ) as post,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor,
+            "post_purge_documents_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor, "pre_purge_documents"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7100,8 +7348,9 @@ def test_batch_get_documents_metadata_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7165,18 +7414,22 @@ def test_batch_get_documents_metadata_rest_interceptors(null_interceptor):
     )
     client = DocumentServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "post_batch_get_documents_metadata"
-    ) as post, mock.patch.object(
-        transports.DocumentServiceRestInterceptor,
-        "post_batch_get_documents_metadata_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.DocumentServiceRestInterceptor, "pre_batch_get_documents_metadata"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor,
+            "post_batch_get_documents_metadata",
+        ) as post,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor,
+            "post_batch_get_documents_metadata_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DocumentServiceRestInterceptor,
+            "pre_batch_get_documents_metadata",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7236,8 +7489,9 @@ def test_cancel_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -7298,8 +7552,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -7358,8 +7613,9 @@ def test_list_operations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -7430,7 +7686,6 @@ def test_get_document_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.GetDocumentRequest()
-
         assert args[0] == request_msg
 
 
@@ -7450,7 +7705,6 @@ def test_list_documents_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.ListDocumentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -7470,7 +7724,6 @@ def test_create_document_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.CreateDocumentRequest()
-
         assert args[0] == request_msg
 
 
@@ -7490,7 +7743,6 @@ def test_update_document_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.UpdateDocumentRequest()
-
         assert args[0] == request_msg
 
 
@@ -7510,7 +7762,6 @@ def test_delete_document_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.DeleteDocumentRequest()
-
         assert args[0] == request_msg
 
 
@@ -7530,7 +7781,6 @@ def test_import_documents_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = import_config.ImportDocumentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -7550,7 +7800,6 @@ def test_purge_documents_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = purge_config.PurgeDocumentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -7572,7 +7821,6 @@ def test_batch_get_documents_metadata_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = document_service.BatchGetDocumentsMetadataRequest()
-
         assert args[0] == request_msg
 
 
@@ -7661,11 +7909,14 @@ def test_document_service_base_transport():
 
 def test_document_service_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.discoveryengine_v1.services.document_service.transports.DocumentServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.discoveryengine_v1.services.document_service.transports.DocumentServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.DocumentServiceTransport(
@@ -7682,9 +7933,12 @@ def test_document_service_base_transport_with_credentials_file():
 
 def test_document_service_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.discoveryengine_v1.services.document_service.transports.DocumentServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.discoveryengine_v1.services.document_service.transports.DocumentServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.DocumentServiceTransport()
@@ -7756,11 +8010,12 @@ def test_document_service_transport_auth_gdch_credentials(transport_class):
 def test_document_service_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -7954,6 +8209,7 @@ def test_document_service_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [
@@ -8482,6 +8738,38 @@ async def test_cancel_operation_from_dict_async():
         call.assert_called()
 
 
+def test_cancel_operation_flattened():
+    client = DocumentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = DocumentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
 def test_get_operation(transport: str = "grpc"):
     client = DocumentServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -8627,6 +8915,40 @@ async def test_get_operation_from_dict_async():
         call.assert_called()
 
 
+def test_get_operation_flattened():
+    client = DocumentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = DocumentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
 def test_list_operations(transport: str = "grpc"):
     client = DocumentServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -8770,6 +9092,40 @@ async def test_list_operations_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_list_operations_flattened():
+    client = DocumentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = DocumentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
 
 
 def test_transport_close_grpc():

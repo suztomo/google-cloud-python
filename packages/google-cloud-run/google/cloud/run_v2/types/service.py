@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.api import launch_stage_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api.launch_stage_pb2 as launch_stage_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.run_v2.types import (
@@ -175,6 +175,10 @@ class ListServicesResponse(proto.Message):
         next_page_token (str):
             A token indicating there are more items than page_size. Use
             it in the next ListServices request to continue.
+        unreachable (MutableSequence[str]):
+            Output only. For global requests, returns the
+            list of regions that could not be reached within
+            the deadline.
     """
 
     @property
@@ -189,6 +193,10 @@ class ListServicesResponse(proto.Message):
     next_page_token: str = proto.Field(
         proto.STRING,
         number=2,
+    )
+    unreachable: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=3,
     )
 
 
@@ -252,7 +260,7 @@ class Service(proto.Message):
 
     Attributes:
         name (str):
-            The fully qualified name of this Service. In
+            Identifier. The fully qualified name of this Service. In
             CreateServiceRequest, this field is ignored, and instead
             composed from CreateServiceRequest.parent and
             CreateServiceRequest.service_id.
@@ -358,8 +366,8 @@ class Service(proto.Message):
             settings
         invoker_iam_disabled (bool):
             Optional. Disables IAM permission check for
-            run.routes.invoke for callers of this service. This feature
-            is available by invitation only. For more information, visit
+            run.routes.invoke for callers of this service. For more
+            information, visit
             https://cloud.google.com/run/docs/securing/managing-access#invoker_check.
         default_uri_disabled (bool):
             Optional. Disables public resolution of the
@@ -367,6 +375,11 @@ class Service(proto.Message):
         urls (MutableSequence[str]):
             Output only. All URLs serving traffic for
             this Service.
+        iap_enabled (bool):
+            Optional. IAP settings on the Service.
+        multi_region_settings (google.cloud.run_v2.types.Service.MultiRegionSettings):
+            Optional. Settings for multi-region
+            deployment.
         custom_audiences (MutableSequence[str]):
             One or more custom audiences that you want
             this service to support. Specify each custom
@@ -411,6 +424,10 @@ class Service(proto.Message):
             Service is serving traffic.
         satisfies_pzs (bool):
             Output only. Reserved for future use.
+        threat_detection_enabled (bool):
+            Output only. True if Cloud Run Threat
+            Detection monitoring is enabled for the parent
+            project of this Service.
         build_config (google.cloud.run_v2.types.BuildConfig):
             Optional. Configuration for building a Cloud
             Run function.
@@ -443,10 +460,31 @@ class Service(proto.Message):
             failure can be found in ``terminal_condition`` and
             ``conditions``.
         etag (str):
-            Output only. A system-generated fingerprint
-            for this version of the resource. May be used to
+            Optional. A system-generated fingerprint for
+            this version of the resource. May be used to
             detect modification conflict during updates.
     """
+
+    class MultiRegionSettings(proto.Message):
+        r"""Settings for multi-region deployment.
+
+        Attributes:
+            regions (MutableSequence[str]):
+                Required. List of regions to deploy to,
+                including primary region.
+            multi_region_id (str):
+                Optional. System-generated unique id for the
+                multi-region Service.
+        """
+
+        regions: MutableSequence[str] = proto.RepeatedField(
+            proto.STRING,
+            number=1,
+        )
+        multi_region_id: str = proto.Field(
+            proto.STRING,
+            number=2,
+        )
 
     name: str = proto.Field(
         proto.STRING,
@@ -552,6 +590,15 @@ class Service(proto.Message):
         proto.STRING,
         number=24,
     )
+    iap_enabled: bool = proto.Field(
+        proto.BOOL,
+        number=25,
+    )
+    multi_region_settings: MultiRegionSettings = proto.Field(
+        proto.MESSAGE,
+        number=26,
+        message=MultiRegionSettings,
+    )
     custom_audiences: MutableSequence[str] = proto.RepeatedField(
         proto.STRING,
         number=37,
@@ -578,12 +625,12 @@ class Service(proto.Message):
         proto.STRING,
         number=34,
     )
-    traffic_statuses: MutableSequence[
-        traffic_target.TrafficTargetStatus
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=35,
-        message=traffic_target.TrafficTargetStatus,
+    traffic_statuses: MutableSequence[traffic_target.TrafficTargetStatus] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=35,
+            message=traffic_target.TrafficTargetStatus,
+        )
     )
     uri: str = proto.Field(
         proto.STRING,
@@ -592,6 +639,10 @@ class Service(proto.Message):
     satisfies_pzs: bool = proto.Field(
         proto.BOOL,
         number=38,
+    )
+    threat_detection_enabled: bool = proto.Field(
+        proto.BOOL,
+        number=40,
     )
     build_config: vendor_settings.BuildConfig = proto.Field(
         proto.MESSAGE,

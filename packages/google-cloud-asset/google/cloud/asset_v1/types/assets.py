@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,18 +17,16 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.cloud.orgpolicy.v1 import orgpolicy_pb2  # type: ignore
-from google.cloud.osconfig_v1.types import inventory
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.identity.accesscontextmanager.v1 import access_level_pb2  # type: ignore
-from google.identity.accesscontextmanager.v1 import access_policy_pb2  # type: ignore
-from google.identity.accesscontextmanager.v1 import (
-    service_perimeter_pb2,
-)  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import code_pb2  # type: ignore
+import google.cloud.orgpolicy.v1.orgpolicy_pb2 as orgpolicy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.identity.accesscontextmanager.v1.access_level_pb2 as access_level_pb2  # type: ignore
+import google.identity.accesscontextmanager.v1.access_policy_pb2 as access_policy_pb2  # type: ignore
+import google.identity.accesscontextmanager.v1.service_perimeter_pb2 as service_perimeter_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.code_pb2 as code_pb2  # type: ignore
 import proto  # type: ignore
+from google.cloud.osconfig_v1.types import inventory
 
 from google.cloud.asset_v1.types import asset_enrichment_resourceowners
 
@@ -94,6 +92,7 @@ class TemporalAsset(proto.Message):
             DELETED (4):
                 prior_asset is a deletion.
         """
+
         PRIOR_ASSET_STATE_UNSPECIFIED = 0
         PRESENT = 1
         INVALID = 2
@@ -642,15 +641,15 @@ class ResourceSearchResult(proto.Message):
 
             To search against the ``name``:
 
-            -  Use a field query. Example: ``name:instance1``
-            -  Use a free text query. Example: ``instance1``
+            - Use a field query. Example: ``name:instance1``
+            - Use a free text query. Example: ``instance1``
         asset_type (str):
             The type of this resource. Example:
             ``compute.googleapis.com/Disk``.
 
             To search against the ``asset_type``:
 
-            -  Specify the ``asset_type`` field in your search request.
+            - Specify the ``asset_type`` field in your search request.
         project (str):
             The project that this resource belongs to, in the form of
             projects/{PROJECT_NUMBER}. This field is available when the
@@ -658,10 +657,10 @@ class ResourceSearchResult(proto.Message):
 
             To search against ``project``:
 
-            -  Use a field query. Example: ``project:12345``
-            -  Use a free text query. Example: ``12345``
-            -  Specify the ``scope`` field as this project in your
-               search request.
+            - Use a field query. Example: ``project:12345``
+            - Use a free text query. Example: ``12345``
+            - Specify the ``scope`` field as this project in your search
+              request.
         folders (MutableSequence[str]):
             The folder(s) that this resource belongs to, in the form of
             folders/{FOLDER_NUMBER}. This field is available when the
@@ -669,10 +668,10 @@ class ResourceSearchResult(proto.Message):
 
             To search against ``folders``:
 
-            -  Use a field query. Example: ``folders:(123 OR 456)``
-            -  Use a free text query. Example: ``123``
-            -  Specify the ``scope`` field as this folder in your search
-               request.
+            - Use a field query. Example: ``folders:(123 OR 456)``
+            - Use a free text query. Example: ``123``
+            - Specify the ``scope`` field as this folder in your search
+              request.
         organization (str):
             The organization that this resource belongs to, in the form
             of organizations/{ORGANIZATION_NUMBER}. This field is
@@ -680,18 +679,18 @@ class ResourceSearchResult(proto.Message):
 
             To search against ``organization``:
 
-            -  Use a field query. Example: ``organization:123``
-            -  Use a free text query. Example: ``123``
-            -  Specify the ``scope`` field as this organization in your
-               search request.
+            - Use a field query. Example: ``organization:123``
+            - Use a free text query. Example: ``123``
+            - Specify the ``scope`` field as this organization in your
+              search request.
         display_name (str):
             The display name of this resource. This field is available
             only when the resource's Protobuf contains it.
 
             To search against the ``display_name``:
 
-            -  Use a field query. Example: ``displayName:"My Instance"``
-            -  Use a free text query. Example: ``"My Instance"``
+            - Use a field query. Example: ``displayName:"My Instance"``
+            - Use a free text query. Example: ``"My Instance"``
         description (str):
             One or more paragraphs of text description of this resource.
             Maximum length could be up to 1M bytes. This field is
@@ -699,9 +698,9 @@ class ResourceSearchResult(proto.Message):
 
             To search against the ``description``:
 
-            -  Use a field query. Example:
-               ``description:"important instance"``
-            -  Use a free text query. Example: ``"important instance"``
+            - Use a field query. Example:
+              ``description:"important instance"``
+            - Use a free text query. Example: ``"important instance"``
         location (str):
             Location can be ``global``, regional like ``us-east1``, or
             zonal like ``us-west1-b``. This field is available only when
@@ -709,8 +708,8 @@ class ResourceSearchResult(proto.Message):
 
             To search against the ``location``:
 
-            -  Use a field query. Example: ``location:us-west*``
-            -  Use a free text query. Example: ``us-west*``
+            - Use a field query. Example: ``location:us-west*``
+            - Use a free text query. Example: ``us-west*``
         labels (MutableMapping[str, str]):
             User labels associated with this resource. See `Labelling
             and grouping Google Cloud
@@ -720,15 +719,15 @@ class ResourceSearchResult(proto.Message):
 
             To search against the ``labels``:
 
-            -  Use a field query:
+            - Use a field query:
 
-               -  query on any label's key or value. Example:
-                  ``labels:prod``
-               -  query by a given label. Example: ``labels.env:prod``
-               -  query by a given label's existence. Example:
-                  ``labels.env:*``
+              - query on any label's key or value. Example:
+                ``labels:prod``
+              - query by a given label. Example: ``labels.env:prod``
+              - query by a given label's existence. Example:
+                ``labels.env:*``
 
-            -  Use a free text query. Example: ``prod``
+            - Use a free text query. Example: ``prod``
         network_tags (MutableSequence[str]):
             Network tags associated with this resource. Like labels,
             network tags are a type of annotations used to group Google
@@ -739,8 +738,8 @@ class ResourceSearchResult(proto.Message):
 
             To search against the ``network_tags``:
 
-            -  Use a field query. Example: ``networkTags:internal``
-            -  Use a free text query. Example: ``internal``
+            - Use a field query. Example: ``networkTags:internal``
+            - Use a free text query. Example: ``internal``
         kms_key (str):
             The Cloud KMS
             `CryptoKey <https://cloud.google.com/kms/docs/reference/rest/v1/projects.locations.keyRings.cryptoKeys>`__
@@ -758,8 +757,8 @@ class ResourceSearchResult(proto.Message):
 
             To search against the ``kms_key``:
 
-            -  Use a field query. Example: ``kmsKey:key``
-            -  Use a free text query. Example: ``key``
+            - Use a field query. Example: ``kmsKey:key``
+            - Use a free text query. Example: ``key``
         kms_keys (MutableSequence[str]):
             The Cloud KMS
             `CryptoKey <https://cloud.google.com/kms/docs/reference/rest/v1/projects.locations.keyRings.cryptoKeys>`__
@@ -770,8 +769,8 @@ class ResourceSearchResult(proto.Message):
 
             To search against the ``kms_keys``:
 
-            -  Use a field query. Example: ``kmsKeys:key``
-            -  Use a free text query. Example: ``key``
+            - Use a field query. Example: ``kmsKeys:key``
+            - Use a free text query. Example: ``key``
         create_time (google.protobuf.timestamp_pb2.Timestamp):
             The create timestamp of this resource, at which the resource
             was created. The granularity is in seconds. Timestamp.nanos
@@ -780,14 +779,14 @@ class ResourceSearchResult(proto.Message):
 
             To search against ``create_time``:
 
-            -  Use a field query.
+            - Use a field query.
 
-               -  value in seconds since unix epoch. Example:
-                  ``createTime > 1609459200``
-               -  value in date string. Example:
-                  ``createTime > 2021-01-01``
-               -  value in date-time string (must be quoted). Example:
-                  ``createTime > "2021-01-01T00:00:00"``
+              - value in seconds since unix epoch. Example:
+                ``createTime > 1609459200``
+              - value in date string. Example:
+                ``createTime > 2021-01-01``
+              - value in date-time string (must be quoted). Example:
+                ``createTime > "2021-01-01T00:00:00"``
         update_time (google.protobuf.timestamp_pb2.Timestamp):
             The last update timestamp of this resource, at which the
             resource was last modified or deleted. The granularity is in
@@ -796,14 +795,14 @@ class ResourceSearchResult(proto.Message):
 
             To search against ``update_time``:
 
-            -  Use a field query.
+            - Use a field query.
 
-               -  value in seconds since unix epoch. Example:
-                  ``updateTime < 1609459200``
-               -  value in date string. Example:
-                  ``updateTime < 2021-01-01``
-               -  value in date-time string (must be quoted). Example:
-                  ``updateTime < "2021-01-01T00:00:00"``
+              - value in seconds since unix epoch. Example:
+                ``updateTime < 1609459200``
+              - value in date string. Example:
+                ``updateTime < 2021-01-01``
+              - value in date-time string (must be quoted). Example:
+                ``updateTime < "2021-01-01T00:00:00"``
         state (str):
             The state of this resource. Different resources types have
             different state definitions that are mapped from various
@@ -823,8 +822,8 @@ class ResourceSearchResult(proto.Message):
 
             To search against the ``state``:
 
-            -  Use a field query. Example: ``state:RUNNING``
-            -  Use a free text query. Example: ``RUNNING``
+            - Use a field query. Example: ``state:RUNNING``
+            - Use a free text query. Example: ``RUNNING``
         additional_attributes (google.protobuf.struct_pb2.Struct):
             The additional searchable attributes of this resource. The
             attributes may vary from one resource type to another.
@@ -845,17 +844,17 @@ class ResourceSearchResult(proto.Message):
 
             To search against the ``additional_attributes``:
 
-            -  Use a free text query to match the attributes values.
-               Example: to search
-               ``additional_attributes = { dnsName: "foobar" }``, you
-               can issue a query ``foobar``.
+            - Use a free text query to match the attributes values.
+              Example: to search
+              ``additional_attributes = { dnsName: "foobar" }``, you can
+              issue a query ``foobar``.
         parent_full_resource_name (str):
             The full resource name of this resource's parent, if it has
             one. To search against the ``parent_full_resource_name``:
 
-            -  Use a field query. Example:
-               ``parentFullResourceName:"project-name"``
-            -  Use a free text query. Example: ``project-name``
+            - Use a field query. Example:
+              ``parentFullResourceName:"project-name"``
+            - Use a free text query. Example: ``project-name``
         versioned_resources (MutableSequence[google.cloud.asset_v1.types.VersionedResource]):
             Versioned resource representations of this resource. This is
             repeated because there could be multiple versions of
@@ -878,7 +877,7 @@ class ResourceSearchResult(proto.Message):
         relationships (MutableMapping[str, google.cloud.asset_v1.types.RelatedResources]):
             A map of related resources of this resource, keyed by the
             relationship type. A relationship type is in the format of
-            {SourceType}*{ACTION}*\ {DestType}. Example:
+            {SourceType}\ *{ACTION}*\ {DestType}. Example:
             ``DISK_TO_INSTANCE``, ``DISK_TO_NETWORK``,
             ``INSTANCE_TO_INSTANCEGROUP``. See `supported relationship
             types <https://cloud.google.com/asset-inventory/docs/supported-asset-types#supported_relationship_types>`__.
@@ -890,15 +889,15 @@ class ResourceSearchResult(proto.Message):
             {ORG_ID}/{TAG_KEY_SHORT_NAME}. To search against the
             ``tagKeys``:
 
-            -  Use a field query. Example:
+            - Use a field query. Example:
 
-               -  ``tagKeys:"123456789/env*"``
-               -  ``tagKeys="123456789/env"``
-               -  ``tagKeys:"env"``
+              - ``tagKeys:"123456789/env*"``
+              - ``tagKeys="123456789/env"``
+              - ``tagKeys:"env"``
 
-            -  Use a free text query. Example:
+            - Use a free text query. Example:
 
-               -  ``env``
+              - ``env``
         tag_values (MutableSequence[str]):
             This field is only present for the purpose of backward
             compatibility. Use the ``tags`` field instead.
@@ -907,16 +906,16 @@ class ResourceSearchResult(proto.Message):
             {ORG_ID}/{TAG_KEY_SHORT_NAME}/{TAG_VALUE_SHORT_NAME}. To
             search against the ``tagValues``:
 
-            -  Use a field query. Example:
+            - Use a field query. Example:
 
-               -  ``tagValues:"env"``
-               -  ``tagValues:"env/prod"``
-               -  ``tagValues:"123456789/env/prod*"``
-               -  ``tagValues="123456789/env/prod"``
+              - ``tagValues:"env"``
+              - ``tagValues:"env/prod"``
+              - ``tagValues:"123456789/env/prod*"``
+              - ``tagValues="123456789/env/prod"``
 
-            -  Use a free text query. Example:
+            - Use a free text query. Example:
 
-               -  ``prod``
+              - ``prod``
         tag_value_ids (MutableSequence[str]):
             This field is only present for the purpose of backward
             compatibility. Use the ``tags`` field instead.
@@ -924,33 +923,33 @@ class ResourceSearchResult(proto.Message):
             TagValue IDs, in the format of tagValues/{TAG_VALUE_ID}. To
             search against the ``tagValueIds``:
 
-            -  Use a field query. Example:
+            - Use a field query. Example:
 
-               -  ``tagValueIds="tagValues/456"``
+              - ``tagValueIds="tagValues/456"``
 
-            -  Use a free text query. Example:
+            - Use a free text query. Example:
 
-               -  ``456``
+              - ``456``
         tags (MutableSequence[google.cloud.asset_v1.types.Tag]):
             The tags directly attached to this resource.
 
             To search against the ``tags``:
 
-            -  Use a field query. Example:
+            - Use a field query. Example:
 
-               -  ``tagKeys:"123456789/env*"``
-               -  ``tagKeys="123456789/env"``
-               -  ``tagKeys:"env"``
-               -  ``tagKeyIds="tagKeys/123"``
-               -  ``tagValues:"env"``
-               -  ``tagValues:"env/prod"``
-               -  ``tagValues:"123456789/env/prod*"``
-               -  ``tagValues="123456789/env/prod"``
-               -  ``tagValueIds="tagValues/456"``
+              - ``tagKeys:"123456789/env*"``
+              - ``tagKeys="123456789/env"``
+              - ``tagKeys:"env"``
+              - ``tagKeyIds="tagKeys/123"``
+              - ``tagValues:"env"``
+              - ``tagValues:"env/prod"``
+              - ``tagValues:"123456789/env/prod*"``
+              - ``tagValues="123456789/env/prod"``
+              - ``tagValueIds="tagValues/456"``
 
-            -  Use a free text query. Example:
+            - Use a free text query. Example:
 
-               -  ``env/prod``
+              - ``env/prod``
         effective_tags (MutableSequence[google.cloud.asset_v1.types.EffectiveTagDetails]):
             The effective tags on this resource. All of the tags that
             are both attached to and inherited by a resource are
@@ -960,30 +959,30 @@ class ResourceSearchResult(proto.Message):
 
             To search against the ``effective_tags``:
 
-            -  Use a field query. Example:
+            - Use a field query. Example:
 
-               -  ``effectiveTagKeys:"123456789/env*"``
-               -  ``effectiveTagKeys="123456789/env"``
-               -  ``effectiveTagKeys:"env"``
-               -  ``effectiveTagKeyIds="tagKeys/123"``
-               -  ``effectiveTagValues:"env"``
-               -  ``effectiveTagValues:"env/prod"``
-               -  ``effectiveTagValues:"123456789/env/prod*"``
-               -  ``effectiveTagValues="123456789/env/prod"``
-               -  ``effectiveTagValueIds="tagValues/456"``
+              - ``effectiveTagKeys:"123456789/env*"``
+              - ``effectiveTagKeys="123456789/env"``
+              - ``effectiveTagKeys:"env"``
+              - ``effectiveTagKeyIds="tagKeys/123"``
+              - ``effectiveTagValues:"env"``
+              - ``effectiveTagValues:"env/prod"``
+              - ``effectiveTagValues:"123456789/env/prod*"``
+              - ``effectiveTagValues="123456789/env/prod"``
+              - ``effectiveTagValueIds="tagValues/456"``
         enrichments (MutableSequence[google.cloud.asset_v1.types.AssetEnrichment]):
             Enrichments of the asset. Currently supported enrichment
             types with SearchAllResources API:
 
-            -  RESOURCE_OWNERS
+            - RESOURCE_OWNERS
 
             The corresponding read masks in order to get the enrichment:
 
-            -  enrichments.resource_owners
+            - enrichments.resource_owners
 
             The corresponding required permissions:
 
-            -  cloudasset.assets.searchEnrichmentResourceOwners
+            - cloudasset.assets.searchEnrichmentResourceOwners
 
             Example query to get resource owner enrichment:
 
@@ -1003,22 +1002,22 @@ class ResourceSearchResult(proto.Message):
 
             To search against the ``parent_asset_type``:
 
-            -  Use a field query. Example:
-               ``parentAssetType:"cloudresourcemanager.googleapis.com/Project"``
-            -  Use a free text query. Example:
-               ``cloudresourcemanager.googleapis.com/Project``
+            - Use a field query. Example:
+              ``parentAssetType:"cloudresourcemanager.googleapis.com/Project"``
+            - Use a free text query. Example:
+              ``cloudresourcemanager.googleapis.com/Project``
         scc_security_marks (MutableMapping[str, str]):
             The actual content of Security Command Center security marks
             associated with the asset.
 
             To search against SCC SecurityMarks field:
 
-            -  Use a field query:
+            - Use a field query:
 
-               -  query by a given key value pair. Example:
-                  ``sccSecurityMarks.foo=bar``
-               -  query by a given key's existence. Example:
-                  ``sccSecurityMarks.foo:*``
+              - query by a given key value pair. Example:
+                ``sccSecurityMarks.foo=bar``
+              - query by a given key's existence. Example:
+                ``sccSecurityMarks.foo:*``
     """
 
     name: str = proto.Field(
@@ -1270,15 +1269,14 @@ class IamPolicySearchResult(proto.Message):
 
             To search against the ``resource``:
 
-            -  use a field query. Example:
-               ``resource:organizations/123``
+            - use a field query. Example: ``resource:organizations/123``
         asset_type (str):
             The type of the resource associated with this IAM policy.
             Example: ``compute.googleapis.com/Disk``.
 
             To search against the ``asset_type``:
 
-            -  specify the ``asset_types`` field in your search request.
+            - specify the ``asset_types`` field in your search request.
         project (str):
             The project that the associated Google Cloud resource
             belongs to, in the form of projects/{PROJECT_NUMBER}. If an
@@ -1289,8 +1287,8 @@ class IamPolicySearchResult(proto.Message):
 
             To search against the ``project``:
 
-            -  specify the ``scope`` field as this project in your
-               search request.
+            - specify the ``scope`` field as this project in your search
+              request.
         folders (MutableSequence[str]):
             The folder(s) that the IAM policy belongs to, in the form of
             folders/{FOLDER_NUMBER}. This field is available when the
@@ -1298,10 +1296,10 @@ class IamPolicySearchResult(proto.Message):
 
             To search against ``folders``:
 
-            -  use a field query. Example: ``folders:(123 OR 456)``
-            -  use a free text query. Example: ``123``
-            -  specify the ``scope`` field as this folder in your search
-               request.
+            - use a field query. Example: ``folders:(123 OR 456)``
+            - use a free text query. Example: ``123``
+            - specify the ``scope`` field as this folder in your search
+              request.
         organization (str):
             The organization that the IAM policy belongs to, in the form
             of organizations/{ORGANIZATION_NUMBER}. This field is
@@ -1309,10 +1307,10 @@ class IamPolicySearchResult(proto.Message):
 
             To search against ``organization``:
 
-            -  use a field query. Example: ``organization:123``
-            -  use a free text query. Example: ``123``
-            -  specify the ``scope`` field as this organization in your
-               search request.
+            - use a field query. Example: ``organization:123``
+            - use a free text query. Example: ``123``
+            - specify the ``scope`` field as this organization in your
+              search request.
         policy (google.iam.v1.policy_pb2.Policy):
             The IAM policy directly set on the given resource. Note that
             the original IAM policy can contain multiple bindings. This
@@ -1322,15 +1320,15 @@ class IamPolicySearchResult(proto.Message):
 
             To search against the ``policy`` bindings:
 
-            -  use a field query:
+            - use a field query:
 
-               -  query by the policy contained members. Example:
-                  ``policy:amy@gmail.com``
-               -  query by the policy contained roles. Example:
-                  ``policy:roles/compute.admin``
-               -  query by the policy contained roles' included
-                  permissions. Example:
-                  ``policy.role.permissions:compute.instances.create``
+              - query by the policy contained members. Example:
+                ``policy:amy@gmail.com``
+              - query by the policy contained roles. Example:
+                ``policy:roles/compute.admin``
+              - query by the policy contained roles' included
+                permissions. Example:
+                ``policy.role.permissions:compute.instances.create``
         explanation (google.cloud.asset_v1.types.IamPolicySearchResult.Explanation):
             Explanation about the IAM policy search
             result. It contains additional information to
@@ -1418,12 +1416,12 @@ class IamPolicyAnalysisState(proto.Message):
             The Google standard error code that best describes the
             state. For example:
 
-            -  OK means the analysis on this entity has been
-               successfully finished;
-            -  PERMISSION_DENIED means an access denied error is
-               encountered;
-            -  DEADLINE_EXCEEDED means the analysis on this entity
-               hasn't been started in time;
+            - OK means the analysis on this entity has been successfully
+              finished;
+            - PERMISSION_DENIED means an access denied error is
+              encountered;
+            - DEADLINE_EXCEEDED means the analysis on this entity hasn't
+              been started in time;
         cause (str):
             The human-readable description of the cause
             of failure.
@@ -1463,6 +1461,7 @@ class ConditionEvaluation(proto.Message):
                 expression contains variables that are either missing input
                 values or have not been supported by Policy Analyzer yet.
         """
+
         EVALUATION_VALUE_UNSPECIFIED = 0
         TRUE = 1
         FALSE = 2
@@ -1574,12 +1573,12 @@ class IamPolicyAnalysisResult(proto.Message):
                 binding <https://cloud.google.com/iam/reference/rest/v1/Binding>`__.
                 For example, they might be formatted like the following:
 
-                -  user:foo@google.com
-                -  group:group1@google.com
-                -  serviceAccount:s1@prj1.iam.gserviceaccount.com
-                -  projectOwner:some_project_id
-                -  domain:google.com
-                -  allUsers
+                - user:foo@google.com
+                - group:group1@google.com
+                - serviceAccount:s1@prj1.iam.gserviceaccount.com
+                - projectOwner:some_project_id
+                - domain:google.com
+                - allUsers
             analysis_state (google.cloud.asset_v1.types.IamPolicyAnalysisState):
                 The analysis state of this identity.
         """
@@ -1629,27 +1628,27 @@ class IamPolicyAnalysisResult(proto.Message):
         For example, assume we have the following cases in one IAM policy
         binding:
 
-        -  Permission P1 and P2 apply to resource R1 and R2;
-        -  Permission P3 applies to resource R2 and R3;
+        - Permission P1 and P2 apply to resource R1 and R2;
+        - Permission P3 applies to resource R2 and R3;
 
         This will result in the following access control lists:
 
-        -  AccessControlList 1: [R1, R2], [P1, P2]
-        -  AccessControlList 2: [R2, R3], [P3]
+        - AccessControlList 1: [R1, R2], [P1, P2]
+        - AccessControlList 2: [R2, R3], [P3]
 
         Attributes:
             resources (MutableSequence[google.cloud.asset_v1.types.IamPolicyAnalysisResult.Resource]):
                 The resources that match one of the following conditions:
 
-                -  The resource_selector, if it is specified in request;
-                -  Otherwise, resources reachable from the policy attached
-                   resource.
+                - The resource_selector, if it is specified in request;
+                - Otherwise, resources reachable from the policy attached
+                  resource.
             accesses (MutableSequence[google.cloud.asset_v1.types.IamPolicyAnalysisResult.Access]):
                 The accesses that match one of the following conditions:
 
-                -  The access_selector, if it is specified in request;
-                -  Otherwise, access specifiers reachable from the policy
-                   binding's role.
+                - The access_selector, if it is specified in request;
+                - Otherwise, access specifiers reachable from the policy
+                  binding's role.
             resource_edges (MutableSequence[google.cloud.asset_v1.types.IamPolicyAnalysisResult.Edge]):
                 Resource edges of the graph starting from the policy
                 attached resource to any descendant resources. The
@@ -1665,26 +1664,26 @@ class IamPolicyAnalysisResult(proto.Message):
                 defined in the above IAM policy binding.
         """
 
-        resources: MutableSequence[
-            "IamPolicyAnalysisResult.Resource"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="IamPolicyAnalysisResult.Resource",
+        resources: MutableSequence["IamPolicyAnalysisResult.Resource"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="IamPolicyAnalysisResult.Resource",
+            )
         )
-        accesses: MutableSequence[
-            "IamPolicyAnalysisResult.Access"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="IamPolicyAnalysisResult.Access",
+        accesses: MutableSequence["IamPolicyAnalysisResult.Access"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="IamPolicyAnalysisResult.Access",
+            )
         )
-        resource_edges: MutableSequence[
-            "IamPolicyAnalysisResult.Edge"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=3,
-            message="IamPolicyAnalysisResult.Edge",
+        resource_edges: MutableSequence["IamPolicyAnalysisResult.Edge"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=3,
+                message="IamPolicyAnalysisResult.Edge",
+            )
         )
         condition_evaluation: "ConditionEvaluation" = proto.Field(
             proto.MESSAGE,
@@ -1700,9 +1699,9 @@ class IamPolicyAnalysisResult(proto.Message):
                 Only the identities that match one of the following
                 conditions will be presented:
 
-                -  The identity_selector, if it is specified in request;
-                -  Otherwise, identities reachable from the policy binding's
-                   members.
+                - The identity_selector, if it is specified in request;
+                - Otherwise, identities reachable from the policy binding's
+                  members.
             group_edges (MutableSequence[google.cloud.asset_v1.types.IamPolicyAnalysisResult.Edge]):
                 Group identity edges of the graph starting from the
                 binding's group members to any node of the
@@ -1717,19 +1716,19 @@ class IamPolicyAnalysisResult(proto.Message):
                 enabled in request.
         """
 
-        identities: MutableSequence[
-            "IamPolicyAnalysisResult.Identity"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="IamPolicyAnalysisResult.Identity",
+        identities: MutableSequence["IamPolicyAnalysisResult.Identity"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="IamPolicyAnalysisResult.Identity",
+            )
         )
-        group_edges: MutableSequence[
-            "IamPolicyAnalysisResult.Edge"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="IamPolicyAnalysisResult.Edge",
+        group_edges: MutableSequence["IamPolicyAnalysisResult.Edge"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="IamPolicyAnalysisResult.Edge",
+            )
         )
 
     attached_resource_full_name: str = proto.Field(

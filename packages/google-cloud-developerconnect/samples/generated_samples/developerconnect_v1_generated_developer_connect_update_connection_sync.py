@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ def sample_update_connection():
 
     # Initialize request argument(s)
     connection = developerconnect_v1.Connection()
-    connection.github_config.github_app = "FIREBASE"
+    connection.github_config.github_app = "GEMINI_CODE_ASSIST"
 
     request = developerconnect_v1.UpdateConnectionRequest(
         connection=connection,
@@ -55,5 +55,6 @@ def sample_update_connection():
 
     # Handle the response
     print(response)
+
 
 # [END developerconnect_v1_generated_DeveloperConnect_UpdateConnection_sync]

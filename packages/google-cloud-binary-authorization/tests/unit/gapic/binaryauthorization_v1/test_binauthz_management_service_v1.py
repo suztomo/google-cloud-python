@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,15 +38,20 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api_core import gapic_v1, grpc_helpers, grpc_helpers_async, path_template
-from google.api_core import client_options
+import google.auth
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+from google.api_core import (
+    client_options,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.oauth2 import service_account
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.binaryauthorization_v1.services.binauthz_management_service_v1 import (
     BinauthzManagementServiceV1AsyncClient,
@@ -109,12 +109,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert BinauthzManagementServiceV1Client._get_default_mtls_endpoint(None) is None
     assert (
@@ -138,6 +154,10 @@ def test__get_default_mtls_endpoint():
     assert (
         BinauthzManagementServiceV1Client._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
+    )
+    assert (
+        BinauthzManagementServiceV1Client._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -165,12 +185,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            BinauthzManagementServiceV1Client._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                BinauthzManagementServiceV1Client._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert BinauthzManagementServiceV1Client._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert BinauthzManagementServiceV1Client._read_environment_variables() == (
@@ -207,6 +234,128 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert (
+                BinauthzManagementServiceV1Client._use_client_cert_effective() is True
+            )
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert (
+                BinauthzManagementServiceV1Client._use_client_cert_effective() is False
+            )
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert (
+                BinauthzManagementServiceV1Client._use_client_cert_effective() is True
+            )
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert (
+                BinauthzManagementServiceV1Client._use_client_cert_effective() is False
+            )
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert (
+                BinauthzManagementServiceV1Client._use_client_cert_effective() is True
+            )
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert (
+                BinauthzManagementServiceV1Client._use_client_cert_effective() is False
+            )
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert (
+                BinauthzManagementServiceV1Client._use_client_cert_effective() is True
+            )
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert (
+                BinauthzManagementServiceV1Client._use_client_cert_effective() is False
+            )
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert (
+                BinauthzManagementServiceV1Client._use_client_cert_effective() is False
+            )
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                BinauthzManagementServiceV1Client._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert (
+                BinauthzManagementServiceV1Client._use_client_cert_effective() is False
+            )
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert (
+                    BinauthzManagementServiceV1Client._use_client_cert_effective()
+                    is False
+                )
 
 
 def test__get_client_cert_source():
@@ -608,17 +757,6 @@ def test_binauthz_management_service_v1_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -857,6 +995,117 @@ def test_binauthz_management_service_v1_client_get_mtls_endpoint_and_cert_source
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -889,10 +1138,9 @@ def test_binauthz_management_service_v1_client_get_mtls_endpoint_and_cert_source
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -905,18 +1153,6 @@ def test_binauthz_management_service_v1_client_get_mtls_endpoint_and_cert_source
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1163,13 +1399,13 @@ def test_binauthz_management_service_v1_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1194,8 +1430,8 @@ def test_binauthz_management_service_v1_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.GetPolicyRequest,
-        dict,
+        service.GetPolicyRequest(),
+        {},
     ],
 )
 def test_get_policy(request_type, transport: str = "grpc"):
@@ -1206,7 +1442,7 @@ def test_get_policy(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_policy), "__call__") as call:
@@ -1257,9 +1493,10 @@ def test_get_policy_non_empty_request_with_auto_populated_field():
         client.get_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.GetPolicyRequest(
+        request_msg = service.GetPolicyRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_policy_use_cached_wrapped_rpc():
@@ -1338,9 +1575,14 @@ async def test_get_policy_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_get_policy_async(
-    transport: str = "grpc_asyncio", request_type=service.GetPolicyRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.GetPolicyRequest(),
+        {},
+    ],
+)
+async def test_get_policy_async(request_type, transport: str = "grpc_asyncio"):
     client = BinauthzManagementServiceV1AsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1348,7 +1590,7 @@ async def test_get_policy_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_policy), "__call__") as call:
@@ -1376,11 +1618,6 @@ async def test_get_policy_async(
         response.global_policy_evaluation_mode
         == resources.Policy.GlobalPolicyEvaluationMode.ENABLE
     )
-
-
-@pytest.mark.asyncio
-async def test_get_policy_async_from_dict():
-    await test_get_policy_async(request_type=dict)
 
 
 def test_get_policy_field_headers():
@@ -1525,8 +1762,8 @@ async def test_get_policy_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.UpdatePolicyRequest,
-        dict,
+        service.UpdatePolicyRequest(),
+        {},
     ],
 )
 def test_update_policy(request_type, transport: str = "grpc"):
@@ -1537,7 +1774,7 @@ def test_update_policy(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_policy), "__call__") as call:
@@ -1586,7 +1823,8 @@ def test_update_policy_non_empty_request_with_auto_populated_field():
         client.update_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.UpdatePolicyRequest()
+        request_msg = service.UpdatePolicyRequest()
+        assert args[0] == request_msg
 
 
 def test_update_policy_use_cached_wrapped_rpc():
@@ -1667,9 +1905,14 @@ async def test_update_policy_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_policy_async(
-    transport: str = "grpc_asyncio", request_type=service.UpdatePolicyRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.UpdatePolicyRequest(),
+        {},
+    ],
+)
+async def test_update_policy_async(request_type, transport: str = "grpc_asyncio"):
     client = BinauthzManagementServiceV1AsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1677,7 +1920,7 @@ async def test_update_policy_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_policy), "__call__") as call:
@@ -1705,11 +1948,6 @@ async def test_update_policy_async(
         response.global_policy_evaluation_mode
         == resources.Policy.GlobalPolicyEvaluationMode.ENABLE
     )
-
-
-@pytest.mark.asyncio
-async def test_update_policy_async_from_dict():
-    await test_update_policy_async(request_type=dict)
 
 
 def test_update_policy_field_headers():
@@ -1854,8 +2092,8 @@ async def test_update_policy_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.CreateAttestorRequest,
-        dict,
+        service.CreateAttestorRequest(),
+        {},
     ],
 )
 def test_create_attestor(request_type, transport: str = "grpc"):
@@ -1866,7 +2104,7 @@ def test_create_attestor(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_attestor), "__call__") as call:
@@ -1913,10 +2151,11 @@ def test_create_attestor_non_empty_request_with_auto_populated_field():
         client.create_attestor(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.CreateAttestorRequest(
+        request_msg = service.CreateAttestorRequest(
             parent="parent_value",
             attestor_id="attestor_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_attestor_use_cached_wrapped_rpc():
@@ -1997,9 +2236,14 @@ async def test_create_attestor_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_attestor_async(
-    transport: str = "grpc_asyncio", request_type=service.CreateAttestorRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.CreateAttestorRequest(),
+        {},
+    ],
+)
+async def test_create_attestor_async(request_type, transport: str = "grpc_asyncio"):
     client = BinauthzManagementServiceV1AsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2007,7 +2251,7 @@ async def test_create_attestor_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_attestor), "__call__") as call:
@@ -2030,11 +2274,6 @@ async def test_create_attestor_async(
     assert isinstance(response, resources.Attestor)
     assert response.name == "name_value"
     assert response.description == "description_value"
-
-
-@pytest.mark.asyncio
-async def test_create_attestor_async_from_dict():
-    await test_create_attestor_async(request_type=dict)
 
 
 def test_create_attestor_field_headers():
@@ -2199,8 +2438,8 @@ async def test_create_attestor_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.GetAttestorRequest,
-        dict,
+        service.GetAttestorRequest(),
+        {},
     ],
 )
 def test_get_attestor(request_type, transport: str = "grpc"):
@@ -2211,7 +2450,7 @@ def test_get_attestor(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_attestor), "__call__") as call:
@@ -2257,9 +2496,10 @@ def test_get_attestor_non_empty_request_with_auto_populated_field():
         client.get_attestor(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.GetAttestorRequest(
+        request_msg = service.GetAttestorRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_attestor_use_cached_wrapped_rpc():
@@ -2340,9 +2580,14 @@ async def test_get_attestor_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_attestor_async(
-    transport: str = "grpc_asyncio", request_type=service.GetAttestorRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.GetAttestorRequest(),
+        {},
+    ],
+)
+async def test_get_attestor_async(request_type, transport: str = "grpc_asyncio"):
     client = BinauthzManagementServiceV1AsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2350,7 +2595,7 @@ async def test_get_attestor_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_attestor), "__call__") as call:
@@ -2373,11 +2618,6 @@ async def test_get_attestor_async(
     assert isinstance(response, resources.Attestor)
     assert response.name == "name_value"
     assert response.description == "description_value"
-
-
-@pytest.mark.asyncio
-async def test_get_attestor_async_from_dict():
-    await test_get_attestor_async(request_type=dict)
 
 
 def test_get_attestor_field_headers():
@@ -2522,8 +2762,8 @@ async def test_get_attestor_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.UpdateAttestorRequest,
-        dict,
+        service.UpdateAttestorRequest(),
+        {},
     ],
 )
 def test_update_attestor(request_type, transport: str = "grpc"):
@@ -2534,7 +2774,7 @@ def test_update_attestor(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_attestor), "__call__") as call:
@@ -2578,7 +2818,8 @@ def test_update_attestor_non_empty_request_with_auto_populated_field():
         client.update_attestor(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.UpdateAttestorRequest()
+        request_msg = service.UpdateAttestorRequest()
+        assert args[0] == request_msg
 
 
 def test_update_attestor_use_cached_wrapped_rpc():
@@ -2659,9 +2900,14 @@ async def test_update_attestor_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_attestor_async(
-    transport: str = "grpc_asyncio", request_type=service.UpdateAttestorRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.UpdateAttestorRequest(),
+        {},
+    ],
+)
+async def test_update_attestor_async(request_type, transport: str = "grpc_asyncio"):
     client = BinauthzManagementServiceV1AsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2669,7 +2915,7 @@ async def test_update_attestor_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_attestor), "__call__") as call:
@@ -2692,11 +2938,6 @@ async def test_update_attestor_async(
     assert isinstance(response, resources.Attestor)
     assert response.name == "name_value"
     assert response.description == "description_value"
-
-
-@pytest.mark.asyncio
-async def test_update_attestor_async_from_dict():
-    await test_update_attestor_async(request_type=dict)
 
 
 def test_update_attestor_field_headers():
@@ -2841,8 +3082,8 @@ async def test_update_attestor_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.ListAttestorsRequest,
-        dict,
+        service.ListAttestorsRequest(),
+        {},
     ],
 )
 def test_list_attestors(request_type, transport: str = "grpc"):
@@ -2853,7 +3094,7 @@ def test_list_attestors(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_attestors), "__call__") as call:
@@ -2898,10 +3139,11 @@ def test_list_attestors_non_empty_request_with_auto_populated_field():
         client.list_attestors(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.ListAttestorsRequest(
+        request_msg = service.ListAttestorsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_attestors_use_cached_wrapped_rpc():
@@ -2982,9 +3224,14 @@ async def test_list_attestors_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_attestors_async(
-    transport: str = "grpc_asyncio", request_type=service.ListAttestorsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.ListAttestorsRequest(),
+        {},
+    ],
+)
+async def test_list_attestors_async(request_type, transport: str = "grpc_asyncio"):
     client = BinauthzManagementServiceV1AsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2992,7 +3239,7 @@ async def test_list_attestors_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_attestors), "__call__") as call:
@@ -3013,11 +3260,6 @@ async def test_list_attestors_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListAttestorsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_attestors_async_from_dict():
-    await test_list_attestors_async(request_type=dict)
 
 
 def test_list_attestors_field_headers():
@@ -3347,11 +3589,7 @@ async def test_list_attestors_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_attestors(request={})
-        ).pages:
+        async for page_ in (await client.list_attestors(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -3360,8 +3598,8 @@ async def test_list_attestors_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.DeleteAttestorRequest,
-        dict,
+        service.DeleteAttestorRequest(),
+        {},
     ],
 )
 def test_delete_attestor(request_type, transport: str = "grpc"):
@@ -3372,7 +3610,7 @@ def test_delete_attestor(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_attestor), "__call__") as call:
@@ -3413,9 +3651,10 @@ def test_delete_attestor_non_empty_request_with_auto_populated_field():
         client.delete_attestor(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.DeleteAttestorRequest(
+        request_msg = service.DeleteAttestorRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_attestor_use_cached_wrapped_rpc():
@@ -3496,9 +3735,14 @@ async def test_delete_attestor_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_attestor_async(
-    transport: str = "grpc_asyncio", request_type=service.DeleteAttestorRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.DeleteAttestorRequest(),
+        {},
+    ],
+)
+async def test_delete_attestor_async(request_type, transport: str = "grpc_asyncio"):
     client = BinauthzManagementServiceV1AsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3506,7 +3750,7 @@ async def test_delete_attestor_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_attestor), "__call__") as call:
@@ -3522,11 +3766,6 @@ async def test_delete_attestor_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_attestor_async_from_dict():
-    await test_delete_attestor_async(request_type=dict)
 
 
 def test_delete_attestor_field_headers():
@@ -3774,7 +4013,7 @@ def test_get_policy_rest_required_fields(request_type=service.GetPolicyRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_policy_rest_unset_required_fields():
@@ -3944,7 +4183,7 @@ def test_update_policy_rest_required_fields(request_type=service.UpdatePolicyReq
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_policy_rest_unset_required_fields():
@@ -4136,7 +4375,7 @@ def test_create_attestor_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_attestor_rest_unset_required_fields():
@@ -4323,7 +4562,7 @@ def test_get_attestor_rest_required_fields(request_type=service.GetAttestorReque
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_attestor_rest_unset_required_fields():
@@ -4495,7 +4734,7 @@ def test_update_attestor_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_attestor_rest_unset_required_fields():
@@ -4677,7 +4916,7 @@ def test_list_attestors_rest_required_fields(request_type=service.ListAttestorsR
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_attestors_rest_unset_required_fields():
@@ -4919,7 +5158,7 @@ def test_delete_attestor_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_attestor_rest_unset_required_fields():
@@ -5108,7 +5347,6 @@ def test_get_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -5129,7 +5367,6 @@ def test_update_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdatePolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -5150,7 +5387,6 @@ def test_create_attestor_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateAttestorRequest()
-
         assert args[0] == request_msg
 
 
@@ -5171,7 +5407,6 @@ def test_get_attestor_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetAttestorRequest()
-
         assert args[0] == request_msg
 
 
@@ -5192,7 +5427,6 @@ def test_update_attestor_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateAttestorRequest()
-
         assert args[0] == request_msg
 
 
@@ -5213,7 +5447,6 @@ def test_list_attestors_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListAttestorsRequest()
-
         assert args[0] == request_msg
 
 
@@ -5234,7 +5467,6 @@ def test_delete_attestor_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteAttestorRequest()
-
         assert args[0] == request_msg
 
 
@@ -5277,7 +5509,6 @@ async def test_get_policy_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -5306,7 +5537,6 @@ async def test_update_policy_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdatePolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -5334,7 +5564,6 @@ async def test_create_attestor_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateAttestorRequest()
-
         assert args[0] == request_msg
 
 
@@ -5362,7 +5591,6 @@ async def test_get_attestor_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetAttestorRequest()
-
         assert args[0] == request_msg
 
 
@@ -5390,7 +5618,6 @@ async def test_update_attestor_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateAttestorRequest()
-
         assert args[0] == request_msg
 
 
@@ -5417,7 +5644,6 @@ async def test_list_attestors_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListAttestorsRequest()
-
         assert args[0] == request_msg
 
 
@@ -5440,7 +5666,6 @@ async def test_delete_attestor_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteAttestorRequest()
-
         assert args[0] == request_msg
 
 
@@ -5460,8 +5685,9 @@ def test_get_policy_rest_bad_request(request_type=service.GetPolicyRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5531,18 +5757,20 @@ def test_get_policy_rest_interceptors(null_interceptor):
     )
     client = BinauthzManagementServiceV1Client(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor, "post_get_policy"
-    ) as post, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor,
-        "post_get_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor, "pre_get_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor, "post_get_policy"
+        ) as post,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor,
+            "post_get_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor, "pre_get_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -5591,8 +5819,9 @@ def test_update_policy_rest_bad_request(request_type=service.UpdatePolicyRequest
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5748,18 +5977,20 @@ def test_update_policy_rest_interceptors(null_interceptor):
     )
     client = BinauthzManagementServiceV1Client(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor, "post_update_policy"
-    ) as post, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor,
-        "post_update_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor, "pre_update_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor, "post_update_policy"
+        ) as post,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor,
+            "post_update_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor, "pre_update_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -5808,8 +6039,9 @@ def test_create_attestor_rest_bad_request(request_type=service.CreateAttestorReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5961,18 +6193,21 @@ def test_create_attestor_rest_interceptors(null_interceptor):
     )
     client = BinauthzManagementServiceV1Client(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor, "post_create_attestor"
-    ) as post, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor,
-        "post_create_attestor_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor, "pre_create_attestor"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor,
+            "post_create_attestor",
+        ) as post,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor,
+            "post_create_attestor_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor, "pre_create_attestor"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6021,8 +6256,9 @@ def test_get_attestor_rest_bad_request(request_type=service.GetAttestorRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6087,18 +6323,20 @@ def test_get_attestor_rest_interceptors(null_interceptor):
     )
     client = BinauthzManagementServiceV1Client(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor, "post_get_attestor"
-    ) as post, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor,
-        "post_get_attestor_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor, "pre_get_attestor"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor, "post_get_attestor"
+        ) as post,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor,
+            "post_get_attestor_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor, "pre_get_attestor"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6147,8 +6385,9 @@ def test_update_attestor_rest_bad_request(request_type=service.UpdateAttestorReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6300,18 +6539,21 @@ def test_update_attestor_rest_interceptors(null_interceptor):
     )
     client = BinauthzManagementServiceV1Client(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor, "post_update_attestor"
-    ) as post, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor,
-        "post_update_attestor_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor, "pre_update_attestor"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor,
+            "post_update_attestor",
+        ) as post,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor,
+            "post_update_attestor_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor, "pre_update_attestor"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6360,8 +6602,9 @@ def test_list_attestors_rest_bad_request(request_type=service.ListAttestorsReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6424,18 +6667,20 @@ def test_list_attestors_rest_interceptors(null_interceptor):
     )
     client = BinauthzManagementServiceV1Client(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor, "post_list_attestors"
-    ) as post, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor,
-        "post_list_attestors_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor, "pre_list_attestors"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor, "post_list_attestors"
+        ) as post,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor,
+            "post_list_attestors_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor, "pre_list_attestors"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6486,8 +6731,9 @@ def test_delete_attestor_rest_bad_request(request_type=service.DeleteAttestorReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6544,13 +6790,13 @@ def test_delete_attestor_rest_interceptors(null_interceptor):
     )
     client = BinauthzManagementServiceV1Client(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.BinauthzManagementServiceV1RestInterceptor, "pre_delete_attestor"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.BinauthzManagementServiceV1RestInterceptor, "pre_delete_attestor"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = service.DeleteAttestorRequest.pb(service.DeleteAttestorRequest())
         transcode.return_value = {
@@ -6605,7 +6851,6 @@ def test_get_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -6625,7 +6870,6 @@ def test_update_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdatePolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -6645,7 +6889,6 @@ def test_create_attestor_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateAttestorRequest()
-
         assert args[0] == request_msg
 
 
@@ -6665,7 +6908,6 @@ def test_get_attestor_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetAttestorRequest()
-
         assert args[0] == request_msg
 
 
@@ -6685,7 +6927,6 @@ def test_update_attestor_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateAttestorRequest()
-
         assert args[0] == request_msg
 
 
@@ -6705,7 +6946,6 @@ def test_list_attestors_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListAttestorsRequest()
-
         assert args[0] == request_msg
 
 
@@ -6725,7 +6965,6 @@ def test_delete_attestor_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteAttestorRequest()
-
         assert args[0] == request_msg
 
 
@@ -6788,11 +7027,14 @@ def test_binauthz_management_service_v1_base_transport():
 
 def test_binauthz_management_service_v1_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.binaryauthorization_v1.services.binauthz_management_service_v1.transports.BinauthzManagementServiceV1Transport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.binaryauthorization_v1.services.binauthz_management_service_v1.transports.BinauthzManagementServiceV1Transport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.BinauthzManagementServiceV1Transport(
@@ -6809,9 +7051,12 @@ def test_binauthz_management_service_v1_base_transport_with_credentials_file():
 
 def test_binauthz_management_service_v1_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.binaryauthorization_v1.services.binauthz_management_service_v1.transports.BinauthzManagementServiceV1Transport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.binaryauthorization_v1.services.binauthz_management_service_v1.transports.BinauthzManagementServiceV1Transport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.BinauthzManagementServiceV1Transport()
@@ -6890,11 +7135,12 @@ def test_binauthz_management_service_v1_transport_create_channel(
 ):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -7089,6 +7335,7 @@ def test_binauthz_management_service_v1_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,12 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.type import dayofweek_pb2  # type: ignore
-from google.type import timeofday_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.dayofweek_pb2 as dayofweek_pb2  # type: ignore
+import google.type.timeofday_pb2 as timeofday_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.alloydb_v1beta.types import csql_resources, gemini
@@ -75,6 +76,7 @@ class InstanceView(proto.Enum):
             instance, this includes details of each node in
             the pool.
     """
+
     INSTANCE_VIEW_UNSPECIFIED = 0
     INSTANCE_VIEW_BASIC = 1
     INSTANCE_VIEW_FULL = 2
@@ -98,6 +100,7 @@ class ClusterView(proto.Enum):
             plus the earliest restorable time if continuous backups are
             enabled. May increase latency.
     """
+
     CLUSTER_VIEW_UNSPECIFIED = 0
     CLUSTER_VIEW_BASIC = 1
     CLUSTER_VIEW_CONTINUOUS_BACKUP = 2
@@ -118,12 +121,19 @@ class DatabaseVersion(proto.Enum):
             The database version is Postgres 15.
         POSTGRES_16 (4):
             The database version is Postgres 16.
+        POSTGRES_17 (5):
+            The database version is Postgres 17.
+        POSTGRES_18 (6):
+            The database version is Postgres 18.
     """
+
     DATABASE_VERSION_UNSPECIFIED = 0
     POSTGRES_13 = 1
     POSTGRES_14 = 2
     POSTGRES_15 = 3
     POSTGRES_16 = 4
+    POSTGRES_17 = 5
+    POSTGRES_18 = 6
 
 
 class SubscriptionType(proto.Enum):
@@ -140,6 +150,7 @@ class SubscriptionType(proto.Enum):
         TRIAL (2):
             Trial subscription.
     """
+
     SUBSCRIPTION_TYPE_UNSPECIFIED = 0
     STANDARD = 1
     TRIAL = 2
@@ -193,6 +204,7 @@ class MigrationSource(proto.Message):
                 DMS source means the cluster was created via
                 DMS migration job.
         """
+
         MIGRATION_SOURCE_TYPE_UNSPECIFIED = 0
         DMS = 1
 
@@ -258,6 +270,7 @@ class EncryptionInfo(proto.Message):
                 is managed by the customer. KMS key versions
                 will be populated.
         """
+
         TYPE_UNSPECIFIED = 0
         GOOGLE_DEFAULT_ENCRYPTION = 1
         CUSTOMER_MANAGED_ENCRYPTION = 2
@@ -312,6 +325,7 @@ class SslConfig(proto.Message):
                 SSL connections are required. CA verification
                 not enforced.
         """
+
         SSL_MODE_UNSPECIFIED = 0
         SSL_MODE_ALLOW = 1
         SSL_MODE_REQUIRE = 2
@@ -330,6 +344,7 @@ class SslConfig(proto.Message):
                 Certificate Authority (CA) managed by the
                 AlloyDB Cluster.
         """
+
         CA_SOURCE_UNSPECIFIED = 0
         CA_SOURCE_MANAGED = 1
 
@@ -569,11 +584,20 @@ class ContinuousBackupInfo(proto.Message):
             ContinuousBackup is not enabled.
         schedule (MutableSequence[google.type.dayofweek_pb2.DayOfWeek]):
             Output only. Days of the week on which a
-            continuous backup is taken. Output only field.
-            Ignored if passed into the request.
+            continuous backup is taken.
         earliest_restorable_time (google.protobuf.timestamp_pb2.Timestamp):
-            Output only. The earliest restorable time
-            that can be restored to. Output only field.
+            Output only. The earliest restorable time that can be
+            restored to. If continuous backups and recovery was recently
+            enabled, the earliest restorable time is the creation time
+            of the earliest eligible backup within this cluster's
+            continuous backup recovery window. After a cluster has had
+            continuous backups enabled for the duration of its recovery
+            window, the earliest restorable time becomes "now minus the
+            recovery window". For example, assuming a point in time
+            recovery is attempted at 04/16/2025 3:23:00PM with a 14d
+            recovery window, the earliest restorable time would be
+            04/02/2025 3:23:00PM. This field is only visible if the
+            CLUSTER_VIEW_CONTINUOUS_BACKUP cluster view is provided.
     """
 
     encryption_info: "EncryptionInfo" = proto.Field(
@@ -610,7 +634,7 @@ class BackupSource(proto.Message):
         backup_name (str):
             Required. The name of the backup resource with the format:
 
-            -  projects/{project}/locations/{region}/backups/{backup_id}
+            - projects/{project}/locations/{region}/backups/{backup_id}
     """
 
     backup_uid: str = proto.Field(
@@ -656,6 +680,9 @@ class MaintenanceUpdatePolicy(proto.Message):
         maintenance_windows (MutableSequence[google.cloud.alloydb_v1beta.types.MaintenanceUpdatePolicy.MaintenanceWindow]):
             Preferred windows to perform maintenance.
             Currently limited to 1.
+        deny_maintenance_periods (MutableSequence[google.cloud.alloydb_v1beta.types.MaintenanceUpdatePolicy.DenyMaintenancePeriod]):
+            Periods to deny maintenance. Currently
+            limited to 1.
     """
 
     class MaintenanceWindow(proto.Message):
@@ -683,10 +710,57 @@ class MaintenanceUpdatePolicy(proto.Message):
             message=timeofday_pb2.TimeOfDay,
         )
 
+    class DenyMaintenancePeriod(proto.Message):
+        r"""DenyMaintenancePeriod definition. Excepting emergencies, maintenance
+        will not be scheduled to start within this deny period. The
+        start_date must be less than the end_date.
+
+        Attributes:
+            start_date (google.type.date_pb2.Date):
+                Deny period start date. This can be:
+
+                - A full date, with non-zero year, month and day values OR
+                - A month and day value, with a zero year for recurring
+            end_date (google.type.date_pb2.Date):
+                Deny period end date. This can be:
+
+                - A full date, with non-zero year, month and day values OR
+                - A month and day value, with a zero year for recurring
+            time (google.type.timeofday_pb2.TimeOfDay):
+                Time in UTC when the deny period starts on start_date and
+                ends on end_date. This can be:
+
+                - Full time OR
+                - All zeros for 00:00:00 UTC
+        """
+
+        start_date: date_pb2.Date = proto.Field(
+            proto.MESSAGE,
+            number=1,
+            message=date_pb2.Date,
+        )
+        end_date: date_pb2.Date = proto.Field(
+            proto.MESSAGE,
+            number=2,
+            message=date_pb2.Date,
+        )
+        time: timeofday_pb2.TimeOfDay = proto.Field(
+            proto.MESSAGE,
+            number=3,
+            message=timeofday_pb2.TimeOfDay,
+        )
+
     maintenance_windows: MutableSequence[MaintenanceWindow] = proto.RepeatedField(
         proto.MESSAGE,
         number=1,
         message=MaintenanceWindow,
+    )
+    deny_maintenance_periods: MutableSequence[DenyMaintenancePeriod] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=DenyMaintenancePeriod,
+        )
     )
 
 
@@ -743,12 +817,12 @@ class Cluster(proto.Message):
             Output only. The name of the cluster resource with the
             format:
 
-            -  projects/{project}/locations/{region}/clusters/{cluster_id}
-               where the cluster ID segment should satisfy the regex
-               expression ``[a-z0-9-]+``. For more details see
-               https://google.aip.dev/122. The prefix of the cluster
-               resource name is the name of the parent resource:
-            -  projects/{project}/locations/{region}
+            - projects/{project}/locations/{region}/clusters/{cluster_id}
+              where the cluster ID segment should satisfy the regex
+              expression ``[a-z0-9-]+``. For more details see
+              https://google.aip.dev/122. The prefix of the cluster
+              resource name is the name of the parent resource:
+            - projects/{project}/locations/{region}
         display_name (str):
             User-settable and human-readable display name
             for the Cluster.
@@ -857,8 +931,8 @@ class Cluster(proto.Message):
             cluster, generated for a specific rollout if a
             maintenance window is set.
         gemini_config (google.cloud.alloydb_v1beta.types.GeminiClusterConfig):
-            Optional. Configuration parameters related to
-            the Gemini in Databases add-on.
+            Optional. Deprecated and unused. This field
+            will be removed in the near future.
         subscription_type (google.cloud.alloydb_v1beta.types.SubscriptionType):
             Optional. Subscription type of the cluster.
         trial_metadata (google.cloud.alloydb_v1beta.types.Cluster.TrialMetadata):
@@ -871,6 +945,16 @@ class Cluster(proto.Message):
 
                "123/environment": "production",
                "123/costCenter": "marketing".
+        service_account_email (str):
+            Output only. AlloyDB per-cluster service
+            account. This service account is created
+            per-cluster per-project, and is different from
+            the per-project service account. The per-cluster
+            service account naming format is subject to
+            change.
+        dataplex_config (google.cloud.alloydb_v1beta.types.Cluster.DataplexConfig):
+            Optional. Configuration for Dataplex
+            integration.
     """
 
     class State(proto.Enum):
@@ -882,14 +966,9 @@ class Cluster(proto.Message):
             READY (1):
                 The cluster is active and running.
             STOPPED (2):
-                The cluster is stopped. All instances in the
-                cluster are stopped. Customers can start a
-                stopped cluster at any point and all their
-                instances will come back to life with same names
-                and IP resources. In this state, customer pays
-                for storage.
-                Associated backups could also be present in a
-                stopped cluster.
+                This is unused. Even when all instances in
+                the cluster are stopped, the cluster remains in
+                READY state.
             EMPTY (3):
                 The cluster is empty and has no associated
                 resources. All instances, associated storage and
@@ -912,6 +991,7 @@ class Cluster(proto.Message):
             PROMOTING (9):
                 The cluster is being promoted.
         """
+
         STATE_UNSPECIFIED = 0
         READY = 1
         STOPPED = 2
@@ -936,6 +1016,7 @@ class Cluster(proto.Message):
                 Secondary cluster that is replicating from
                 another region. This only supports read.
         """
+
         CLUSTER_TYPE_UNSPECIFIED = 0
         PRIMARY = 1
         SECONDARY = 2
@@ -979,7 +1060,7 @@ class Cluster(proto.Message):
             primary_cluster_name (str):
                 The name of the primary cluster name with the format:
 
-                -  projects/{project}/locations/{region}/clusters/{cluster_id}
+                - projects/{project}/locations/{region}/clusters/{cluster_id}
         """
 
         primary_cluster_name: str = proto.Field(
@@ -1062,6 +1143,23 @@ class Cluster(proto.Message):
             proto.MESSAGE,
             number=4,
             message=timestamp_pb2.Timestamp,
+        )
+
+    class DataplexConfig(proto.Message):
+        r"""Configuration for Dataplex integration.
+
+        Attributes:
+            enabled (bool):
+                Dataplex is enabled by default for resources
+                such as clusters and instances. This flag
+                controls the integration of AlloyDB PG resources
+                (like databases, schemas, and tables) with
+                Dataplex.".
+        """
+
+        enabled: bool = proto.Field(
+            proto.BOOL,
+            number=1,
         )
 
     backup_source: "BackupSource" = proto.Field(
@@ -1235,6 +1333,15 @@ class Cluster(proto.Message):
         proto.STRING,
         number=41,
     )
+    service_account_email: str = proto.Field(
+        proto.STRING,
+        number=46,
+    )
+    dataplex_config: DataplexConfig = proto.Field(
+        proto.MESSAGE,
+        number=47,
+        message=DataplexConfig,
+    )
 
 
 class Instance(proto.Message):
@@ -1247,15 +1354,15 @@ class Instance(proto.Message):
             Output only. The name of the instance resource with the
             format:
 
-            -  projects/{project}/locations/{region}/clusters/{cluster_id}/instances/{instance_id}
-               where the cluster and instance ID segments should satisfy
-               the regex expression ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``,
-               e.g. 1-63 characters of lowercase letters, numbers, and
-               dashes, starting with a letter, and ending with a letter
-               or number. For more details see
-               https://google.aip.dev/122. The prefix of the instance
-               resource name is the name of the parent resource:
-            -  projects/{project}/locations/{region}/clusters/{cluster_id}
+            - projects/{project}/locations/{region}/clusters/{cluster_id}/instances/{instance_id}
+              where the cluster and instance ID segments should satisfy
+              the regex expression ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``,
+              e.g. 1-63 characters of lowercase letters, numbers, and
+              dashes, starting with a letter, and ending with a letter
+              or number. For more details see
+              https://google.aip.dev/122. The prefix of the instance
+              resource name is the name of the parent resource:
+            - projects/{project}/locations/{region}/clusters/{cluster_id}
         display_name (str):
             User-settable and human-readable display name
             for the Instance.
@@ -1371,11 +1478,23 @@ class Instance(proto.Message):
             Optional. Instance-level network
             configuration.
         gemini_config (google.cloud.alloydb_v1beta.types.GeminiInstanceConfig):
-            Optional. Configuration parameters related to
-            the Gemini in Databases add-on.
+            Optional. Deprecated and unused. This field
+            will be removed in the near future.
         outbound_public_ip_addresses (MutableSequence[str]):
             Output only. All outbound public IP addresses
             configured for the instance.
+        activation_policy (google.cloud.alloydb_v1beta.types.Instance.ActivationPolicy):
+            Optional. Specifies whether an instance needs to spin up.
+            Once the instance is active, the activation policy can be
+            updated to the ``NEVER`` to stop the instance. Likewise, the
+            activation policy can be updated to ``ALWAYS`` to start the
+            instance. There are restrictions around when an instance
+            can/cannot be activated (for example, a read pool instance
+            should be stopped before stopping primary etc.). Please
+            refer to the API documentation for more details.
+        connection_pool_config (google.cloud.alloydb_v1beta.types.Instance.ConnectionPoolConfig):
+            Optional. The configuration for Managed
+            Connection Pool (MCP).
         gca_config (google.cloud.alloydb_v1beta.types.GCAInstanceConfig):
             Output only. Configuration parameters related
             to Gemini Cloud Assist.
@@ -1413,6 +1532,7 @@ class Instance(proto.Message):
             PROMOTING (9):
                 The instance is being promoted.
         """
+
         STATE_UNSPECIFIED = 0
         READY = 1
         STOPPED = 2
@@ -1436,15 +1556,16 @@ class Instance(proto.Message):
                 READ POOL instances support read operations only. Each read
                 pool instance consists of one or more homogeneous nodes.
 
-                -  Read pool of size 1 can only have zonal availability.
-                -  Read pools with node count of 2 or more can have regional
-                   availability (nodes are present in 2 or more zones in a
-                   region).
+                - Read pool of size 1 can only have zonal availability.
+                - Read pools with node count of 2 or more can have regional
+                  availability (nodes are present in 2 or more zones in a
+                  region).
             SECONDARY (3):
                 SECONDARY instances support read operations
                 only. SECONDARY instance is a cross-region read
                 replica
         """
+
         INSTANCE_TYPE_UNSPECIFIED = 0
         PRIMARY = 1
         READ_POOL = 2
@@ -1466,9 +1587,26 @@ class Instance(proto.Message):
             REGIONAL (2):
                 Regional (or Highly) available instance.
         """
+
         AVAILABILITY_TYPE_UNSPECIFIED = 0
         ZONAL = 1
         REGIONAL = 2
+
+    class ActivationPolicy(proto.Enum):
+        r"""Specifies whether an instance needs to spin up.
+
+        Values:
+            ACTIVATION_POLICY_UNSPECIFIED (0):
+                The policy is not specified.
+            ALWAYS (1):
+                The instance is running.
+            NEVER (2):
+                The instance is not running.
+        """
+
+        ACTIVATION_POLICY_UNSPECIFIED = 0
+        ALWAYS = 1
+        NEVER = 2
 
     class MachineConfig(proto.Message):
         r"""MachineConfig describes the configuration of a machine.
@@ -1552,7 +1690,7 @@ class Instance(proto.Message):
             query_string_length (int):
                 Query string length. The default value is
                 1024. Any integer between 256 and 4500 is
-                considered valid.
+                    considered valid.
             query_plans_per_minute (int):
                 Number of query execution plans captured by
                 Insights per minute for all queries combined.
@@ -1642,6 +1780,11 @@ class Instance(proto.Message):
                 If not set, default value is "off".
 
                 This field is a member of `oneof`_ ``_track_client_address``.
+            assistive_experiences_enabled (bool):
+                Whether assistive experiences are enabled for
+                this AlloyDB instance.
+
+                This field is a member of `oneof`_ ``_assistive_experiences_enabled``.
         """
 
         enabled: bool = proto.Field(
@@ -1689,6 +1832,11 @@ class Instance(proto.Message):
             number=9,
             optional=True,
         )
+        assistive_experiences_enabled: bool = proto.Field(
+            proto.BOOL,
+            number=10,
+            optional=True,
+        )
 
     class ReadPoolConfig(proto.Message):
         r"""Configuration for a read pool instance.
@@ -1724,6 +1872,7 @@ class Instance(proto.Message):
                     Performs a forced update when applicable.
                     This will be fast but may incur a downtime.
             """
+
             MODE_UNSPECIFIED = 0
             DEFAULT = 1
             FORCE_APPLY = 2
@@ -1795,11 +1944,31 @@ class Instance(proto.Message):
                 Output only. The IP address of the PSC
                 service automation endpoint.
             status (str):
-                Output only. The status of the PSC service
-                automation connection.
+                Output only. The status of the PSC service automation
+                connection. Possible values: "STATE_UNSPECIFIED" - An
+                invalid state as the default case. "ACTIVE" - The connection
+                has been created successfully. "FAILED" - The connection is
+                not functional since some resources on the connection fail
+                to be created. "CREATING" - The connection is being created.
+                "DELETING" - The connection is being deleted.
+                "CREATE_REPAIRING" - The connection is being repaired to
+                complete creation. "DELETE_REPAIRING" - The connection is
+                being repaired to complete deletion.
             consumer_network_status (str):
-                Output only. The status of the service
-                connection policy.
+                Output only. The status of the service connection policy.
+                Possible values: "STATE_UNSPECIFIED" - Default state, when
+                Connection Map is created initially. "VALID" - Set when
+                policy and map configuration is valid, and their matching
+                can lead to allowing creation of PSC Connections subject to
+                other constraints like connections limit.
+                "CONNECTION_POLICY_MISSING" - No Service Connection Policy
+                found for this network and Service Class
+                "POLICY_LIMIT_REACHED" - Service Connection Policy limit
+                reached for this network and Service Class
+                "CONSUMER_INSTANCE_PROJECT_NOT_ALLOWLISTED" - The consumer
+                instance project is not in
+                AllowedGoogleProducersResourceHierarchyLevels of the
+                matching ServiceConnectionPolicy.
         """
 
         consumer_project: str = proto.Field(
@@ -1864,19 +2033,19 @@ class Instance(proto.Message):
             proto.STRING,
             number=7,
         )
-        psc_interface_configs: MutableSequence[
-            "Instance.PscInterfaceConfig"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=8,
-            message="Instance.PscInterfaceConfig",
+        psc_interface_configs: MutableSequence["Instance.PscInterfaceConfig"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=8,
+                message="Instance.PscInterfaceConfig",
+            )
         )
-        psc_auto_connections: MutableSequence[
-            "Instance.PscAutoConnectionConfig"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=9,
-            message="Instance.PscAutoConnectionConfig",
+        psc_auto_connections: MutableSequence["Instance.PscAutoConnectionConfig"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=9,
+                message="Instance.PscAutoConnectionConfig",
+            )
         )
 
     class InstanceNetworkConfig(proto.Message):
@@ -1893,6 +2062,23 @@ class Instance(proto.Message):
                 Optional. Enabling an outbound public IP
                 address to support a database server sending
                 requests out into the internet.
+            network (str):
+                Output only. The resource link for the VPC network in which
+                instance resources are created and from which they are
+                accessible via Private IP. This will be the same value as
+                the parent cluster's network. It is specified in the form:
+                //
+                ``projects/{project_number}/global/networks/{network_id}``.
+            allocated_ip_range_override (str):
+                Optional. Name of the allocated IP range for the private IP
+                AlloyDB instance, for example:
+                "google-managed-services-default". If set, the instance IPs
+                will be created from this allocated range and will override
+                the IP range used by the parent cluster. The range name must
+                comply with `RFC
+                1035 <http://datatracker.ietf.org/doc/html/rfc1035>`__.
+                Specifically, the name must be 1-63 characters long and
+                match the regular expression `a-z <[-a-z0-9]*[a-z0-9]>`__?.
         """
 
         class AuthorizedNetwork(proto.Message):
@@ -1924,6 +2110,43 @@ class Instance(proto.Message):
         enable_outbound_public_ip: bool = proto.Field(
             proto.BOOL,
             number=3,
+        )
+        network: str = proto.Field(
+            proto.STRING,
+            number=4,
+        )
+        allocated_ip_range_override: str = proto.Field(
+            proto.STRING,
+            number=5,
+        )
+
+    class ConnectionPoolConfig(proto.Message):
+        r"""Configuration for Managed Connection Pool (MCP).
+
+        Attributes:
+            enabled (bool):
+                Optional. Whether to enable Managed
+                Connection Pool (MCP).
+            flags (MutableMapping[str, str]):
+                Optional. Connection Pool flags, as a list of
+                "key": "value" pairs.
+            pooler_count (int):
+                Output only. The number of running poolers
+                per instance.
+        """
+
+        enabled: bool = proto.Field(
+            proto.BOOL,
+            number=12,
+        )
+        flags: MutableMapping[str, str] = proto.MapField(
+            proto.STRING,
+            proto.STRING,
+            number=13,
+        )
+        pooler_count: int = proto.Field(
+            proto.INT32,
+            number=14,
         )
 
     name: str = proto.Field(
@@ -2066,6 +2289,16 @@ class Instance(proto.Message):
         proto.STRING,
         number=34,
     )
+    activation_policy: ActivationPolicy = proto.Field(
+        proto.ENUM,
+        number=35,
+        enum=ActivationPolicy,
+    )
+    connection_pool_config: ConnectionPoolConfig = proto.Field(
+        proto.MESSAGE,
+        number=37,
+        message=ConnectionPoolConfig,
+    )
     gca_config: gemini.GCAInstanceConfig = proto.Field(
         proto.MESSAGE,
         number=38,
@@ -2080,7 +2313,7 @@ class ConnectionInfo(proto.Message):
     Attributes:
         name (str):
             The name of the ConnectionInfo singleton resource, e.g.:
-            projects/{project}/locations/{location}/clusters/\ */instances/*/connectionInfo
+            projects/{project}/locations/{location}/clusters/*/instances/*/connectionInfo
             This field currently has no semantic meaning.
         ip_address (str):
             Output only. The private network IP address for the
@@ -2137,15 +2370,15 @@ class Backup(proto.Message):
             Output only. The name of the backup resource with the
             format:
 
-            -  projects/{project}/locations/{region}/backups/{backup_id}
-               where the cluster and backup ID segments should satisfy
-               the regex expression ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``,
-               e.g. 1-63 characters of lowercase letters, numbers, and
-               dashes, starting with a letter, and ending with a letter
-               or number. For more details see
-               https://google.aip.dev/122. The prefix of the backup
-               resource name is the name of the parent resource:
-            -  projects/{project}/locations/{region}
+            - projects/{project}/locations/{region}/backups/{backup_id}
+              where the cluster and backup ID segments should satisfy
+              the regex expression ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``,
+              e.g. 1-63 characters of lowercase letters, numbers, and
+              dashes, starting with a letter, and ending with a letter
+              or number. For more details see
+              https://google.aip.dev/122. The prefix of the backup
+              resource name is the name of the parent resource:
+            - projects/{project}/locations/{region}
         display_name (str):
             User-settable and human-readable display name
             for the Backup.
@@ -2158,8 +2391,15 @@ class Backup(proto.Message):
             Output only. Create time stamp
         update_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. Update time stamp
+
+            Users should not infer any meaning from this
+            field. Its value is generally unrelated to the
+            timing of the backup creation operation.
         delete_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. Delete time stamp
+        create_completion_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. Timestamp when the resource
+            finished being created.
         labels (MutableMapping[str, str]):
             Labels as key value pairs
         state (google.cloud.alloydb_v1beta.types.Backup.State):
@@ -2245,6 +2485,7 @@ class Backup(proto.Message):
             DELETING (4):
                 The backup is being deleted.
         """
+
         STATE_UNSPECIFIED = 0
         READY = 1
         CREATING = 2
@@ -2269,6 +2510,7 @@ class Backup(proto.Message):
                 backups scheduler due to a continuous backup
                 policy.
         """
+
         TYPE_UNSPECIFIED = 0
         ON_DEMAND = 1
         AUTOMATED = 2
@@ -2334,6 +2576,11 @@ class Backup(proto.Message):
     delete_time: timestamp_pb2.Timestamp = proto.Field(
         proto.MESSAGE,
         number=15,
+        message=timestamp_pb2.Timestamp,
+    )
+    create_completion_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=26,
         message=timestamp_pb2.Timestamp,
     )
     labels: MutableMapping[str, str] = proto.MapField(
@@ -2451,8 +2698,8 @@ class SupportedDatabaseFlag(proto.Message):
             The name of the flag resource, following Google Cloud
             conventions, e.g.:
 
-            -  projects/{project}/locations/{location}/flags/{flag} This
-               field currently has no semantic meaning.
+            - projects/{project}/locations/{location}/flags/{flag} This
+              field currently has no semantic meaning.
         flag_name (str):
             The name of the database flag, e.g. "max_allowed_packets".
             The is a possibly key for the Instance.database_flags map
@@ -2495,6 +2742,7 @@ class SupportedDatabaseFlag(proto.Message):
                 Denotes that the flag does not accept any
                 values.
         """
+
         VALUE_TYPE_UNSPECIFIED = 0
         STRING = 1
         INTEGER = 2
@@ -2513,6 +2761,7 @@ class SupportedDatabaseFlag(proto.Message):
             CONNECTION_POOL (2):
                 The flag is a connection pool flag.
         """
+
         SCOPE_UNSPECIFIED = 0
         DATABASE = 1
         CONNECTION_POOL = 2
@@ -2645,6 +2894,7 @@ class User(proto.Message):
                 Database user that can authenticate via
                 IAM-Based authentication.
         """
+
         USER_TYPE_UNSPECIFIED = 0
         ALLOYDB_BUILT_IN = 1
         ALLOYDB_IAM_USER = 2
@@ -2675,19 +2925,34 @@ class User(proto.Message):
 class Database(proto.Message):
     r"""Message describing Database object.
 
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
     Attributes:
         name (str):
             Identifier. Name of the resource in the form of
             ``projects/{project}/locations/{location}/clusters/{cluster}/databases/{database}``.
         charset (str):
-            Optional. Charset for the database. This field can contain
-            any PostgreSQL supported charset name. Example values
-            include "UTF8", "SQL_ASCII", etc.
+            Optional. Immutable. Charset for the database. This field
+            can contain any PostgreSQL supported charset name. Example
+            values include "UTF8", "SQL_ASCII", etc.
         collation (str):
-            Optional. Collation for the database.
-            Name of the custom or native collation for
-            postgres. Example values include "C", "POSIX",
-            etc
+            Optional. Immutable. lc_collate for the database. String
+            sort order. Example values include "C", "POSIX", etc.
+        character_type (str):
+            Optional. Immutable. lc_ctype for the database. Character
+            classification (What is a letter? The upper-case
+            equivalent?). Example values include "C", "POSIX", etc.
+        is_template (bool):
+            Optional. Whether the database is a template database.
+            Deprecated in favor of is_template_database.
+        database_template (str):
+            Input only. Immutable. Template of the
+            database to be used for creating a new database.
+        is_template_database (bool):
+            Optional. Whether the database is a template
+            database.
+
+            This field is a member of `oneof`_ ``_is_template_database``.
     """
 
     name: str = proto.Field(
@@ -2701,6 +2966,23 @@ class Database(proto.Message):
     collation: str = proto.Field(
         proto.STRING,
         number=3,
+    )
+    character_type: str = proto.Field(
+        proto.STRING,
+        number=4,
+    )
+    is_template: bool = proto.Field(
+        proto.BOOL,
+        number=5,
+    )
+    database_template: str = proto.Field(
+        proto.STRING,
+        number=6,
+    )
+    is_template_database: bool = proto.Field(
+        proto.BOOL,
+        number=7,
+        optional=True,
     )
 
 

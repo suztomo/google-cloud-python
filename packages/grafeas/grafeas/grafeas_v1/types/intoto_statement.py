@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,15 +17,15 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
+from grafeas.grafeas_v1.types import intoto_provenance
+from grafeas.grafeas_v1.types import slsa_provenance as g_slsa_provenance
 from grafeas.grafeas_v1.types import (
     slsa_provenance_zero_two as g_slsa_provenance_zero_two,
 )
-from grafeas.grafeas_v1.types import intoto_provenance
-from grafeas.grafeas_v1.types import slsa_provenance as g_slsa_provenance
 
 __protobuf__ = proto.module(
     package="grafeas.v1",
@@ -275,12 +275,12 @@ class InTotoSlsaProvenanceV1(proto.Message):
             number=2,
             message="InTotoSlsaProvenanceV1.BuildMetadata",
         )
-        byproducts: MutableSequence[
-            "InTotoSlsaProvenanceV1.ResourceDescriptor"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=3,
-            message="InTotoSlsaProvenanceV1.ResourceDescriptor",
+        byproducts: MutableSequence["InTotoSlsaProvenanceV1.ResourceDescriptor"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=3,
+                message="InTotoSlsaProvenanceV1.ResourceDescriptor",
+            )
         )
 
     class ProvenanceBuilder(proto.Message):

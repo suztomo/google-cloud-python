@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,17 +39,17 @@ async def sample_update_recognizer():
     client = speech_v2.SpeechAsyncClient()
 
     # Initialize request argument(s)
-    request = speech_v2.UpdateRecognizerRequest(
-    )
+    request = speech_v2.UpdateRecognizerRequest()
 
     # Make the request
-    operation = client.update_recognizer(request=request)
+    operation = await client.update_recognizer(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END speech_v2_generated_Speech_UpdateRecognizer_async]

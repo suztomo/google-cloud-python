@@ -4,6 +4,74 @@
 
 [1]: https://pypi.org/project/google-cloud-build/#history
 
+## [3.36.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-build-v3.35.0...google-cloud-build-v3.36.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [3.35.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-build-v3.34.0...google-cloud-build-v3.35.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [3.34.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-build-v3.33.0...google-cloud-build-v3.34.0) (2025-12-04)
+
+
+### Features
+
+* Update GCB with latest proto changes ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+
+## [3.33.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-build-v3.32.0...google-cloud-build-v3.33.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [3.32.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-build-v3.31.3...google-cloud-build-v3.32.0) (2025-08-29)
+
+
+### Features
+
+* Add option to enable nested virtualization if available ([47981a8](https://github.com/googleapis/google-cloud-python/commit/47981a80a477c714e489410d4e77979ec1404b27))
+
+
+### Documentation
+
+* Update comments for `machine_type` and `disk_size_gb` ([47981a8](https://github.com/googleapis/google-cloud-python/commit/47981a80a477c714e489410d4e77979ec1404b27))
+
+## [3.31.3](https://github.com/googleapis/google-cloud-python/compare/google-cloud-build-v3.31.2...google-cloud-build-v3.31.3) (2025-07-26)
+
+
+### Documentation
+
+* [google-cloud-build] Updated Private Service Connect IP ranges when route_all_traffic is false ([#14149](https://github.com/googleapis/google-cloud-python/issues/14149)) ([7bbeba4](https://github.com/googleapis/google-cloud-python/commit/7bbeba477ed32257509f155c25d87631beaf4519))
+
+## [3.31.2](https://github.com/googleapis/google-cloud-python/compare/google-cloud-build-v3.31.1...google-cloud-build-v3.31.2) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([8697120](https://github.com/googleapis/google-cloud-python/commit/869712032803cb31d93f3b16abc2abdb14f733a4))
+
 ## [3.31.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-build-v3.31.0...google-cloud-build-v3.31.1) (2025-03-15)
 
 

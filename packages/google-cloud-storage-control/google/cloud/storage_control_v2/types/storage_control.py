@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -33,8 +33,10 @@ __protobuf__ = proto.module(
         "ListFoldersRequest",
         "ListFoldersResponse",
         "RenameFolderRequest",
+        "DeleteFolderRecursiveRequest",
         "CommonLongRunningOperationMetadata",
         "RenameFolderMetadata",
+        "DeleteFolderRecursiveMetadata",
         "StorageLayout",
         "GetStorageLayoutRequest",
         "ManagedFolder",
@@ -447,6 +449,54 @@ class RenameFolderRequest(proto.Message):
     )
 
 
+class DeleteFolderRecursiveRequest(proto.Message):
+    r"""Request message for DeleteFolderRecursive.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        name (str):
+            Required. Name of the folder being deleted, however all of
+            its contents will be deleted too. Format:
+            ``projects/{project}/buckets/{bucket}/folders/{folder}``
+        if_metageneration_match (int):
+            Optional. Makes the operation only succeed
+            conditional on whether the root folder's current
+            metageneration matches the given value.
+
+            This field is a member of `oneof`_ ``_if_metageneration_match``.
+        if_metageneration_not_match (int):
+            Optional. Makes the operation only succeed
+            conditional on whether the root folder's current
+            metageneration does not match the given value.
+
+            This field is a member of `oneof`_ ``_if_metageneration_not_match``.
+        request_id (str):
+            Optional. A unique identifier for this
+            request. UUID is the recommended format, but
+            other formats are still accepted.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    if_metageneration_match: int = proto.Field(
+        proto.INT64,
+        number=2,
+        optional=True,
+    )
+    if_metageneration_not_match: int = proto.Field(
+        proto.INT64,
+        number=3,
+        optional=True,
+    )
+    request_id: str = proto.Field(
+        proto.STRING,
+        number=4,
+    )
+
+
 class CommonLongRunningOperationMetadata(proto.Message):
     r"""The message contains metadata that is common to all Storage Control
     long-running operations, present in its
@@ -529,6 +579,29 @@ class RenameFolderMetadata(proto.Message):
     destination_folder_id: str = proto.Field(
         proto.STRING,
         number=3,
+    )
+
+
+class DeleteFolderRecursiveMetadata(proto.Message):
+    r"""Message returned in the metadata field of the Operation
+    resource for DeleteFolderRecursive operations.
+
+    Attributes:
+        common_metadata (google.cloud.storage_control_v2.types.CommonLongRunningOperationMetadata):
+            Generic metadata for the long running
+            operation.
+        folder_id (str):
+            The path of the folder recursively deleted.
+    """
+
+    common_metadata: "CommonLongRunningOperationMetadata" = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        message="CommonLongRunningOperationMetadata",
+    )
+    folder_id: str = proto.Field(
+        proto.STRING,
+        number=2,
     )
 
 
@@ -1350,12 +1423,12 @@ class IntelligenceConfig(proto.Message):
             The name format varies based on the GCP resource hierarchy
             as follows:
 
-            -  For project:
-               ``projects/{project_number}/locations/global/intelligenceConfig``
-            -  For organization:
-               ``organizations/{org_id}/locations/global/intelligenceConfig``
-            -  For folder:
-               ``folders/{folder_id}/locations/global/intelligenceConfig``
+            - For project:
+              ``projects/{project_number}/locations/global/intelligenceConfig``
+            - For organization:
+              ``organizations/{org_id}/locations/global/intelligenceConfig``
+            - For folder:
+              ``folders/{folder_id}/locations/global/intelligenceConfig``
         edition_config (google.cloud.storage_control_v2.types.IntelligenceConfig.EditionConfig):
             Optional. The edition configuration of the
             ``IntelligenceConfig`` resource.
@@ -1401,6 +1474,7 @@ class IntelligenceConfig(proto.Message):
                 ``IntelligenceConfig`` resource is upgraded to ``STANDARD``
                 edition.
         """
+
         EDITION_CONFIG_UNSPECIFIED = 0
         INHERIT = 1
         DISABLED = 2
@@ -1523,6 +1597,7 @@ class IntelligenceConfig(proto.Message):
                 STANDARD (2):
                     The ``IntelligenceConfig`` resource is of STANDARD edition.
             """
+
             EFFECTIVE_EDITION_UNSPECIFIED = 0
             NONE = 1
             STANDARD = 2

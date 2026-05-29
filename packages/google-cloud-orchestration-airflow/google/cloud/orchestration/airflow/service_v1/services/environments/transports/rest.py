@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +16,17 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -1511,9 +1511,10 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -1531,6 +1532,12 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[EnvironmentsRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -1688,7 +1695,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1813,9 +1820,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseCreateEnvironment._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseCreateEnvironment._get_http_options()
 
             request, metadata = self._interceptor.pre_create_environment(
                 request, metadata
@@ -1841,7 +1846,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1969,9 +1974,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseCreateUserWorkloadsConfigMap._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseCreateUserWorkloadsConfigMap._get_http_options()
 
             request, metadata = self._interceptor.pre_create_user_workloads_config_map(
                 request, metadata
@@ -2042,11 +2045,10 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             resp = self._interceptor.post_create_user_workloads_config_map(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_create_user_workloads_config_map_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_create_user_workloads_config_map_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -2133,9 +2135,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseCreateUserWorkloadsSecret._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseCreateUserWorkloadsSecret._get_http_options()
 
             request, metadata = self._interceptor.pre_create_user_workloads_secret(
                 request, metadata
@@ -2322,7 +2322,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2446,9 +2446,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseDeleteEnvironment._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseDeleteEnvironment._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_environment(
                 request, metadata
@@ -2470,7 +2468,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2589,9 +2587,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
                         be of type `bytes`.
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseDeleteUserWorkloadsConfigMap._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseDeleteUserWorkloadsConfigMap._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_user_workloads_config_map(
                 request, metadata
@@ -2613,7 +2609,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2701,9 +2697,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
                         be of type `bytes`.
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseDeleteUserWorkloadsSecret._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseDeleteUserWorkloadsSecret._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_user_workloads_secret(
                 request, metadata
@@ -2725,7 +2719,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2818,9 +2812,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseExecuteAirflowCommand._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseExecuteAirflowCommand._get_http_options()
 
             request, metadata = self._interceptor.pre_execute_airflow_command(
                 request, metadata
@@ -2975,9 +2967,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseFetchDatabaseProperties._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseFetchDatabaseProperties._get_http_options()
 
             request, metadata = self._interceptor.pre_fetch_database_properties(
                 request, metadata
@@ -3274,9 +3264,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseGetUserWorkloadsConfigMap._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseGetUserWorkloadsConfigMap._get_http_options()
 
             request, metadata = self._interceptor.pre_get_user_workloads_config_map(
                 request, metadata
@@ -3342,11 +3330,10 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             resp = self._interceptor.post_get_user_workloads_config_map(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_get_user_workloads_config_map_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_get_user_workloads_config_map_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -3430,9 +3417,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseGetUserWorkloadsSecret._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseGetUserWorkloadsSecret._get_http_options()
 
             request, metadata = self._interceptor.pre_get_user_workloads_secret(
                 request, metadata
@@ -3734,9 +3719,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseListUserWorkloadsConfigMaps._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseListUserWorkloadsConfigMaps._get_http_options()
 
             request, metadata = self._interceptor.pre_list_user_workloads_config_maps(
                 request, metadata
@@ -3802,11 +3785,10 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             resp = self._interceptor.post_list_user_workloads_config_maps(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_list_user_workloads_config_maps_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_list_user_workloads_config_maps_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -3893,9 +3875,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseListUserWorkloadsSecrets._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseListUserWorkloadsSecrets._get_http_options()
 
             request, metadata = self._interceptor.pre_list_user_workloads_secrets(
                 request, metadata
@@ -4225,7 +4205,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4349,9 +4329,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BasePollAirflowCommand._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BasePollAirflowCommand._get_http_options()
 
             request, metadata = self._interceptor.pre_poll_airflow_command(
                 request, metadata
@@ -4537,7 +4515,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4661,9 +4639,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseStopAirflowCommand._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseStopAirflowCommand._get_http_options()
 
             request, metadata = self._interceptor.pre_stop_airflow_command(
                 request, metadata
@@ -4818,9 +4794,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseUpdateEnvironment._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseUpdateEnvironment._get_http_options()
 
             request, metadata = self._interceptor.pre_update_environment(
                 request, metadata
@@ -4846,7 +4820,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4974,9 +4948,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseUpdateUserWorkloadsConfigMap._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseUpdateUserWorkloadsConfigMap._get_http_options()
 
             request, metadata = self._interceptor.pre_update_user_workloads_config_map(
                 request, metadata
@@ -5047,11 +5019,10 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             resp = self._interceptor.post_update_user_workloads_config_map(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_update_user_workloads_config_map_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_update_user_workloads_config_map_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -5138,9 +5109,7 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
 
             """
 
-            http_options = (
-                _BaseEnvironmentsRestTransport._BaseUpdateUserWorkloadsSecret._get_http_options()
-            )
+            http_options = _BaseEnvironmentsRestTransport._BaseUpdateUserWorkloadsSecret._get_http_options()
 
             request, metadata = self._interceptor.pre_update_user_workloads_secret(
                 request, metadata
@@ -5264,7 +5233,9 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateUserWorkloadsConfigMap(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateUserWorkloadsConfigMap(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_user_workloads_secret(
@@ -5275,7 +5246,9 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateUserWorkloadsSecret(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateUserWorkloadsSecret(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def database_failover(
@@ -5299,7 +5272,9 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
     ) -> Callable[[environments.DeleteUserWorkloadsConfigMapRequest], empty_pb2.Empty]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteUserWorkloadsConfigMap(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteUserWorkloadsConfigMap(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_user_workloads_secret(
@@ -5307,7 +5282,9 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
     ) -> Callable[[environments.DeleteUserWorkloadsSecretRequest], empty_pb2.Empty]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteUserWorkloadsSecret(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteUserWorkloadsSecret(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def execute_airflow_command(
@@ -5329,7 +5306,9 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._FetchDatabaseProperties(self._session, self._host, self._interceptor)  # type: ignore
+        return self._FetchDatabaseProperties(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_environment(
@@ -5348,7 +5327,9 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetUserWorkloadsConfigMap(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetUserWorkloadsConfigMap(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_user_workloads_secret(
@@ -5358,7 +5339,9 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetUserWorkloadsSecret(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetUserWorkloadsSecret(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_environments(
@@ -5379,7 +5362,9 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListUserWorkloadsConfigMaps(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListUserWorkloadsConfigMaps(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_user_workloads_secrets(
@@ -5390,7 +5375,9 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListUserWorkloadsSecrets(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListUserWorkloadsSecrets(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_workloads(
@@ -5457,7 +5444,9 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateUserWorkloadsConfigMap(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateUserWorkloadsConfigMap(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_user_workloads_secret(
@@ -5468,7 +5457,9 @@ class EnvironmentsRestTransport(_BaseEnvironmentsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateUserWorkloadsSecret(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateUserWorkloadsSecret(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_operation(self):

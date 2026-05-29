@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ async def sample_list_tables():
     client = tables_v1alpha1.TablesServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = tables_v1alpha1.ListTablesRequest(
-    )
+    request = tables_v1alpha1.ListTablesRequest()
 
     # Make the request
     page_result = client.list_tables(request=request)
@@ -48,5 +47,6 @@ async def sample_list_tables():
     # Handle the response
     async for response in page_result:
         print(response)
+
 
 # [END area120tables_v1alpha1_generated_TablesService_ListTables_async]

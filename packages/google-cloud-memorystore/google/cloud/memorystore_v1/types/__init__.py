@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,11 +26,13 @@ from .memorystore import (
     DeleteBackupRequest,
     DeleteInstanceRequest,
     DiscoveryEndpoint,
+    EncryptionInfo,
     ExportBackupRequest,
     GetBackupCollectionRequest,
     GetBackupRequest,
     GetCertificateAuthorityRequest,
     GetInstanceRequest,
+    GetSharedRegionalCertificateAuthorityRequest,
     Instance,
     ListBackupCollectionsRequest,
     ListBackupCollectionsResponse,
@@ -48,6 +50,7 @@ from .memorystore import (
     PscConnection,
     PscConnectionStatus,
     RescheduleMaintenanceRequest,
+    SharedRegionalCertificateAuthority,
     UpdateInstanceRequest,
     WeeklyMaintenanceWindow,
     ZoneDistributionConfig,
@@ -65,11 +68,13 @@ __all__ = (
     "DeleteBackupRequest",
     "DeleteInstanceRequest",
     "DiscoveryEndpoint",
+    "EncryptionInfo",
     "ExportBackupRequest",
     "GetBackupCollectionRequest",
     "GetBackupRequest",
     "GetCertificateAuthorityRequest",
     "GetInstanceRequest",
+    "GetSharedRegionalCertificateAuthorityRequest",
     "Instance",
     "ListBackupCollectionsRequest",
     "ListBackupCollectionsResponse",
@@ -86,6 +91,7 @@ __all__ = (
     "PscAutoConnection",
     "PscConnection",
     "RescheduleMaintenanceRequest",
+    "SharedRegionalCertificateAuthority",
     "UpdateInstanceRequest",
     "WeeklyMaintenanceWindow",
     "ZoneDistributionConfig",

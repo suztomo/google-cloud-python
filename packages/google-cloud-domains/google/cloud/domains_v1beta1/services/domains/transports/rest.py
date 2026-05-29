@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -970,9 +970,10 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -990,6 +991,12 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[DomainsRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -1111,9 +1118,7 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
 
             """
 
-            http_options = (
-                _BaseDomainsRestTransport._BaseConfigureContactSettings._get_http_options()
-            )
+            http_options = _BaseDomainsRestTransport._BaseConfigureContactSettings._get_http_options()
 
             request, metadata = self._interceptor.pre_configure_contact_settings(
                 request, metadata
@@ -1139,7 +1144,7 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1292,7 +1297,7 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1418,9 +1423,7 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
 
             """
 
-            http_options = (
-                _BaseDomainsRestTransport._BaseConfigureManagementSettings._get_http_options()
-            )
+            http_options = _BaseDomainsRestTransport._BaseConfigureManagementSettings._get_http_options()
 
             request, metadata = self._interceptor.pre_configure_management_settings(
                 request, metadata
@@ -1446,7 +1449,7 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1487,11 +1490,10 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
 
             resp = self._interceptor.post_configure_management_settings(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_configure_management_settings_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_configure_management_settings_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -1597,7 +1599,7 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1749,7 +1751,7 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2226,7 +2228,7 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2348,9 +2350,7 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
                     Defines an authorization code.
             """
 
-            http_options = (
-                _BaseDomainsRestTransport._BaseResetAuthorizationCode._get_http_options()
-            )
+            http_options = _BaseDomainsRestTransport._BaseResetAuthorizationCode._get_http_options()
 
             request, metadata = self._interceptor.pre_reset_authorization_code(
                 request, metadata
@@ -2500,9 +2500,7 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
                         Defines an authorization code.
             """
 
-            http_options = (
-                _BaseDomainsRestTransport._BaseRetrieveAuthorizationCode._get_http_options()
-            )
+            http_options = _BaseDomainsRestTransport._BaseRetrieveAuthorizationCode._get_http_options()
 
             request, metadata = self._interceptor.pre_retrieve_authorization_code(
                 request, metadata
@@ -2647,9 +2645,7 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
                         Response for the ``RetrieveRegisterParameters`` method.
             """
 
-            http_options = (
-                _BaseDomainsRestTransport._BaseRetrieveRegisterParameters._get_http_options()
-            )
+            http_options = _BaseDomainsRestTransport._BaseRetrieveRegisterParameters._get_http_options()
 
             request, metadata = self._interceptor.pre_retrieve_register_parameters(
                 request, metadata
@@ -2796,9 +2792,7 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
                         Response for the ``RetrieveTransferParameters`` method.
             """
 
-            http_options = (
-                _BaseDomainsRestTransport._BaseRetrieveTransferParameters._get_http_options()
-            )
+            http_options = _BaseDomainsRestTransport._BaseRetrieveTransferParameters._get_http_options()
 
             request, metadata = self._interceptor.pre_retrieve_transfer_parameters(
                 request, metadata
@@ -3124,7 +3118,7 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3277,7 +3271,7 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3350,7 +3344,9 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
     ) -> Callable[[domains.ConfigureContactSettingsRequest], operations_pb2.Operation]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ConfigureContactSettings(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ConfigureContactSettings(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def configure_dns_settings(
@@ -3368,7 +3364,9 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ConfigureManagementSettings(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ConfigureManagementSettings(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_registration(
@@ -3418,7 +3416,9 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
     ) -> Callable[[domains.ResetAuthorizationCodeRequest], domains.AuthorizationCode]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ResetAuthorizationCode(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ResetAuthorizationCode(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def retrieve_authorization_code(
@@ -3428,7 +3428,9 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._RetrieveAuthorizationCode(self._session, self._host, self._interceptor)  # type: ignore
+        return self._RetrieveAuthorizationCode(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def retrieve_register_parameters(
@@ -3439,7 +3441,9 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._RetrieveRegisterParameters(self._session, self._host, self._interceptor)  # type: ignore
+        return self._RetrieveRegisterParameters(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def retrieve_transfer_parameters(
@@ -3450,7 +3454,9 @@ class DomainsRestTransport(_BaseDomainsRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._RetrieveTransferParameters(self._session, self._host, self._interceptor)  # type: ignore
+        return self._RetrieveTransferParameters(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def search_domains(

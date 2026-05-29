@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.maps.fleetengine_delivery_v1 import gapic_version as package_version
 
@@ -44,11 +44,11 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.type import latlng_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
 
 from google.maps.fleetengine_delivery_v1.services.delivery_service import pagers
 from google.maps.fleetengine_delivery_v1.types import (
@@ -135,7 +135,10 @@ class DeliveryServiceAsyncClient:
         Returns:
             DeliveryServiceAsyncClient: The constructed client.
         """
-        return DeliveryServiceClient.from_service_account_info.__func__(DeliveryServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            DeliveryServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(DeliveryServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -151,7 +154,10 @@ class DeliveryServiceAsyncClient:
         Returns:
             DeliveryServiceAsyncClient: The constructed client.
         """
-        return DeliveryServiceClient.from_service_account_file.__func__(DeliveryServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            DeliveryServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(DeliveryServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -201,7 +207,7 @@ class DeliveryServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -370,9 +376,9 @@ class DeliveryServiceAsyncClient:
                 creating a new delivery vehicle, you may set the
                 following optional fields:
 
-                -  type
-                -  last_location
-                -  attributes
+                - type
+                - last_location
+                - attributes
 
                 Note: The DeliveryVehicle's ``name`` field is ignored.
                 All other DeliveryVehicle fields must not be set;
@@ -385,12 +391,12 @@ class DeliveryServiceAsyncClient:
                 Required. The Delivery Vehicle ID must be unique and
                 subject to the following restrictions:
 
-                -  Must be a valid Unicode string.
-                -  Limited to a maximum length of 64 characters.
-                -  Normalized according to [Unicode Normalization Form
-                   C] (http://www.unicode.org/reports/tr15/).
-                -  May not contain any of the following ASCII
-                   characters: '/', ':', '?', ',', or '#'.
+                - Must be a valid Unicode string.
+                - Limited to a maximum length of 64 characters.
+                - Normalized according to [Unicode Normalization Form C]
+                  (http://www.unicode.org/reports/tr15/).
+                - May not contain any of the following ASCII characters:
+                  '/', ':', '?', ',', or '#'.
 
                 This corresponds to the ``delivery_vehicle_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1023,20 +1029,20 @@ class DeliveryServiceAsyncClient:
                 Required. The Task entity to create. When creating a
                 Task, the following fields are required:
 
-                -  ``type``
-                -  ``state`` (must be set to ``OPEN``)
-                -  ``tracking_id`` (must not be set for ``UNAVAILABLE``
-                   or ``SCHEDULED_STOP`` tasks, but required for all
-                   other task types)
-                -  ``planned_location`` (optional for ``UNAVAILABLE``
-                   tasks)
-                -  ``task_duration``
+                - ``type``
+                - ``state`` (must be set to ``OPEN``)
+                - ``tracking_id`` (must not be set for ``UNAVAILABLE``
+                  or ``SCHEDULED_STOP`` tasks, but required for all
+                  other task types)
+                - ``planned_location`` (optional for ``UNAVAILABLE``
+                  tasks)
+                - ``task_duration``
 
                 The following fields can be optionally set:
 
-                -  ``target_time_window``
-                -  ``task_tracking_view_config``
-                -  ``attributes``
+                - ``target_time_window``
+                - ``task_tracking_view_config``
+                - ``attributes``
 
                 Note: The Task's ``name`` field is ignored. All other
                 Task fields must not be set; otherwise, an error is
@@ -1052,12 +1058,12 @@ class DeliveryServiceAsyncClient:
                 tasks can have the same ``tracking_id``. Task IDs are
                 subject to the following restrictions:
 
-                -  Must be a valid Unicode string.
-                -  Limited to a maximum length of 64 characters.
-                -  Normalized according to [Unicode Normalization Form
-                   C] (http://www.unicode.org/reports/tr15/).
-                -  May not contain any of the following ASCII
-                   characters: '/', ':', '?', ',', or '#'.
+                - Must be a valid Unicode string.
+                - Limited to a maximum length of 64 characters.
+                - Normalized according to [Unicode Normalization Form C]
+                  (http://www.unicode.org/reports/tr15/).
+                - May not contain any of the following ASCII characters:
+                  '/', ':', '?', ',', or '#'.
 
                 This corresponds to the ``task_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1438,11 +1444,11 @@ class DeliveryServiceAsyncClient:
                 following fields are maintained by Fleet Engine. Do not
                 update them using ``Task.update``.
 
-                -  ``last_location``.
-                -  ``last_location_snappable``.
-                -  ``name``.
-                -  ``remaining_vehicle_journey_segments``.
-                -  ``task_outcome_location_source``.
+                - ``last_location``.
+                - ``last_location_snappable``.
+                - ``name``.
+                - ``remaining_vehicle_journey_segments``.
+                - ``task_outcome_location_source``.
 
                 Note: You cannot change the value of ``task_outcome``
                 once you set it.

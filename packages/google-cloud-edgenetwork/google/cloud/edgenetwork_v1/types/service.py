@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.edgenetwork_v1.types import resources
@@ -712,12 +712,12 @@ class ListInterconnectAttachmentsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    interconnect_attachments: MutableSequence[
-        resources.InterconnectAttachment
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=resources.InterconnectAttachment,
+    interconnect_attachments: MutableSequence[resources.InterconnectAttachment] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=resources.InterconnectAttachment,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1180,6 +1180,7 @@ class DiagnoseNetworkResponse(proto.Message):
                     At least one relevant link does not have any
                     MACsec sessions up.
             """
+
             MACSEC_STATUS_UNSPECIFIED = 0
             SECURE = 1
             UNSECURE = 2

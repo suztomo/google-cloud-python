@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,6 +57,13 @@ class Waypoint(proto.Message):
             See https://plus.codes for details.
 
             This field is a member of `oneof`_ ``location_type``.
+        navigation_point_token (str):
+            A token that identifies a
+            ```NavigationPoint`` <https://developers.google.com/maps/documentation/geocoding/reference/rest/v4alpha/geocode.destinations/searchDestinations#navigationpoint>`__,
+            obtained from the ``SearchDestinations`` method of the
+            Geocoding API.
+
+            This field is a member of `oneof`_ ``location_type``.
         via (bool):
             Marks this waypoint as a milestone rather a stopping point.
             For each non-via waypoint in the request, the response
@@ -76,7 +83,7 @@ class Waypoint(proto.Message):
             Indicates that the waypoint is meant for vehicles to stop
             at, where the intention is to either pickup or drop-off.
             When you set this value, the calculated route won't include
-            non-\ ``via`` waypoints on roads that are unsuitable for
+            non-``via`` waypoints on roads that are unsuitable for
             pickup and drop-off. This option works only for ``DRIVE``
             and ``TWO_WHEELER`` travel modes, and when the
             ``location_type`` is
@@ -106,6 +113,11 @@ class Waypoint(proto.Message):
     address: str = proto.Field(
         proto.STRING,
         number=7,
+        oneof="location_type",
+    )
+    navigation_point_token: str = proto.Field(
+        proto.STRING,
+        number=8,
         oneof="location_type",
     )
     via: bool = proto.Field(

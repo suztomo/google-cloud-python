@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from grafeas.grafeas_v1.types import common
@@ -83,6 +83,12 @@ class DiscoveryOccurrence(proto.Message):
         vulnerability_attestation (grafeas.grafeas_v1.types.DiscoveryOccurrence.VulnerabilityAttestation):
             The status of an vulnerability attestation
             generation.
+        files (MutableSequence[grafeas.grafeas_v1.types.DiscoveryOccurrence.File]):
+            Files that make up the resource described by
+            the occurrence.
+        last_vulnerability_update_time (google.protobuf.timestamp_pb2.Timestamp):
+            The last time vulnerability scan results
+            changed.
     """
 
     class ContinuousAnalysis(proto.Enum):
@@ -97,6 +103,7 @@ class DiscoveryOccurrence(proto.Message):
                 The resource is ignored for continuous
                 analysis.
         """
+
         CONTINUOUS_ANALYSIS_UNSPECIFIED = 0
         ACTIVE = 1
         INACTIVE = 2
@@ -123,6 +130,7 @@ class DiscoveryOccurrence(proto.Message):
             FINISHED_UNSUPPORTED (5):
                 The resource is known not to be supported.
         """
+
         _pb_options = {"allow_alias": True}
         ANALYSIS_STATUS_UNSPECIFIED = 0
         PENDING = 1
@@ -168,6 +176,7 @@ class DiscoveryOccurrence(proto.Message):
                 COMPLETE (2):
                     SBOM scanning has completed.
             """
+
             SBOM_STATE_UNSPECIFIED = 0
             PENDING = 1
             COMPLETE = 2
@@ -210,6 +219,7 @@ class DiscoveryOccurrence(proto.Message):
                     Attestation was unsuccessfully generated and
                     stored.
             """
+
             VULNERABILITY_ATTESTATION_STATE_UNSPECIFIED = 0
             SUCCESS = 1
             FAILURE = 2
@@ -227,6 +237,26 @@ class DiscoveryOccurrence(proto.Message):
         error: str = proto.Field(
             proto.STRING,
             number=3,
+        )
+
+    class File(proto.Message):
+        r"""
+
+        Attributes:
+            name (str):
+
+            digest (MutableMapping[str, str]):
+
+        """
+
+        name: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+        digest: MutableMapping[str, str] = proto.MapField(
+            proto.STRING,
+            proto.STRING,
+            number=2,
         )
 
     continuous_analysis: ContinuousAnalysis = proto.Field(
@@ -277,6 +307,16 @@ class DiscoveryOccurrence(proto.Message):
         proto.MESSAGE,
         number=10,
         message=VulnerabilityAttestation,
+    )
+    files: MutableSequence[File] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=11,
+        message=File,
+    )
+    last_vulnerability_update_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=12,
+        message=timestamp_pb2.Timestamp,
     )
 
 

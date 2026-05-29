@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +38,15 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,20 +55,13 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.netapp_v1.services.net_app import (
     NetAppAsyncClient,
@@ -73,24 +69,31 @@ from google.cloud.netapp_v1.services.net_app import (
     pagers,
     transports,
 )
+from google.cloud.netapp_v1.types import (
+    active_directory,
+    backup,
+    backup_policy,
+    backup_vault,
+    cloud_netapp_service,
+    common,
+    host_group,
+    kms,
+    ontap,
+    quota_rule,
+    replication,
+    snapshot,
+    storage_pool,
+    volume,
+)
 from google.cloud.netapp_v1.types import active_directory as gcn_active_directory
-from google.cloud.netapp_v1.types import active_directory
-from google.cloud.netapp_v1.types import backup
 from google.cloud.netapp_v1.types import backup as gcn_backup
-from google.cloud.netapp_v1.types import backup_policy
 from google.cloud.netapp_v1.types import backup_policy as gcn_backup_policy
-from google.cloud.netapp_v1.types import backup_vault
 from google.cloud.netapp_v1.types import backup_vault as gcn_backup_vault
-from google.cloud.netapp_v1.types import cloud_netapp_service, common, kms
-from google.cloud.netapp_v1.types import quota_rule
+from google.cloud.netapp_v1.types import host_group as gcn_host_group
 from google.cloud.netapp_v1.types import quota_rule as gcn_quota_rule
-from google.cloud.netapp_v1.types import replication
 from google.cloud.netapp_v1.types import replication as gcn_replication
-from google.cloud.netapp_v1.types import snapshot
 from google.cloud.netapp_v1.types import snapshot as gcn_snapshot
-from google.cloud.netapp_v1.types import storage_pool
 from google.cloud.netapp_v1.types import storage_pool as gcn_storage_pool
-from google.cloud.netapp_v1.types import volume
 from google.cloud.netapp_v1.types import volume as gcn_volume
 
 CRED_INFO_JSON = {
@@ -141,12 +144,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert NetAppClient._get_default_mtls_endpoint(None) is None
     assert NetAppClient._get_default_mtls_endpoint(api_endpoint) == api_mtls_endpoint
@@ -162,6 +181,7 @@ def test__get_default_mtls_endpoint():
         == sandbox_mtls_endpoint
     )
     assert NetAppClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    assert NetAppClient._get_default_mtls_endpoint(custom_endpoint) == custom_endpoint
 
 
 def test__read_environment_variables():
@@ -176,12 +196,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            NetAppClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                NetAppClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert NetAppClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert NetAppClient._read_environment_variables() == (False, "never", None)
@@ -202,6 +229,105 @@ def test__read_environment_variables():
 
     with mock.patch.dict(os.environ, {"GOOGLE_CLOUD_UNIVERSE_DOMAIN": "foo.com"}):
         assert NetAppClient._read_environment_variables() == (False, "auto", "foo.com")
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert NetAppClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert NetAppClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert NetAppClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert NetAppClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert NetAppClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert NetAppClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert NetAppClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert NetAppClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert NetAppClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                NetAppClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert NetAppClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert NetAppClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -555,17 +681,6 @@ def test_net_app_client_client_options(client_class, transport_class, transport_
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -775,6 +890,117 @@ def test_net_app_client_get_mtls_endpoint_and_cert_source(client_class):
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -807,10 +1033,9 @@ def test_net_app_client_get_mtls_endpoint_and_cert_source(client_class):
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -823,18 +1048,6 @@ def test_net_app_client_get_mtls_endpoint_and_cert_source(client_class):
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1047,13 +1260,13 @@ def test_net_app_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1078,8 +1291,8 @@ def test_net_app_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        storage_pool.ListStoragePoolsRequest,
-        dict,
+        storage_pool.ListStoragePoolsRequest(),
+        {},
     ],
 )
 def test_list_storage_pools(request_type, transport: str = "grpc"):
@@ -1090,7 +1303,7 @@ def test_list_storage_pools(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1143,12 +1356,13 @@ def test_list_storage_pools_non_empty_request_with_auto_populated_field():
         client.list_storage_pools(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == storage_pool.ListStoragePoolsRequest(
+        request_msg = storage_pool.ListStoragePoolsRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_storage_pools_use_cached_wrapped_rpc():
@@ -1174,9 +1388,9 @@ def test_list_storage_pools_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_storage_pools
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_storage_pools] = (
+            mock_rpc
+        )
         request = {}
         client.list_storage_pools(request)
 
@@ -1233,9 +1447,14 @@ async def test_list_storage_pools_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_storage_pools_async(
-    transport: str = "grpc_asyncio", request_type=storage_pool.ListStoragePoolsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_pool.ListStoragePoolsRequest(),
+        {},
+    ],
+)
+async def test_list_storage_pools_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1243,7 +1462,7 @@ async def test_list_storage_pools_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1268,11 +1487,6 @@ async def test_list_storage_pools_async(
     assert isinstance(response, pagers.ListStoragePoolsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_storage_pools_async_from_dict():
-    await test_list_storage_pools_async(request_type=dict)
 
 
 def test_list_storage_pools_field_headers():
@@ -1618,11 +1832,7 @@ async def test_list_storage_pools_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_storage_pools(request={})
-        ).pages:
+        async for page_ in (await client.list_storage_pools(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -1631,8 +1841,8 @@ async def test_list_storage_pools_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_storage_pool.CreateStoragePoolRequest,
-        dict,
+        gcn_storage_pool.CreateStoragePoolRequest(),
+        {},
     ],
 )
 def test_create_storage_pool(request_type, transport: str = "grpc"):
@@ -1643,7 +1853,7 @@ def test_create_storage_pool(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1689,10 +1899,11 @@ def test_create_storage_pool_non_empty_request_with_auto_populated_field():
         client.create_storage_pool(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_storage_pool.CreateStoragePoolRequest(
+        request_msg = gcn_storage_pool.CreateStoragePoolRequest(
             parent="parent_value",
             storage_pool_id="storage_pool_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_storage_pool_use_cached_wrapped_rpc():
@@ -1718,9 +1929,9 @@ def test_create_storage_pool_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_storage_pool
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_storage_pool] = (
+            mock_rpc
+        )
         request = {}
         client.create_storage_pool(request)
 
@@ -1787,10 +1998,14 @@ async def test_create_storage_pool_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_storage_pool_async(
-    transport: str = "grpc_asyncio",
-    request_type=gcn_storage_pool.CreateStoragePoolRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_storage_pool.CreateStoragePoolRequest(),
+        {},
+    ],
+)
+async def test_create_storage_pool_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1798,7 +2013,7 @@ async def test_create_storage_pool_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1818,11 +2033,6 @@ async def test_create_storage_pool_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_storage_pool_async_from_dict():
-    await test_create_storage_pool_async(request_type=dict)
 
 
 def test_create_storage_pool_field_headers():
@@ -1999,8 +2209,8 @@ async def test_create_storage_pool_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        storage_pool.GetStoragePoolRequest,
-        dict,
+        storage_pool.GetStoragePoolRequest(),
+        {},
     ],
 )
 def test_get_storage_pool(request_type, transport: str = "grpc"):
@@ -2011,7 +2221,7 @@ def test_get_storage_pool(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_storage_pool), "__call__") as call:
@@ -2040,6 +2250,15 @@ def test_get_storage_pool(request_type, transport: str = "grpc"):
             custom_performance_enabled=True,
             total_throughput_mibps=2391,
             total_iops=1086,
+            hot_tier_size_gib=1801,
+            enable_hot_tier_auto_resize=True,
+            qos_type=common.QosType.AUTO,
+            available_throughput_mibps=0.2772,
+            cold_tier_size_used_gib=2416,
+            hot_tier_size_used_gib=2329,
+            type_=common.StoragePoolType.FILE,
+            mode=storage_pool.Mode.DEFAULT,
+            scale_type=common.ScaleType.SCALE_TYPE_DEFAULT,
         )
         response = client.get_storage_pool(request)
 
@@ -2074,6 +2293,15 @@ def test_get_storage_pool(request_type, transport: str = "grpc"):
     assert response.custom_performance_enabled is True
     assert response.total_throughput_mibps == 2391
     assert response.total_iops == 1086
+    assert response.hot_tier_size_gib == 1801
+    assert response.enable_hot_tier_auto_resize is True
+    assert response.qos_type == common.QosType.AUTO
+    assert math.isclose(response.available_throughput_mibps, 0.2772, rel_tol=1e-6)
+    assert response.cold_tier_size_used_gib == 2416
+    assert response.hot_tier_size_used_gib == 2329
+    assert response.type_ == common.StoragePoolType.FILE
+    assert response.mode == storage_pool.Mode.DEFAULT
+    assert response.scale_type == common.ScaleType.SCALE_TYPE_DEFAULT
 
 
 def test_get_storage_pool_non_empty_request_with_auto_populated_field():
@@ -2099,9 +2327,10 @@ def test_get_storage_pool_non_empty_request_with_auto_populated_field():
         client.get_storage_pool(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == storage_pool.GetStoragePoolRequest(
+        request_msg = storage_pool.GetStoragePoolRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_storage_pool_use_cached_wrapped_rpc():
@@ -2125,9 +2354,9 @@ def test_get_storage_pool_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_storage_pool
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_storage_pool] = (
+            mock_rpc
+        )
         request = {}
         client.get_storage_pool(request)
 
@@ -2184,9 +2413,14 @@ async def test_get_storage_pool_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_storage_pool_async(
-    transport: str = "grpc_asyncio", request_type=storage_pool.GetStoragePoolRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_pool.GetStoragePoolRequest(),
+        {},
+    ],
+)
+async def test_get_storage_pool_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2194,7 +2428,7 @@ async def test_get_storage_pool_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_storage_pool), "__call__") as call:
@@ -2224,6 +2458,15 @@ async def test_get_storage_pool_async(
                 custom_performance_enabled=True,
                 total_throughput_mibps=2391,
                 total_iops=1086,
+                hot_tier_size_gib=1801,
+                enable_hot_tier_auto_resize=True,
+                qos_type=common.QosType.AUTO,
+                available_throughput_mibps=0.2772,
+                cold_tier_size_used_gib=2416,
+                hot_tier_size_used_gib=2329,
+                type_=common.StoragePoolType.FILE,
+                mode=storage_pool.Mode.DEFAULT,
+                scale_type=common.ScaleType.SCALE_TYPE_DEFAULT,
             )
         )
         response = await client.get_storage_pool(request)
@@ -2259,11 +2502,15 @@ async def test_get_storage_pool_async(
     assert response.custom_performance_enabled is True
     assert response.total_throughput_mibps == 2391
     assert response.total_iops == 1086
-
-
-@pytest.mark.asyncio
-async def test_get_storage_pool_async_from_dict():
-    await test_get_storage_pool_async(request_type=dict)
+    assert response.hot_tier_size_gib == 1801
+    assert response.enable_hot_tier_auto_resize is True
+    assert response.qos_type == common.QosType.AUTO
+    assert math.isclose(response.available_throughput_mibps, 0.2772, rel_tol=1e-6)
+    assert response.cold_tier_size_used_gib == 2416
+    assert response.hot_tier_size_used_gib == 2329
+    assert response.type_ == common.StoragePoolType.FILE
+    assert response.mode == storage_pool.Mode.DEFAULT
+    assert response.scale_type == common.ScaleType.SCALE_TYPE_DEFAULT
 
 
 def test_get_storage_pool_field_headers():
@@ -2412,8 +2659,8 @@ async def test_get_storage_pool_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_storage_pool.UpdateStoragePoolRequest,
-        dict,
+        gcn_storage_pool.UpdateStoragePoolRequest(),
+        {},
     ],
 )
 def test_update_storage_pool(request_type, transport: str = "grpc"):
@@ -2424,7 +2671,7 @@ def test_update_storage_pool(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2467,7 +2714,8 @@ def test_update_storage_pool_non_empty_request_with_auto_populated_field():
         client.update_storage_pool(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_storage_pool.UpdateStoragePoolRequest()
+        request_msg = gcn_storage_pool.UpdateStoragePoolRequest()
+        assert args[0] == request_msg
 
 
 def test_update_storage_pool_use_cached_wrapped_rpc():
@@ -2493,9 +2741,9 @@ def test_update_storage_pool_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_storage_pool
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_storage_pool] = (
+            mock_rpc
+        )
         request = {}
         client.update_storage_pool(request)
 
@@ -2562,10 +2810,14 @@ async def test_update_storage_pool_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_storage_pool_async(
-    transport: str = "grpc_asyncio",
-    request_type=gcn_storage_pool.UpdateStoragePoolRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_storage_pool.UpdateStoragePoolRequest(),
+        {},
+    ],
+)
+async def test_update_storage_pool_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2573,7 +2825,7 @@ async def test_update_storage_pool_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2593,11 +2845,6 @@ async def test_update_storage_pool_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_storage_pool_async_from_dict():
-    await test_update_storage_pool_async(request_type=dict)
 
 
 def test_update_storage_pool_field_headers():
@@ -2764,8 +3011,8 @@ async def test_update_storage_pool_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        storage_pool.DeleteStoragePoolRequest,
-        dict,
+        storage_pool.DeleteStoragePoolRequest(),
+        {},
     ],
 )
 def test_delete_storage_pool(request_type, transport: str = "grpc"):
@@ -2776,7 +3023,7 @@ def test_delete_storage_pool(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2821,9 +3068,10 @@ def test_delete_storage_pool_non_empty_request_with_auto_populated_field():
         client.delete_storage_pool(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == storage_pool.DeleteStoragePoolRequest(
+        request_msg = storage_pool.DeleteStoragePoolRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_storage_pool_use_cached_wrapped_rpc():
@@ -2849,9 +3097,9 @@ def test_delete_storage_pool_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_storage_pool
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_storage_pool] = (
+            mock_rpc
+        )
         request = {}
         client.delete_storage_pool(request)
 
@@ -2918,9 +3166,14 @@ async def test_delete_storage_pool_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_storage_pool_async(
-    transport: str = "grpc_asyncio", request_type=storage_pool.DeleteStoragePoolRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_pool.DeleteStoragePoolRequest(),
+        {},
+    ],
+)
+async def test_delete_storage_pool_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2928,7 +3181,7 @@ async def test_delete_storage_pool_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2948,11 +3201,6 @@ async def test_delete_storage_pool_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_storage_pool_async_from_dict():
-    await test_delete_storage_pool_async(request_type=dict)
 
 
 def test_delete_storage_pool_field_headers():
@@ -3109,8 +3357,8 @@ async def test_delete_storage_pool_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        storage_pool.ValidateDirectoryServiceRequest,
-        dict,
+        storage_pool.ValidateDirectoryServiceRequest(),
+        {},
     ],
 )
 def test_validate_directory_service(request_type, transport: str = "grpc"):
@@ -3121,7 +3369,7 @@ def test_validate_directory_service(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3166,9 +3414,10 @@ def test_validate_directory_service_non_empty_request_with_auto_populated_field(
         client.validate_directory_service(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == storage_pool.ValidateDirectoryServiceRequest(
+        request_msg = storage_pool.ValidateDirectoryServiceRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_validate_directory_service_use_cached_wrapped_rpc():
@@ -3264,9 +3513,15 @@ async def test_validate_directory_service_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_pool.ValidateDirectoryServiceRequest(),
+        {},
+    ],
+)
 async def test_validate_directory_service_async(
-    transport: str = "grpc_asyncio",
-    request_type=storage_pool.ValidateDirectoryServiceRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -3275,7 +3530,7 @@ async def test_validate_directory_service_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3295,11 +3550,6 @@ async def test_validate_directory_service_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_validate_directory_service_async_from_dict():
-    await test_validate_directory_service_async(request_type=dict)
 
 
 def test_validate_directory_service_field_headers():
@@ -3370,8 +3620,8 @@ async def test_validate_directory_service_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        storage_pool.SwitchActiveReplicaZoneRequest,
-        dict,
+        storage_pool.SwitchActiveReplicaZoneRequest(),
+        {},
     ],
 )
 def test_switch_active_replica_zone(request_type, transport: str = "grpc"):
@@ -3382,7 +3632,7 @@ def test_switch_active_replica_zone(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3427,9 +3677,10 @@ def test_switch_active_replica_zone_non_empty_request_with_auto_populated_field(
         client.switch_active_replica_zone(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == storage_pool.SwitchActiveReplicaZoneRequest(
+        request_msg = storage_pool.SwitchActiveReplicaZoneRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_switch_active_replica_zone_use_cached_wrapped_rpc():
@@ -3525,9 +3776,15 @@ async def test_switch_active_replica_zone_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        storage_pool.SwitchActiveReplicaZoneRequest(),
+        {},
+    ],
+)
 async def test_switch_active_replica_zone_async(
-    transport: str = "grpc_asyncio",
-    request_type=storage_pool.SwitchActiveReplicaZoneRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -3536,7 +3793,7 @@ async def test_switch_active_replica_zone_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3556,11 +3813,6 @@ async def test_switch_active_replica_zone_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_switch_active_replica_zone_async_from_dict():
-    await test_switch_active_replica_zone_async(request_type=dict)
 
 
 def test_switch_active_replica_zone_field_headers():
@@ -3631,8 +3883,8 @@ async def test_switch_active_replica_zone_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        volume.ListVolumesRequest,
-        dict,
+        volume.ListVolumesRequest(),
+        {},
     ],
 )
 def test_list_volumes(request_type, transport: str = "grpc"):
@@ -3643,7 +3895,7 @@ def test_list_volumes(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_volumes), "__call__") as call:
@@ -3692,12 +3944,13 @@ def test_list_volumes_non_empty_request_with_auto_populated_field():
         client.list_volumes(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == volume.ListVolumesRequest(
+        request_msg = volume.ListVolumesRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_volumes_use_cached_wrapped_rpc():
@@ -3778,9 +4031,14 @@ async def test_list_volumes_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_volumes_async(
-    transport: str = "grpc_asyncio", request_type=volume.ListVolumesRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        volume.ListVolumesRequest(),
+        {},
+    ],
+)
+async def test_list_volumes_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3788,7 +4046,7 @@ async def test_list_volumes_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_volumes), "__call__") as call:
@@ -3811,11 +4069,6 @@ async def test_list_volumes_async(
     assert isinstance(response, pagers.ListVolumesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_volumes_async_from_dict():
-    await test_list_volumes_async(request_type=dict)
 
 
 def test_list_volumes_field_headers():
@@ -4145,11 +4398,7 @@ async def test_list_volumes_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_volumes(request={})
-        ).pages:
+        async for page_ in (await client.list_volumes(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -4158,8 +4407,8 @@ async def test_list_volumes_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        volume.GetVolumeRequest,
-        dict,
+        volume.GetVolumeRequest(),
+        {},
     ],
 )
 def test_get_volume(request_type, transport: str = "grpc"):
@@ -4170,7 +4419,7 @@ def test_get_volume(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_volume), "__call__") as call:
@@ -4205,6 +4454,8 @@ def test_get_volume(request_type, transport: str = "grpc"):
             replica_zone="replica_zone_value",
             zone="zone_value",
             cold_tier_size_gib=1888,
+            throughput_mibps=0.1748,
+            hot_tier_size_used_gib=2329,
         )
         response = client.get_volume(request)
 
@@ -4245,6 +4496,8 @@ def test_get_volume(request_type, transport: str = "grpc"):
     assert response.replica_zone == "replica_zone_value"
     assert response.zone == "zone_value"
     assert response.cold_tier_size_gib == 1888
+    assert math.isclose(response.throughput_mibps, 0.1748, rel_tol=1e-6)
+    assert response.hot_tier_size_used_gib == 2329
 
 
 def test_get_volume_non_empty_request_with_auto_populated_field():
@@ -4270,9 +4523,10 @@ def test_get_volume_non_empty_request_with_auto_populated_field():
         client.get_volume(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == volume.GetVolumeRequest(
+        request_msg = volume.GetVolumeRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_volume_use_cached_wrapped_rpc():
@@ -4351,9 +4605,14 @@ async def test_get_volume_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_get_volume_async(
-    transport: str = "grpc_asyncio", request_type=volume.GetVolumeRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        volume.GetVolumeRequest(),
+        {},
+    ],
+)
+async def test_get_volume_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4361,7 +4620,7 @@ async def test_get_volume_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_volume), "__call__") as call:
@@ -4397,6 +4656,8 @@ async def test_get_volume_async(
                 replica_zone="replica_zone_value",
                 zone="zone_value",
                 cold_tier_size_gib=1888,
+                throughput_mibps=0.1748,
+                hot_tier_size_used_gib=2329,
             )
         )
         response = await client.get_volume(request)
@@ -4438,11 +4699,8 @@ async def test_get_volume_async(
     assert response.replica_zone == "replica_zone_value"
     assert response.zone == "zone_value"
     assert response.cold_tier_size_gib == 1888
-
-
-@pytest.mark.asyncio
-async def test_get_volume_async_from_dict():
-    await test_get_volume_async(request_type=dict)
+    assert math.isclose(response.throughput_mibps, 0.1748, rel_tol=1e-6)
+    assert response.hot_tier_size_used_gib == 2329
 
 
 def test_get_volume_field_headers():
@@ -4587,8 +4845,8 @@ async def test_get_volume_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_volume.CreateVolumeRequest,
-        dict,
+        gcn_volume.CreateVolumeRequest(),
+        {},
     ],
 )
 def test_create_volume(request_type, transport: str = "grpc"):
@@ -4599,7 +4857,7 @@ def test_create_volume(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_volume), "__call__") as call:
@@ -4641,10 +4899,11 @@ def test_create_volume_non_empty_request_with_auto_populated_field():
         client.create_volume(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_volume.CreateVolumeRequest(
+        request_msg = gcn_volume.CreateVolumeRequest(
             parent="parent_value",
             volume_id="volume_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_volume_use_cached_wrapped_rpc():
@@ -4735,9 +4994,14 @@ async def test_create_volume_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_volume_async(
-    transport: str = "grpc_asyncio", request_type=gcn_volume.CreateVolumeRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_volume.CreateVolumeRequest(),
+        {},
+    ],
+)
+async def test_create_volume_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4745,7 +5009,7 @@ async def test_create_volume_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_volume), "__call__") as call:
@@ -4763,11 +5027,6 @@ async def test_create_volume_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_volume_async_from_dict():
-    await test_create_volume_async(request_type=dict)
 
 
 def test_create_volume_field_headers():
@@ -4936,8 +5195,8 @@ async def test_create_volume_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_volume.UpdateVolumeRequest,
-        dict,
+        gcn_volume.UpdateVolumeRequest(),
+        {},
     ],
 )
 def test_update_volume(request_type, transport: str = "grpc"):
@@ -4948,7 +5207,7 @@ def test_update_volume(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_volume), "__call__") as call:
@@ -4987,7 +5246,8 @@ def test_update_volume_non_empty_request_with_auto_populated_field():
         client.update_volume(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_volume.UpdateVolumeRequest()
+        request_msg = gcn_volume.UpdateVolumeRequest()
+        assert args[0] == request_msg
 
 
 def test_update_volume_use_cached_wrapped_rpc():
@@ -5078,9 +5338,14 @@ async def test_update_volume_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_volume_async(
-    transport: str = "grpc_asyncio", request_type=gcn_volume.UpdateVolumeRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_volume.UpdateVolumeRequest(),
+        {},
+    ],
+)
+async def test_update_volume_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -5088,7 +5353,7 @@ async def test_update_volume_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_volume), "__call__") as call:
@@ -5106,11 +5371,6 @@ async def test_update_volume_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_volume_async_from_dict():
-    await test_update_volume_async(request_type=dict)
 
 
 def test_update_volume_field_headers():
@@ -5269,8 +5529,8 @@ async def test_update_volume_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        volume.DeleteVolumeRequest,
-        dict,
+        volume.DeleteVolumeRequest(),
+        {},
     ],
 )
 def test_delete_volume(request_type, transport: str = "grpc"):
@@ -5281,7 +5541,7 @@ def test_delete_volume(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_volume), "__call__") as call:
@@ -5322,9 +5582,10 @@ def test_delete_volume_non_empty_request_with_auto_populated_field():
         client.delete_volume(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == volume.DeleteVolumeRequest(
+        request_msg = volume.DeleteVolumeRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_volume_use_cached_wrapped_rpc():
@@ -5415,9 +5676,14 @@ async def test_delete_volume_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_volume_async(
-    transport: str = "grpc_asyncio", request_type=volume.DeleteVolumeRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        volume.DeleteVolumeRequest(),
+        {},
+    ],
+)
+async def test_delete_volume_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -5425,7 +5691,7 @@ async def test_delete_volume_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_volume), "__call__") as call:
@@ -5443,11 +5709,6 @@ async def test_delete_volume_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_volume_async_from_dict():
-    await test_delete_volume_async(request_type=dict)
 
 
 def test_delete_volume_field_headers():
@@ -5596,8 +5857,8 @@ async def test_delete_volume_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        volume.RevertVolumeRequest,
-        dict,
+        volume.RevertVolumeRequest(),
+        {},
     ],
 )
 def test_revert_volume(request_type, transport: str = "grpc"):
@@ -5608,7 +5869,7 @@ def test_revert_volume(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.revert_volume), "__call__") as call:
@@ -5650,10 +5911,11 @@ def test_revert_volume_non_empty_request_with_auto_populated_field():
         client.revert_volume(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == volume.RevertVolumeRequest(
+        request_msg = volume.RevertVolumeRequest(
             name="name_value",
             snapshot_id="snapshot_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_revert_volume_use_cached_wrapped_rpc():
@@ -5744,9 +6006,14 @@ async def test_revert_volume_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_revert_volume_async(
-    transport: str = "grpc_asyncio", request_type=volume.RevertVolumeRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        volume.RevertVolumeRequest(),
+        {},
+    ],
+)
+async def test_revert_volume_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -5754,7 +6021,7 @@ async def test_revert_volume_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.revert_volume), "__call__") as call:
@@ -5772,11 +6039,6 @@ async def test_revert_volume_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_revert_volume_async_from_dict():
-    await test_revert_volume_async(request_type=dict)
 
 
 def test_revert_volume_field_headers():
@@ -5843,8 +6105,277 @@ async def test_revert_volume_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        snapshot.ListSnapshotsRequest,
-        dict,
+        volume.EstablishVolumePeeringRequest(),
+        {},
+    ],
+)
+def test_establish_volume_peering(request_type, transport: str = "grpc"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.establish_volume_peering), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.establish_volume_peering(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = volume.EstablishVolumePeeringRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_establish_volume_peering_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = volume.EstablishVolumePeeringRequest(
+        name="name_value",
+        peer_cluster_name="peer_cluster_name_value",
+        peer_svm_name="peer_svm_name_value",
+        peer_volume_name="peer_volume_name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.establish_volume_peering), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.establish_volume_peering(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = volume.EstablishVolumePeeringRequest(
+            name="name_value",
+            peer_cluster_name="peer_cluster_name_value",
+            peer_svm_name="peer_svm_name_value",
+            peer_volume_name="peer_volume_name_value",
+        )
+        assert args[0] == request_msg
+
+
+def test_establish_volume_peering_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.establish_volume_peering
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.establish_volume_peering
+        ] = mock_rpc
+        request = {}
+        client.establish_volume_peering(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.establish_volume_peering(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_establish_volume_peering_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetAppAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.establish_volume_peering
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.establish_volume_peering
+        ] = mock_rpc
+
+        request = {}
+        await client.establish_volume_peering(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.establish_volume_peering(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        volume.EstablishVolumePeeringRequest(),
+        {},
+    ],
+)
+async def test_establish_volume_peering_async(
+    request_type, transport: str = "grpc_asyncio"
+):
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.establish_volume_peering), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.establish_volume_peering(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = volume.EstablishVolumePeeringRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_establish_volume_peering_field_headers():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = volume.EstablishVolumePeeringRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.establish_volume_peering), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.establish_volume_peering(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_establish_volume_peering_field_headers_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = volume.EstablishVolumePeeringRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.establish_volume_peering), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.establish_volume_peering(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        snapshot.ListSnapshotsRequest(),
+        {},
     ],
 )
 def test_list_snapshots(request_type, transport: str = "grpc"):
@@ -5855,7 +6386,7 @@ def test_list_snapshots(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_snapshots), "__call__") as call:
@@ -5904,12 +6435,13 @@ def test_list_snapshots_non_empty_request_with_auto_populated_field():
         client.list_snapshots(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == snapshot.ListSnapshotsRequest(
+        request_msg = snapshot.ListSnapshotsRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_snapshots_use_cached_wrapped_rpc():
@@ -5990,9 +6522,14 @@ async def test_list_snapshots_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_snapshots_async(
-    transport: str = "grpc_asyncio", request_type=snapshot.ListSnapshotsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        snapshot.ListSnapshotsRequest(),
+        {},
+    ],
+)
+async def test_list_snapshots_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -6000,7 +6537,7 @@ async def test_list_snapshots_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_snapshots), "__call__") as call:
@@ -6023,11 +6560,6 @@ async def test_list_snapshots_async(
     assert isinstance(response, pagers.ListSnapshotsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_snapshots_async_from_dict():
-    await test_list_snapshots_async(request_type=dict)
 
 
 def test_list_snapshots_field_headers():
@@ -6357,11 +6889,7 @@ async def test_list_snapshots_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_snapshots(request={})
-        ).pages:
+        async for page_ in (await client.list_snapshots(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -6370,8 +6898,8 @@ async def test_list_snapshots_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        snapshot.GetSnapshotRequest,
-        dict,
+        snapshot.GetSnapshotRequest(),
+        {},
     ],
 )
 def test_get_snapshot(request_type, transport: str = "grpc"):
@@ -6382,7 +6910,7 @@ def test_get_snapshot(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_snapshot), "__call__") as call:
@@ -6434,9 +6962,10 @@ def test_get_snapshot_non_empty_request_with_auto_populated_field():
         client.get_snapshot(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == snapshot.GetSnapshotRequest(
+        request_msg = snapshot.GetSnapshotRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_snapshot_use_cached_wrapped_rpc():
@@ -6517,9 +7046,14 @@ async def test_get_snapshot_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_snapshot_async(
-    transport: str = "grpc_asyncio", request_type=snapshot.GetSnapshotRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        snapshot.GetSnapshotRequest(),
+        {},
+    ],
+)
+async def test_get_snapshot_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -6527,7 +7061,7 @@ async def test_get_snapshot_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_snapshot), "__call__") as call:
@@ -6556,11 +7090,6 @@ async def test_get_snapshot_async(
     assert response.state_details == "state_details_value"
     assert response.description == "description_value"
     assert math.isclose(response.used_bytes, 0.10790000000000001, rel_tol=1e-6)
-
-
-@pytest.mark.asyncio
-async def test_get_snapshot_async_from_dict():
-    await test_get_snapshot_async(request_type=dict)
 
 
 def test_get_snapshot_field_headers():
@@ -6705,8 +7234,8 @@ async def test_get_snapshot_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_snapshot.CreateSnapshotRequest,
-        dict,
+        gcn_snapshot.CreateSnapshotRequest(),
+        {},
     ],
 )
 def test_create_snapshot(request_type, transport: str = "grpc"):
@@ -6717,7 +7246,7 @@ def test_create_snapshot(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_snapshot), "__call__") as call:
@@ -6759,10 +7288,11 @@ def test_create_snapshot_non_empty_request_with_auto_populated_field():
         client.create_snapshot(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_snapshot.CreateSnapshotRequest(
+        request_msg = gcn_snapshot.CreateSnapshotRequest(
             parent="parent_value",
             snapshot_id="snapshot_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_snapshot_use_cached_wrapped_rpc():
@@ -6853,9 +7383,14 @@ async def test_create_snapshot_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_snapshot_async(
-    transport: str = "grpc_asyncio", request_type=gcn_snapshot.CreateSnapshotRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_snapshot.CreateSnapshotRequest(),
+        {},
+    ],
+)
+async def test_create_snapshot_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -6863,7 +7398,7 @@ async def test_create_snapshot_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_snapshot), "__call__") as call:
@@ -6881,11 +7416,6 @@ async def test_create_snapshot_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_snapshot_async_from_dict():
-    await test_create_snapshot_async(request_type=dict)
 
 
 def test_create_snapshot_field_headers():
@@ -7054,8 +7584,8 @@ async def test_create_snapshot_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        snapshot.DeleteSnapshotRequest,
-        dict,
+        snapshot.DeleteSnapshotRequest(),
+        {},
     ],
 )
 def test_delete_snapshot(request_type, transport: str = "grpc"):
@@ -7066,7 +7596,7 @@ def test_delete_snapshot(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_snapshot), "__call__") as call:
@@ -7107,9 +7637,10 @@ def test_delete_snapshot_non_empty_request_with_auto_populated_field():
         client.delete_snapshot(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == snapshot.DeleteSnapshotRequest(
+        request_msg = snapshot.DeleteSnapshotRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_snapshot_use_cached_wrapped_rpc():
@@ -7200,9 +7731,14 @@ async def test_delete_snapshot_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_snapshot_async(
-    transport: str = "grpc_asyncio", request_type=snapshot.DeleteSnapshotRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        snapshot.DeleteSnapshotRequest(),
+        {},
+    ],
+)
+async def test_delete_snapshot_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -7210,7 +7746,7 @@ async def test_delete_snapshot_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_snapshot), "__call__") as call:
@@ -7228,11 +7764,6 @@ async def test_delete_snapshot_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_snapshot_async_from_dict():
-    await test_delete_snapshot_async(request_type=dict)
 
 
 def test_delete_snapshot_field_headers():
@@ -7381,8 +7912,8 @@ async def test_delete_snapshot_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_snapshot.UpdateSnapshotRequest,
-        dict,
+        gcn_snapshot.UpdateSnapshotRequest(),
+        {},
     ],
 )
 def test_update_snapshot(request_type, transport: str = "grpc"):
@@ -7393,7 +7924,7 @@ def test_update_snapshot(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_snapshot), "__call__") as call:
@@ -7432,7 +7963,8 @@ def test_update_snapshot_non_empty_request_with_auto_populated_field():
         client.update_snapshot(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_snapshot.UpdateSnapshotRequest()
+        request_msg = gcn_snapshot.UpdateSnapshotRequest()
+        assert args[0] == request_msg
 
 
 def test_update_snapshot_use_cached_wrapped_rpc():
@@ -7523,9 +8055,14 @@ async def test_update_snapshot_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_snapshot_async(
-    transport: str = "grpc_asyncio", request_type=gcn_snapshot.UpdateSnapshotRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_snapshot.UpdateSnapshotRequest(),
+        {},
+    ],
+)
+async def test_update_snapshot_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -7533,7 +8070,7 @@ async def test_update_snapshot_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_snapshot), "__call__") as call:
@@ -7551,11 +8088,6 @@ async def test_update_snapshot_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_snapshot_async_from_dict():
-    await test_update_snapshot_async(request_type=dict)
 
 
 def test_update_snapshot_field_headers():
@@ -7714,8 +8246,8 @@ async def test_update_snapshot_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        active_directory.ListActiveDirectoriesRequest,
-        dict,
+        active_directory.ListActiveDirectoriesRequest(),
+        {},
     ],
 )
 def test_list_active_directories(request_type, transport: str = "grpc"):
@@ -7726,7 +8258,7 @@ def test_list_active_directories(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -7779,12 +8311,13 @@ def test_list_active_directories_non_empty_request_with_auto_populated_field():
         client.list_active_directories(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == active_directory.ListActiveDirectoriesRequest(
+        request_msg = active_directory.ListActiveDirectoriesRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_active_directories_use_cached_wrapped_rpc():
@@ -7870,9 +8403,15 @@ async def test_list_active_directories_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        active_directory.ListActiveDirectoriesRequest(),
+        {},
+    ],
+)
 async def test_list_active_directories_async(
-    transport: str = "grpc_asyncio",
-    request_type=active_directory.ListActiveDirectoriesRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -7881,7 +8420,7 @@ async def test_list_active_directories_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -7906,11 +8445,6 @@ async def test_list_active_directories_async(
     assert isinstance(response, pagers.ListActiveDirectoriesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_active_directories_async_from_dict():
-    await test_list_active_directories_async(request_type=dict)
 
 
 def test_list_active_directories_field_headers():
@@ -8256,11 +8790,7 @@ async def test_list_active_directories_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_active_directories(request={})
-        ).pages:
+        async for page_ in (await client.list_active_directories(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -8269,8 +8799,8 @@ async def test_list_active_directories_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        active_directory.GetActiveDirectoryRequest,
-        dict,
+        active_directory.GetActiveDirectoryRequest(),
+        {},
     ],
 )
 def test_get_active_directory(request_type, transport: str = "grpc"):
@@ -8281,7 +8811,7 @@ def test_get_active_directory(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -8367,9 +8897,10 @@ def test_get_active_directory_non_empty_request_with_auto_populated_field():
         client.get_active_directory(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == active_directory.GetActiveDirectoryRequest(
+        request_msg = active_directory.GetActiveDirectoryRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_active_directory_use_cached_wrapped_rpc():
@@ -8395,9 +8926,9 @@ def test_get_active_directory_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_active_directory
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_active_directory] = (
+            mock_rpc
+        )
         request = {}
         client.get_active_directory(request)
 
@@ -8454,9 +8985,15 @@ async def test_get_active_directory_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        active_directory.GetActiveDirectoryRequest(),
+        {},
+    ],
+)
 async def test_get_active_directory_async(
-    transport: str = "grpc_asyncio",
-    request_type=active_directory.GetActiveDirectoryRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -8465,7 +9002,7 @@ async def test_get_active_directory_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -8526,11 +9063,6 @@ async def test_get_active_directory_async(
     assert response.ldap_signing is True
     assert response.encrypt_dc_connections is True
     assert response.state_details == "state_details_value"
-
-
-@pytest.mark.asyncio
-async def test_get_active_directory_async_from_dict():
-    await test_get_active_directory_async(request_type=dict)
 
 
 def test_get_active_directory_field_headers():
@@ -8687,8 +9219,8 @@ async def test_get_active_directory_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_active_directory.CreateActiveDirectoryRequest,
-        dict,
+        gcn_active_directory.CreateActiveDirectoryRequest(),
+        {},
     ],
 )
 def test_create_active_directory(request_type, transport: str = "grpc"):
@@ -8699,7 +9231,7 @@ def test_create_active_directory(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -8745,10 +9277,11 @@ def test_create_active_directory_non_empty_request_with_auto_populated_field():
         client.create_active_directory(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_active_directory.CreateActiveDirectoryRequest(
+        request_msg = gcn_active_directory.CreateActiveDirectoryRequest(
             parent="parent_value",
             active_directory_id="active_directory_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_active_directory_use_cached_wrapped_rpc():
@@ -8844,9 +9377,15 @@ async def test_create_active_directory_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_active_directory.CreateActiveDirectoryRequest(),
+        {},
+    ],
+)
 async def test_create_active_directory_async(
-    transport: str = "grpc_asyncio",
-    request_type=gcn_active_directory.CreateActiveDirectoryRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -8855,7 +9394,7 @@ async def test_create_active_directory_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -8875,11 +9414,6 @@ async def test_create_active_directory_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_active_directory_async_from_dict():
-    await test_create_active_directory_async(request_type=dict)
 
 
 def test_create_active_directory_field_headers():
@@ -9056,8 +9590,8 @@ async def test_create_active_directory_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_active_directory.UpdateActiveDirectoryRequest,
-        dict,
+        gcn_active_directory.UpdateActiveDirectoryRequest(),
+        {},
     ],
 )
 def test_update_active_directory(request_type, transport: str = "grpc"):
@@ -9068,7 +9602,7 @@ def test_update_active_directory(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9111,7 +9645,8 @@ def test_update_active_directory_non_empty_request_with_auto_populated_field():
         client.update_active_directory(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_active_directory.UpdateActiveDirectoryRequest()
+        request_msg = gcn_active_directory.UpdateActiveDirectoryRequest()
+        assert args[0] == request_msg
 
 
 def test_update_active_directory_use_cached_wrapped_rpc():
@@ -9207,9 +9742,15 @@ async def test_update_active_directory_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_active_directory.UpdateActiveDirectoryRequest(),
+        {},
+    ],
+)
 async def test_update_active_directory_async(
-    transport: str = "grpc_asyncio",
-    request_type=gcn_active_directory.UpdateActiveDirectoryRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -9218,7 +9759,7 @@ async def test_update_active_directory_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9238,11 +9779,6 @@ async def test_update_active_directory_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_active_directory_async_from_dict():
-    await test_update_active_directory_async(request_type=dict)
 
 
 def test_update_active_directory_field_headers():
@@ -9409,8 +9945,8 @@ async def test_update_active_directory_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        active_directory.DeleteActiveDirectoryRequest,
-        dict,
+        active_directory.DeleteActiveDirectoryRequest(),
+        {},
     ],
 )
 def test_delete_active_directory(request_type, transport: str = "grpc"):
@@ -9421,7 +9957,7 @@ def test_delete_active_directory(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9466,9 +10002,10 @@ def test_delete_active_directory_non_empty_request_with_auto_populated_field():
         client.delete_active_directory(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == active_directory.DeleteActiveDirectoryRequest(
+        request_msg = active_directory.DeleteActiveDirectoryRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_active_directory_use_cached_wrapped_rpc():
@@ -9564,9 +10101,15 @@ async def test_delete_active_directory_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        active_directory.DeleteActiveDirectoryRequest(),
+        {},
+    ],
+)
 async def test_delete_active_directory_async(
-    transport: str = "grpc_asyncio",
-    request_type=active_directory.DeleteActiveDirectoryRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -9575,7 +10118,7 @@ async def test_delete_active_directory_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9595,11 +10138,6 @@ async def test_delete_active_directory_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_active_directory_async_from_dict():
-    await test_delete_active_directory_async(request_type=dict)
 
 
 def test_delete_active_directory_field_headers():
@@ -9756,8 +10294,8 @@ async def test_delete_active_directory_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        kms.ListKmsConfigsRequest,
-        dict,
+        kms.ListKmsConfigsRequest(),
+        {},
     ],
 )
 def test_list_kms_configs(request_type, transport: str = "grpc"):
@@ -9768,7 +10306,7 @@ def test_list_kms_configs(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_kms_configs), "__call__") as call:
@@ -9817,12 +10355,13 @@ def test_list_kms_configs_non_empty_request_with_auto_populated_field():
         client.list_kms_configs(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == kms.ListKmsConfigsRequest(
+        request_msg = kms.ListKmsConfigsRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_kms_configs_use_cached_wrapped_rpc():
@@ -9846,9 +10385,9 @@ def test_list_kms_configs_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_kms_configs
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_kms_configs] = (
+            mock_rpc
+        )
         request = {}
         client.list_kms_configs(request)
 
@@ -9905,9 +10444,14 @@ async def test_list_kms_configs_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_kms_configs_async(
-    transport: str = "grpc_asyncio", request_type=kms.ListKmsConfigsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        kms.ListKmsConfigsRequest(),
+        {},
+    ],
+)
+async def test_list_kms_configs_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -9915,7 +10459,7 @@ async def test_list_kms_configs_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_kms_configs), "__call__") as call:
@@ -9938,11 +10482,6 @@ async def test_list_kms_configs_async(
     assert isinstance(response, pagers.ListKmsConfigsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_kms_configs_async_from_dict():
-    await test_list_kms_configs_async(request_type=dict)
 
 
 def test_list_kms_configs_field_headers():
@@ -10272,11 +10811,7 @@ async def test_list_kms_configs_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_kms_configs(request={})
-        ).pages:
+        async for page_ in (await client.list_kms_configs(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -10285,8 +10820,8 @@ async def test_list_kms_configs_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        kms.CreateKmsConfigRequest,
-        dict,
+        kms.CreateKmsConfigRequest(),
+        {},
     ],
 )
 def test_create_kms_config(request_type, transport: str = "grpc"):
@@ -10297,7 +10832,7 @@ def test_create_kms_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -10343,10 +10878,11 @@ def test_create_kms_config_non_empty_request_with_auto_populated_field():
         client.create_kms_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == kms.CreateKmsConfigRequest(
+        request_msg = kms.CreateKmsConfigRequest(
             parent="parent_value",
             kms_config_id="kms_config_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_kms_config_use_cached_wrapped_rpc():
@@ -10370,9 +10906,9 @@ def test_create_kms_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_kms_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_kms_config] = (
+            mock_rpc
+        )
         request = {}
         client.create_kms_config(request)
 
@@ -10439,9 +10975,14 @@ async def test_create_kms_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_kms_config_async(
-    transport: str = "grpc_asyncio", request_type=kms.CreateKmsConfigRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        kms.CreateKmsConfigRequest(),
+        {},
+    ],
+)
+async def test_create_kms_config_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10449,7 +10990,7 @@ async def test_create_kms_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -10469,11 +11010,6 @@ async def test_create_kms_config_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_kms_config_async_from_dict():
-    await test_create_kms_config_async(request_type=dict)
 
 
 def test_create_kms_config_field_headers():
@@ -10650,8 +11186,8 @@ async def test_create_kms_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        kms.GetKmsConfigRequest,
-        dict,
+        kms.GetKmsConfigRequest(),
+        {},
     ],
 )
 def test_get_kms_config(request_type, transport: str = "grpc"):
@@ -10662,7 +11198,7 @@ def test_get_kms_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_kms_config), "__call__") as call:
@@ -10718,9 +11254,10 @@ def test_get_kms_config_non_empty_request_with_auto_populated_field():
         client.get_kms_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == kms.GetKmsConfigRequest(
+        request_msg = kms.GetKmsConfigRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_kms_config_use_cached_wrapped_rpc():
@@ -10801,9 +11338,14 @@ async def test_get_kms_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_kms_config_async(
-    transport: str = "grpc_asyncio", request_type=kms.GetKmsConfigRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        kms.GetKmsConfigRequest(),
+        {},
+    ],
+)
+async def test_get_kms_config_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10811,7 +11353,7 @@ async def test_get_kms_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_kms_config), "__call__") as call:
@@ -10844,11 +11386,6 @@ async def test_get_kms_config_async(
     assert response.description == "description_value"
     assert response.instructions == "instructions_value"
     assert response.service_account == "service_account_value"
-
-
-@pytest.mark.asyncio
-async def test_get_kms_config_async_from_dict():
-    await test_get_kms_config_async(request_type=dict)
 
 
 def test_get_kms_config_field_headers():
@@ -10993,8 +11530,8 @@ async def test_get_kms_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        kms.UpdateKmsConfigRequest,
-        dict,
+        kms.UpdateKmsConfigRequest(),
+        {},
     ],
 )
 def test_update_kms_config(request_type, transport: str = "grpc"):
@@ -11005,7 +11542,7 @@ def test_update_kms_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -11048,7 +11585,8 @@ def test_update_kms_config_non_empty_request_with_auto_populated_field():
         client.update_kms_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == kms.UpdateKmsConfigRequest()
+        request_msg = kms.UpdateKmsConfigRequest()
+        assert args[0] == request_msg
 
 
 def test_update_kms_config_use_cached_wrapped_rpc():
@@ -11072,9 +11610,9 @@ def test_update_kms_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_kms_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_kms_config] = (
+            mock_rpc
+        )
         request = {}
         client.update_kms_config(request)
 
@@ -11141,9 +11679,14 @@ async def test_update_kms_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_kms_config_async(
-    transport: str = "grpc_asyncio", request_type=kms.UpdateKmsConfigRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        kms.UpdateKmsConfigRequest(),
+        {},
+    ],
+)
+async def test_update_kms_config_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -11151,7 +11694,7 @@ async def test_update_kms_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -11171,11 +11714,6 @@ async def test_update_kms_config_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_kms_config_async_from_dict():
-    await test_update_kms_config_async(request_type=dict)
 
 
 def test_update_kms_config_field_headers():
@@ -11342,8 +11880,8 @@ async def test_update_kms_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        kms.EncryptVolumesRequest,
-        dict,
+        kms.EncryptVolumesRequest(),
+        {},
     ],
 )
 def test_encrypt_volumes(request_type, transport: str = "grpc"):
@@ -11354,7 +11892,7 @@ def test_encrypt_volumes(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.encrypt_volumes), "__call__") as call:
@@ -11395,9 +11933,10 @@ def test_encrypt_volumes_non_empty_request_with_auto_populated_field():
         client.encrypt_volumes(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == kms.EncryptVolumesRequest(
+        request_msg = kms.EncryptVolumesRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_encrypt_volumes_use_cached_wrapped_rpc():
@@ -11488,9 +12027,14 @@ async def test_encrypt_volumes_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_encrypt_volumes_async(
-    transport: str = "grpc_asyncio", request_type=kms.EncryptVolumesRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        kms.EncryptVolumesRequest(),
+        {},
+    ],
+)
+async def test_encrypt_volumes_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -11498,7 +12042,7 @@ async def test_encrypt_volumes_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.encrypt_volumes), "__call__") as call:
@@ -11516,11 +12060,6 @@ async def test_encrypt_volumes_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_encrypt_volumes_async_from_dict():
-    await test_encrypt_volumes_async(request_type=dict)
 
 
 def test_encrypt_volumes_field_headers():
@@ -11587,8 +12126,8 @@ async def test_encrypt_volumes_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        kms.VerifyKmsConfigRequest,
-        dict,
+        kms.VerifyKmsConfigRequest(),
+        {},
     ],
 )
 def test_verify_kms_config(request_type, transport: str = "grpc"):
@@ -11599,7 +12138,7 @@ def test_verify_kms_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -11651,9 +12190,10 @@ def test_verify_kms_config_non_empty_request_with_auto_populated_field():
         client.verify_kms_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == kms.VerifyKmsConfigRequest(
+        request_msg = kms.VerifyKmsConfigRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_verify_kms_config_use_cached_wrapped_rpc():
@@ -11677,9 +12217,9 @@ def test_verify_kms_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.verify_kms_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.verify_kms_config] = (
+            mock_rpc
+        )
         request = {}
         client.verify_kms_config(request)
 
@@ -11736,9 +12276,14 @@ async def test_verify_kms_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_verify_kms_config_async(
-    transport: str = "grpc_asyncio", request_type=kms.VerifyKmsConfigRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        kms.VerifyKmsConfigRequest(),
+        {},
+    ],
+)
+async def test_verify_kms_config_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -11746,7 +12291,7 @@ async def test_verify_kms_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -11773,11 +12318,6 @@ async def test_verify_kms_config_async(
     assert response.healthy is True
     assert response.health_error == "health_error_value"
     assert response.instructions == "instructions_value"
-
-
-@pytest.mark.asyncio
-async def test_verify_kms_config_async_from_dict():
-    await test_verify_kms_config_async(request_type=dict)
 
 
 def test_verify_kms_config_field_headers():
@@ -11848,8 +12388,8 @@ async def test_verify_kms_config_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        kms.DeleteKmsConfigRequest,
-        dict,
+        kms.DeleteKmsConfigRequest(),
+        {},
     ],
 )
 def test_delete_kms_config(request_type, transport: str = "grpc"):
@@ -11860,7 +12400,7 @@ def test_delete_kms_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -11905,9 +12445,10 @@ def test_delete_kms_config_non_empty_request_with_auto_populated_field():
         client.delete_kms_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == kms.DeleteKmsConfigRequest(
+        request_msg = kms.DeleteKmsConfigRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_kms_config_use_cached_wrapped_rpc():
@@ -11931,9 +12472,9 @@ def test_delete_kms_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_kms_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_kms_config] = (
+            mock_rpc
+        )
         request = {}
         client.delete_kms_config(request)
 
@@ -12000,9 +12541,14 @@ async def test_delete_kms_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_kms_config_async(
-    transport: str = "grpc_asyncio", request_type=kms.DeleteKmsConfigRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        kms.DeleteKmsConfigRequest(),
+        {},
+    ],
+)
+async def test_delete_kms_config_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -12010,7 +12556,7 @@ async def test_delete_kms_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -12030,11 +12576,6 @@ async def test_delete_kms_config_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_kms_config_async_from_dict():
-    await test_delete_kms_config_async(request_type=dict)
 
 
 def test_delete_kms_config_field_headers():
@@ -12191,8 +12732,8 @@ async def test_delete_kms_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        replication.ListReplicationsRequest,
-        dict,
+        replication.ListReplicationsRequest(),
+        {},
     ],
 )
 def test_list_replications(request_type, transport: str = "grpc"):
@@ -12203,7 +12744,7 @@ def test_list_replications(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -12256,12 +12797,13 @@ def test_list_replications_non_empty_request_with_auto_populated_field():
         client.list_replications(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == replication.ListReplicationsRequest(
+        request_msg = replication.ListReplicationsRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_replications_use_cached_wrapped_rpc():
@@ -12285,9 +12827,9 @@ def test_list_replications_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_replications
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_replications] = (
+            mock_rpc
+        )
         request = {}
         client.list_replications(request)
 
@@ -12344,9 +12886,14 @@ async def test_list_replications_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_replications_async(
-    transport: str = "grpc_asyncio", request_type=replication.ListReplicationsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        replication.ListReplicationsRequest(),
+        {},
+    ],
+)
+async def test_list_replications_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -12354,7 +12901,7 @@ async def test_list_replications_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -12379,11 +12926,6 @@ async def test_list_replications_async(
     assert isinstance(response, pagers.ListReplicationsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_replications_async_from_dict():
-    await test_list_replications_async(request_type=dict)
 
 
 def test_list_replications_field_headers():
@@ -12729,11 +13271,7 @@ async def test_list_replications_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_replications(request={})
-        ).pages:
+        async for page_ in (await client.list_replications(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -12742,8 +13280,8 @@ async def test_list_replications_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        replication.GetReplicationRequest,
-        dict,
+        replication.GetReplicationRequest(),
+        {},
     ],
 )
 def test_get_replication(request_type, transport: str = "grpc"):
@@ -12754,7 +13292,7 @@ def test_get_replication(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_replication), "__call__") as call:
@@ -12826,9 +13364,10 @@ def test_get_replication_non_empty_request_with_auto_populated_field():
         client.get_replication(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == replication.GetReplicationRequest(
+        request_msg = replication.GetReplicationRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_replication_use_cached_wrapped_rpc():
@@ -12909,9 +13448,14 @@ async def test_get_replication_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_replication_async(
-    transport: str = "grpc_asyncio", request_type=replication.GetReplicationRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        replication.GetReplicationRequest(),
+        {},
+    ],
+)
+async def test_get_replication_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -12919,7 +13463,7 @@ async def test_get_replication_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_replication), "__call__") as call:
@@ -12968,11 +13512,6 @@ async def test_get_replication_async(
         response.hybrid_replication_type
         == replication.Replication.HybridReplicationType.MIGRATION
     )
-
-
-@pytest.mark.asyncio
-async def test_get_replication_async_from_dict():
-    await test_get_replication_async(request_type=dict)
 
 
 def test_get_replication_field_headers():
@@ -13121,8 +13660,8 @@ async def test_get_replication_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_replication.CreateReplicationRequest,
-        dict,
+        gcn_replication.CreateReplicationRequest(),
+        {},
     ],
 )
 def test_create_replication(request_type, transport: str = "grpc"):
@@ -13133,7 +13672,7 @@ def test_create_replication(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -13179,10 +13718,11 @@ def test_create_replication_non_empty_request_with_auto_populated_field():
         client.create_replication(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_replication.CreateReplicationRequest(
+        request_msg = gcn_replication.CreateReplicationRequest(
             parent="parent_value",
             replication_id="replication_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_replication_use_cached_wrapped_rpc():
@@ -13208,9 +13748,9 @@ def test_create_replication_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_replication
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_replication] = (
+            mock_rpc
+        )
         request = {}
         client.create_replication(request)
 
@@ -13277,10 +13817,14 @@ async def test_create_replication_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_replication_async(
-    transport: str = "grpc_asyncio",
-    request_type=gcn_replication.CreateReplicationRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_replication.CreateReplicationRequest(),
+        {},
+    ],
+)
+async def test_create_replication_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -13288,7 +13832,7 @@ async def test_create_replication_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -13308,11 +13852,6 @@ async def test_create_replication_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_replication_async_from_dict():
-    await test_create_replication_async(request_type=dict)
 
 
 def test_create_replication_field_headers():
@@ -13489,8 +14028,8 @@ async def test_create_replication_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        replication.DeleteReplicationRequest,
-        dict,
+        replication.DeleteReplicationRequest(),
+        {},
     ],
 )
 def test_delete_replication(request_type, transport: str = "grpc"):
@@ -13501,7 +14040,7 @@ def test_delete_replication(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -13546,9 +14085,10 @@ def test_delete_replication_non_empty_request_with_auto_populated_field():
         client.delete_replication(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == replication.DeleteReplicationRequest(
+        request_msg = replication.DeleteReplicationRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_replication_use_cached_wrapped_rpc():
@@ -13574,9 +14114,9 @@ def test_delete_replication_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_replication
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_replication] = (
+            mock_rpc
+        )
         request = {}
         client.delete_replication(request)
 
@@ -13643,9 +14183,14 @@ async def test_delete_replication_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_replication_async(
-    transport: str = "grpc_asyncio", request_type=replication.DeleteReplicationRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        replication.DeleteReplicationRequest(),
+        {},
+    ],
+)
+async def test_delete_replication_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -13653,7 +14198,7 @@ async def test_delete_replication_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -13673,11 +14218,6 @@ async def test_delete_replication_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_replication_async_from_dict():
-    await test_delete_replication_async(request_type=dict)
 
 
 def test_delete_replication_field_headers():
@@ -13834,8 +14374,8 @@ async def test_delete_replication_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_replication.UpdateReplicationRequest,
-        dict,
+        gcn_replication.UpdateReplicationRequest(),
+        {},
     ],
 )
 def test_update_replication(request_type, transport: str = "grpc"):
@@ -13846,7 +14386,7 @@ def test_update_replication(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -13889,7 +14429,8 @@ def test_update_replication_non_empty_request_with_auto_populated_field():
         client.update_replication(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_replication.UpdateReplicationRequest()
+        request_msg = gcn_replication.UpdateReplicationRequest()
+        assert args[0] == request_msg
 
 
 def test_update_replication_use_cached_wrapped_rpc():
@@ -13915,9 +14456,9 @@ def test_update_replication_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_replication
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_replication] = (
+            mock_rpc
+        )
         request = {}
         client.update_replication(request)
 
@@ -13984,10 +14525,14 @@ async def test_update_replication_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_replication_async(
-    transport: str = "grpc_asyncio",
-    request_type=gcn_replication.UpdateReplicationRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_replication.UpdateReplicationRequest(),
+        {},
+    ],
+)
+async def test_update_replication_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -13995,7 +14540,7 @@ async def test_update_replication_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -14015,11 +14560,6 @@ async def test_update_replication_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_replication_async_from_dict():
-    await test_update_replication_async(request_type=dict)
 
 
 def test_update_replication_field_headers():
@@ -14186,8 +14726,8 @@ async def test_update_replication_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        replication.StopReplicationRequest,
-        dict,
+        replication.StopReplicationRequest(),
+        {},
     ],
 )
 def test_stop_replication(request_type, transport: str = "grpc"):
@@ -14198,7 +14738,7 @@ def test_stop_replication(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.stop_replication), "__call__") as call:
@@ -14239,9 +14779,10 @@ def test_stop_replication_non_empty_request_with_auto_populated_field():
         client.stop_replication(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == replication.StopReplicationRequest(
+        request_msg = replication.StopReplicationRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_stop_replication_use_cached_wrapped_rpc():
@@ -14265,9 +14806,9 @@ def test_stop_replication_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.stop_replication
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.stop_replication] = (
+            mock_rpc
+        )
         request = {}
         client.stop_replication(request)
 
@@ -14334,9 +14875,14 @@ async def test_stop_replication_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_stop_replication_async(
-    transport: str = "grpc_asyncio", request_type=replication.StopReplicationRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        replication.StopReplicationRequest(),
+        {},
+    ],
+)
+async def test_stop_replication_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -14344,7 +14890,7 @@ async def test_stop_replication_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.stop_replication), "__call__") as call:
@@ -14362,11 +14908,6 @@ async def test_stop_replication_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_stop_replication_async_from_dict():
-    await test_stop_replication_async(request_type=dict)
 
 
 def test_stop_replication_field_headers():
@@ -14433,8 +14974,8 @@ async def test_stop_replication_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        replication.ResumeReplicationRequest,
-        dict,
+        replication.ResumeReplicationRequest(),
+        {},
     ],
 )
 def test_resume_replication(request_type, transport: str = "grpc"):
@@ -14445,7 +14986,7 @@ def test_resume_replication(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -14490,9 +15031,10 @@ def test_resume_replication_non_empty_request_with_auto_populated_field():
         client.resume_replication(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == replication.ResumeReplicationRequest(
+        request_msg = replication.ResumeReplicationRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_resume_replication_use_cached_wrapped_rpc():
@@ -14518,9 +15060,9 @@ def test_resume_replication_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.resume_replication
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.resume_replication] = (
+            mock_rpc
+        )
         request = {}
         client.resume_replication(request)
 
@@ -14587,9 +15129,14 @@ async def test_resume_replication_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_resume_replication_async(
-    transport: str = "grpc_asyncio", request_type=replication.ResumeReplicationRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        replication.ResumeReplicationRequest(),
+        {},
+    ],
+)
+async def test_resume_replication_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -14597,7 +15144,7 @@ async def test_resume_replication_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -14617,11 +15164,6 @@ async def test_resume_replication_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_resume_replication_async_from_dict():
-    await test_resume_replication_async(request_type=dict)
 
 
 def test_resume_replication_field_headers():
@@ -14692,8 +15234,8 @@ async def test_resume_replication_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        replication.ReverseReplicationDirectionRequest,
-        dict,
+        replication.ReverseReplicationDirectionRequest(),
+        {},
     ],
 )
 def test_reverse_replication_direction(request_type, transport: str = "grpc"):
@@ -14704,7 +15246,7 @@ def test_reverse_replication_direction(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -14749,9 +15291,10 @@ def test_reverse_replication_direction_non_empty_request_with_auto_populated_fie
         client.reverse_replication_direction(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == replication.ReverseReplicationDirectionRequest(
+        request_msg = replication.ReverseReplicationDirectionRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_reverse_replication_direction_use_cached_wrapped_rpc():
@@ -14847,9 +15390,15 @@ async def test_reverse_replication_direction_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        replication.ReverseReplicationDirectionRequest(),
+        {},
+    ],
+)
 async def test_reverse_replication_direction_async(
-    transport: str = "grpc_asyncio",
-    request_type=replication.ReverseReplicationDirectionRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -14858,7 +15407,7 @@ async def test_reverse_replication_direction_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -14878,11 +15427,6 @@ async def test_reverse_replication_direction_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_reverse_replication_direction_async_from_dict():
-    await test_reverse_replication_direction_async(request_type=dict)
 
 
 def test_reverse_replication_direction_field_headers():
@@ -14953,8 +15497,8 @@ async def test_reverse_replication_direction_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        replication.EstablishPeeringRequest,
-        dict,
+        replication.EstablishPeeringRequest(),
+        {},
     ],
 )
 def test_establish_peering(request_type, transport: str = "grpc"):
@@ -14965,7 +15509,7 @@ def test_establish_peering(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -15013,12 +15557,13 @@ def test_establish_peering_non_empty_request_with_auto_populated_field():
         client.establish_peering(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == replication.EstablishPeeringRequest(
+        request_msg = replication.EstablishPeeringRequest(
             name="name_value",
             peer_cluster_name="peer_cluster_name_value",
             peer_svm_name="peer_svm_name_value",
             peer_volume_name="peer_volume_name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_establish_peering_use_cached_wrapped_rpc():
@@ -15042,9 +15587,9 @@ def test_establish_peering_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.establish_peering
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.establish_peering] = (
+            mock_rpc
+        )
         request = {}
         client.establish_peering(request)
 
@@ -15111,9 +15656,14 @@ async def test_establish_peering_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_establish_peering_async(
-    transport: str = "grpc_asyncio", request_type=replication.EstablishPeeringRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        replication.EstablishPeeringRequest(),
+        {},
+    ],
+)
+async def test_establish_peering_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -15121,7 +15671,7 @@ async def test_establish_peering_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -15141,11 +15691,6 @@ async def test_establish_peering_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_establish_peering_async_from_dict():
-    await test_establish_peering_async(request_type=dict)
 
 
 def test_establish_peering_field_headers():
@@ -15216,8 +15761,8 @@ async def test_establish_peering_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        replication.SyncReplicationRequest,
-        dict,
+        replication.SyncReplicationRequest(),
+        {},
     ],
 )
 def test_sync_replication(request_type, transport: str = "grpc"):
@@ -15228,7 +15773,7 @@ def test_sync_replication(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.sync_replication), "__call__") as call:
@@ -15269,9 +15814,10 @@ def test_sync_replication_non_empty_request_with_auto_populated_field():
         client.sync_replication(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == replication.SyncReplicationRequest(
+        request_msg = replication.SyncReplicationRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_sync_replication_use_cached_wrapped_rpc():
@@ -15295,9 +15841,9 @@ def test_sync_replication_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.sync_replication
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.sync_replication] = (
+            mock_rpc
+        )
         request = {}
         client.sync_replication(request)
 
@@ -15364,9 +15910,14 @@ async def test_sync_replication_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_sync_replication_async(
-    transport: str = "grpc_asyncio", request_type=replication.SyncReplicationRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        replication.SyncReplicationRequest(),
+        {},
+    ],
+)
+async def test_sync_replication_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -15374,7 +15925,7 @@ async def test_sync_replication_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.sync_replication), "__call__") as call:
@@ -15392,11 +15943,6 @@ async def test_sync_replication_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_sync_replication_async_from_dict():
-    await test_sync_replication_async(request_type=dict)
 
 
 def test_sync_replication_field_headers():
@@ -15463,8 +16009,8 @@ async def test_sync_replication_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_backup_vault.CreateBackupVaultRequest,
-        dict,
+        gcn_backup_vault.CreateBackupVaultRequest(),
+        {},
     ],
 )
 def test_create_backup_vault(request_type, transport: str = "grpc"):
@@ -15475,7 +16021,7 @@ def test_create_backup_vault(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -15521,10 +16067,11 @@ def test_create_backup_vault_non_empty_request_with_auto_populated_field():
         client.create_backup_vault(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_backup_vault.CreateBackupVaultRequest(
+        request_msg = gcn_backup_vault.CreateBackupVaultRequest(
             parent="parent_value",
             backup_vault_id="backup_vault_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_backup_vault_use_cached_wrapped_rpc():
@@ -15550,9 +16097,9 @@ def test_create_backup_vault_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_backup_vault
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_backup_vault] = (
+            mock_rpc
+        )
         request = {}
         client.create_backup_vault(request)
 
@@ -15619,10 +16166,14 @@ async def test_create_backup_vault_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_backup_vault_async(
-    transport: str = "grpc_asyncio",
-    request_type=gcn_backup_vault.CreateBackupVaultRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_backup_vault.CreateBackupVaultRequest(),
+        {},
+    ],
+)
+async def test_create_backup_vault_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -15630,7 +16181,7 @@ async def test_create_backup_vault_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -15650,11 +16201,6 @@ async def test_create_backup_vault_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_backup_vault_async_from_dict():
-    await test_create_backup_vault_async(request_type=dict)
 
 
 def test_create_backup_vault_field_headers():
@@ -15831,8 +16377,8 @@ async def test_create_backup_vault_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        backup_vault.GetBackupVaultRequest,
-        dict,
+        backup_vault.GetBackupVaultRequest(),
+        {},
     ],
 )
 def test_get_backup_vault(request_type, transport: str = "grpc"):
@@ -15843,7 +16389,7 @@ def test_get_backup_vault(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_backup_vault), "__call__") as call:
@@ -15857,6 +16403,9 @@ def test_get_backup_vault(request_type, transport: str = "grpc"):
             backup_region="backup_region_value",
             source_backup_vault="source_backup_vault_value",
             destination_backup_vault="destination_backup_vault_value",
+            kms_config="kms_config_value",
+            encryption_state=backup_vault.BackupVault.EncryptionState.ENCRYPTION_STATE_PENDING,
+            backups_crypto_key_version="backups_crypto_key_version_value",
         )
         response = client.get_backup_vault(request)
 
@@ -15878,6 +16427,12 @@ def test_get_backup_vault(request_type, transport: str = "grpc"):
     assert response.backup_region == "backup_region_value"
     assert response.source_backup_vault == "source_backup_vault_value"
     assert response.destination_backup_vault == "destination_backup_vault_value"
+    assert response.kms_config == "kms_config_value"
+    assert (
+        response.encryption_state
+        == backup_vault.BackupVault.EncryptionState.ENCRYPTION_STATE_PENDING
+    )
+    assert response.backups_crypto_key_version == "backups_crypto_key_version_value"
 
 
 def test_get_backup_vault_non_empty_request_with_auto_populated_field():
@@ -15903,9 +16458,10 @@ def test_get_backup_vault_non_empty_request_with_auto_populated_field():
         client.get_backup_vault(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == backup_vault.GetBackupVaultRequest(
+        request_msg = backup_vault.GetBackupVaultRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_backup_vault_use_cached_wrapped_rpc():
@@ -15929,9 +16485,9 @@ def test_get_backup_vault_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_backup_vault
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_backup_vault] = (
+            mock_rpc
+        )
         request = {}
         client.get_backup_vault(request)
 
@@ -15988,9 +16544,14 @@ async def test_get_backup_vault_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_backup_vault_async(
-    transport: str = "grpc_asyncio", request_type=backup_vault.GetBackupVaultRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        backup_vault.GetBackupVaultRequest(),
+        {},
+    ],
+)
+async def test_get_backup_vault_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -15998,7 +16559,7 @@ async def test_get_backup_vault_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_backup_vault), "__call__") as call:
@@ -16013,6 +16574,9 @@ async def test_get_backup_vault_async(
                 backup_region="backup_region_value",
                 source_backup_vault="source_backup_vault_value",
                 destination_backup_vault="destination_backup_vault_value",
+                kms_config="kms_config_value",
+                encryption_state=backup_vault.BackupVault.EncryptionState.ENCRYPTION_STATE_PENDING,
+                backups_crypto_key_version="backups_crypto_key_version_value",
             )
         )
         response = await client.get_backup_vault(request)
@@ -16035,11 +16599,12 @@ async def test_get_backup_vault_async(
     assert response.backup_region == "backup_region_value"
     assert response.source_backup_vault == "source_backup_vault_value"
     assert response.destination_backup_vault == "destination_backup_vault_value"
-
-
-@pytest.mark.asyncio
-async def test_get_backup_vault_async_from_dict():
-    await test_get_backup_vault_async(request_type=dict)
+    assert response.kms_config == "kms_config_value"
+    assert (
+        response.encryption_state
+        == backup_vault.BackupVault.EncryptionState.ENCRYPTION_STATE_PENDING
+    )
+    assert response.backups_crypto_key_version == "backups_crypto_key_version_value"
 
 
 def test_get_backup_vault_field_headers():
@@ -16188,8 +16753,8 @@ async def test_get_backup_vault_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        backup_vault.ListBackupVaultsRequest,
-        dict,
+        backup_vault.ListBackupVaultsRequest(),
+        {},
     ],
 )
 def test_list_backup_vaults(request_type, transport: str = "grpc"):
@@ -16200,7 +16765,7 @@ def test_list_backup_vaults(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -16253,12 +16818,13 @@ def test_list_backup_vaults_non_empty_request_with_auto_populated_field():
         client.list_backup_vaults(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == backup_vault.ListBackupVaultsRequest(
+        request_msg = backup_vault.ListBackupVaultsRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_backup_vaults_use_cached_wrapped_rpc():
@@ -16284,9 +16850,9 @@ def test_list_backup_vaults_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_backup_vaults
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_backup_vaults] = (
+            mock_rpc
+        )
         request = {}
         client.list_backup_vaults(request)
 
@@ -16343,9 +16909,14 @@ async def test_list_backup_vaults_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_backup_vaults_async(
-    transport: str = "grpc_asyncio", request_type=backup_vault.ListBackupVaultsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        backup_vault.ListBackupVaultsRequest(),
+        {},
+    ],
+)
+async def test_list_backup_vaults_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -16353,7 +16924,7 @@ async def test_list_backup_vaults_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -16378,11 +16949,6 @@ async def test_list_backup_vaults_async(
     assert isinstance(response, pagers.ListBackupVaultsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_backup_vaults_async_from_dict():
-    await test_list_backup_vaults_async(request_type=dict)
 
 
 def test_list_backup_vaults_field_headers():
@@ -16728,11 +17294,7 @@ async def test_list_backup_vaults_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_backup_vaults(request={})
-        ).pages:
+        async for page_ in (await client.list_backup_vaults(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -16741,8 +17303,8 @@ async def test_list_backup_vaults_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_backup_vault.UpdateBackupVaultRequest,
-        dict,
+        gcn_backup_vault.UpdateBackupVaultRequest(),
+        {},
     ],
 )
 def test_update_backup_vault(request_type, transport: str = "grpc"):
@@ -16753,7 +17315,7 @@ def test_update_backup_vault(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -16796,7 +17358,8 @@ def test_update_backup_vault_non_empty_request_with_auto_populated_field():
         client.update_backup_vault(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_backup_vault.UpdateBackupVaultRequest()
+        request_msg = gcn_backup_vault.UpdateBackupVaultRequest()
+        assert args[0] == request_msg
 
 
 def test_update_backup_vault_use_cached_wrapped_rpc():
@@ -16822,9 +17385,9 @@ def test_update_backup_vault_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_backup_vault
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_backup_vault] = (
+            mock_rpc
+        )
         request = {}
         client.update_backup_vault(request)
 
@@ -16891,10 +17454,14 @@ async def test_update_backup_vault_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_backup_vault_async(
-    transport: str = "grpc_asyncio",
-    request_type=gcn_backup_vault.UpdateBackupVaultRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_backup_vault.UpdateBackupVaultRequest(),
+        {},
+    ],
+)
+async def test_update_backup_vault_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -16902,7 +17469,7 @@ async def test_update_backup_vault_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -16922,11 +17489,6 @@ async def test_update_backup_vault_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_backup_vault_async_from_dict():
-    await test_update_backup_vault_async(request_type=dict)
 
 
 def test_update_backup_vault_field_headers():
@@ -17093,8 +17655,8 @@ async def test_update_backup_vault_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        backup_vault.DeleteBackupVaultRequest,
-        dict,
+        backup_vault.DeleteBackupVaultRequest(),
+        {},
     ],
 )
 def test_delete_backup_vault(request_type, transport: str = "grpc"):
@@ -17105,7 +17667,7 @@ def test_delete_backup_vault(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -17150,9 +17712,10 @@ def test_delete_backup_vault_non_empty_request_with_auto_populated_field():
         client.delete_backup_vault(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == backup_vault.DeleteBackupVaultRequest(
+        request_msg = backup_vault.DeleteBackupVaultRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_backup_vault_use_cached_wrapped_rpc():
@@ -17178,9 +17741,9 @@ def test_delete_backup_vault_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_backup_vault
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_backup_vault] = (
+            mock_rpc
+        )
         request = {}
         client.delete_backup_vault(request)
 
@@ -17247,9 +17810,14 @@ async def test_delete_backup_vault_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_backup_vault_async(
-    transport: str = "grpc_asyncio", request_type=backup_vault.DeleteBackupVaultRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        backup_vault.DeleteBackupVaultRequest(),
+        {},
+    ],
+)
+async def test_delete_backup_vault_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -17257,7 +17825,7 @@ async def test_delete_backup_vault_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -17277,11 +17845,6 @@ async def test_delete_backup_vault_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_backup_vault_async_from_dict():
-    await test_delete_backup_vault_async(request_type=dict)
 
 
 def test_delete_backup_vault_field_headers():
@@ -17438,8 +18001,8 @@ async def test_delete_backup_vault_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_backup.CreateBackupRequest,
-        dict,
+        gcn_backup.CreateBackupRequest(),
+        {},
     ],
 )
 def test_create_backup(request_type, transport: str = "grpc"):
@@ -17450,7 +18013,7 @@ def test_create_backup(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_backup), "__call__") as call:
@@ -17492,10 +18055,11 @@ def test_create_backup_non_empty_request_with_auto_populated_field():
         client.create_backup(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_backup.CreateBackupRequest(
+        request_msg = gcn_backup.CreateBackupRequest(
             parent="parent_value",
             backup_id="backup_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_backup_use_cached_wrapped_rpc():
@@ -17586,9 +18150,14 @@ async def test_create_backup_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_backup_async(
-    transport: str = "grpc_asyncio", request_type=gcn_backup.CreateBackupRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_backup.CreateBackupRequest(),
+        {},
+    ],
+)
+async def test_create_backup_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -17596,7 +18165,7 @@ async def test_create_backup_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_backup), "__call__") as call:
@@ -17614,11 +18183,6 @@ async def test_create_backup_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_backup_async_from_dict():
-    await test_create_backup_async(request_type=dict)
 
 
 def test_create_backup_field_headers():
@@ -17787,8 +18351,8 @@ async def test_create_backup_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        backup.GetBackupRequest,
-        dict,
+        backup.GetBackupRequest(),
+        {},
     ],
 )
 def test_get_backup(request_type, transport: str = "grpc"):
@@ -17799,7 +18363,7 @@ def test_get_backup(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_backup), "__call__") as call:
@@ -17865,9 +18429,10 @@ def test_get_backup_non_empty_request_with_auto_populated_field():
         client.get_backup(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == backup.GetBackupRequest(
+        request_msg = backup.GetBackupRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_backup_use_cached_wrapped_rpc():
@@ -17946,9 +18511,14 @@ async def test_get_backup_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_get_backup_async(
-    transport: str = "grpc_asyncio", request_type=backup.GetBackupRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        backup.GetBackupRequest(),
+        {},
+    ],
+)
+async def test_get_backup_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -17956,7 +18526,7 @@ async def test_get_backup_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_backup), "__call__") as call:
@@ -17999,11 +18569,6 @@ async def test_get_backup_async(
     assert response.satisfies_pzi is True
     assert response.volume_region == "volume_region_value"
     assert response.backup_region == "backup_region_value"
-
-
-@pytest.mark.asyncio
-async def test_get_backup_async_from_dict():
-    await test_get_backup_async(request_type=dict)
 
 
 def test_get_backup_field_headers():
@@ -18148,8 +18713,8 @@ async def test_get_backup_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        backup.ListBackupsRequest,
-        dict,
+        backup.ListBackupsRequest(),
+        {},
     ],
 )
 def test_list_backups(request_type, transport: str = "grpc"):
@@ -18160,7 +18725,7 @@ def test_list_backups(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_backups), "__call__") as call:
@@ -18209,12 +18774,13 @@ def test_list_backups_non_empty_request_with_auto_populated_field():
         client.list_backups(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == backup.ListBackupsRequest(
+        request_msg = backup.ListBackupsRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_backups_use_cached_wrapped_rpc():
@@ -18295,9 +18861,14 @@ async def test_list_backups_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_backups_async(
-    transport: str = "grpc_asyncio", request_type=backup.ListBackupsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        backup.ListBackupsRequest(),
+        {},
+    ],
+)
+async def test_list_backups_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -18305,7 +18876,7 @@ async def test_list_backups_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_backups), "__call__") as call:
@@ -18328,11 +18899,6 @@ async def test_list_backups_async(
     assert isinstance(response, pagers.ListBackupsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_backups_async_from_dict():
-    await test_list_backups_async(request_type=dict)
 
 
 def test_list_backups_field_headers():
@@ -18662,11 +19228,7 @@ async def test_list_backups_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_backups(request={})
-        ).pages:
+        async for page_ in (await client.list_backups(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -18675,8 +19237,8 @@ async def test_list_backups_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        backup.DeleteBackupRequest,
-        dict,
+        backup.DeleteBackupRequest(),
+        {},
     ],
 )
 def test_delete_backup(request_type, transport: str = "grpc"):
@@ -18687,7 +19249,7 @@ def test_delete_backup(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_backup), "__call__") as call:
@@ -18728,9 +19290,10 @@ def test_delete_backup_non_empty_request_with_auto_populated_field():
         client.delete_backup(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == backup.DeleteBackupRequest(
+        request_msg = backup.DeleteBackupRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_backup_use_cached_wrapped_rpc():
@@ -18821,9 +19384,14 @@ async def test_delete_backup_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_backup_async(
-    transport: str = "grpc_asyncio", request_type=backup.DeleteBackupRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        backup.DeleteBackupRequest(),
+        {},
+    ],
+)
+async def test_delete_backup_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -18831,7 +19399,7 @@ async def test_delete_backup_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_backup), "__call__") as call:
@@ -18849,11 +19417,6 @@ async def test_delete_backup_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_backup_async_from_dict():
-    await test_delete_backup_async(request_type=dict)
 
 
 def test_delete_backup_field_headers():
@@ -19002,8 +19565,8 @@ async def test_delete_backup_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_backup.UpdateBackupRequest,
-        dict,
+        gcn_backup.UpdateBackupRequest(),
+        {},
     ],
 )
 def test_update_backup(request_type, transport: str = "grpc"):
@@ -19014,7 +19577,7 @@ def test_update_backup(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_backup), "__call__") as call:
@@ -19053,7 +19616,8 @@ def test_update_backup_non_empty_request_with_auto_populated_field():
         client.update_backup(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_backup.UpdateBackupRequest()
+        request_msg = gcn_backup.UpdateBackupRequest()
+        assert args[0] == request_msg
 
 
 def test_update_backup_use_cached_wrapped_rpc():
@@ -19144,9 +19708,14 @@ async def test_update_backup_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_backup_async(
-    transport: str = "grpc_asyncio", request_type=gcn_backup.UpdateBackupRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_backup.UpdateBackupRequest(),
+        {},
+    ],
+)
+async def test_update_backup_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -19154,7 +19723,7 @@ async def test_update_backup_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_backup), "__call__") as call:
@@ -19172,11 +19741,6 @@ async def test_update_backup_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_backup_async_from_dict():
-    await test_update_backup_async(request_type=dict)
 
 
 def test_update_backup_field_headers():
@@ -19335,8 +19899,8 @@ async def test_update_backup_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_backup_policy.CreateBackupPolicyRequest,
-        dict,
+        gcn_backup_policy.CreateBackupPolicyRequest(),
+        {},
     ],
 )
 def test_create_backup_policy(request_type, transport: str = "grpc"):
@@ -19347,7 +19911,7 @@ def test_create_backup_policy(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -19393,10 +19957,11 @@ def test_create_backup_policy_non_empty_request_with_auto_populated_field():
         client.create_backup_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_backup_policy.CreateBackupPolicyRequest(
+        request_msg = gcn_backup_policy.CreateBackupPolicyRequest(
             parent="parent_value",
             backup_policy_id="backup_policy_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_backup_policy_use_cached_wrapped_rpc():
@@ -19422,9 +19987,9 @@ def test_create_backup_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_backup_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_backup_policy] = (
+            mock_rpc
+        )
         request = {}
         client.create_backup_policy(request)
 
@@ -19491,9 +20056,15 @@ async def test_create_backup_policy_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_backup_policy.CreateBackupPolicyRequest(),
+        {},
+    ],
+)
 async def test_create_backup_policy_async(
-    transport: str = "grpc_asyncio",
-    request_type=gcn_backup_policy.CreateBackupPolicyRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -19502,7 +20073,7 @@ async def test_create_backup_policy_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -19522,11 +20093,6 @@ async def test_create_backup_policy_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_backup_policy_async_from_dict():
-    await test_create_backup_policy_async(request_type=dict)
 
 
 def test_create_backup_policy_field_headers():
@@ -19703,8 +20269,8 @@ async def test_create_backup_policy_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        backup_policy.GetBackupPolicyRequest,
-        dict,
+        backup_policy.GetBackupPolicyRequest(),
+        {},
     ],
 )
 def test_get_backup_policy(request_type, transport: str = "grpc"):
@@ -19715,7 +20281,7 @@ def test_get_backup_policy(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -19777,9 +20343,10 @@ def test_get_backup_policy_non_empty_request_with_auto_populated_field():
         client.get_backup_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == backup_policy.GetBackupPolicyRequest(
+        request_msg = backup_policy.GetBackupPolicyRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_backup_policy_use_cached_wrapped_rpc():
@@ -19803,9 +20370,9 @@ def test_get_backup_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_backup_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_backup_policy] = (
+            mock_rpc
+        )
         request = {}
         client.get_backup_policy(request)
 
@@ -19862,9 +20429,14 @@ async def test_get_backup_policy_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_backup_policy_async(
-    transport: str = "grpc_asyncio", request_type=backup_policy.GetBackupPolicyRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        backup_policy.GetBackupPolicyRequest(),
+        {},
+    ],
+)
+async def test_get_backup_policy_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -19872,7 +20444,7 @@ async def test_get_backup_policy_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -19909,11 +20481,6 @@ async def test_get_backup_policy_async(
     assert response.enabled is True
     assert response.assigned_volume_count == 2253
     assert response.state == backup_policy.BackupPolicy.State.CREATING
-
-
-@pytest.mark.asyncio
-async def test_get_backup_policy_async_from_dict():
-    await test_get_backup_policy_async(request_type=dict)
 
 
 def test_get_backup_policy_field_headers():
@@ -20070,8 +20637,8 @@ async def test_get_backup_policy_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        backup_policy.ListBackupPoliciesRequest,
-        dict,
+        backup_policy.ListBackupPoliciesRequest(),
+        {},
     ],
 )
 def test_list_backup_policies(request_type, transport: str = "grpc"):
@@ -20082,7 +20649,7 @@ def test_list_backup_policies(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -20135,12 +20702,13 @@ def test_list_backup_policies_non_empty_request_with_auto_populated_field():
         client.list_backup_policies(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == backup_policy.ListBackupPoliciesRequest(
+        request_msg = backup_policy.ListBackupPoliciesRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_backup_policies_use_cached_wrapped_rpc():
@@ -20166,9 +20734,9 @@ def test_list_backup_policies_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_backup_policies
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_backup_policies] = (
+            mock_rpc
+        )
         request = {}
         client.list_backup_policies(request)
 
@@ -20225,9 +20793,15 @@ async def test_list_backup_policies_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        backup_policy.ListBackupPoliciesRequest(),
+        {},
+    ],
+)
 async def test_list_backup_policies_async(
-    transport: str = "grpc_asyncio",
-    request_type=backup_policy.ListBackupPoliciesRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -20236,7 +20810,7 @@ async def test_list_backup_policies_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -20261,11 +20835,6 @@ async def test_list_backup_policies_async(
     assert isinstance(response, pagers.ListBackupPoliciesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_backup_policies_async_from_dict():
-    await test_list_backup_policies_async(request_type=dict)
 
 
 def test_list_backup_policies_field_headers():
@@ -20611,11 +21180,7 @@ async def test_list_backup_policies_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_backup_policies(request={})
-        ).pages:
+        async for page_ in (await client.list_backup_policies(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -20624,8 +21189,8 @@ async def test_list_backup_policies_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_backup_policy.UpdateBackupPolicyRequest,
-        dict,
+        gcn_backup_policy.UpdateBackupPolicyRequest(),
+        {},
     ],
 )
 def test_update_backup_policy(request_type, transport: str = "grpc"):
@@ -20636,7 +21201,7 @@ def test_update_backup_policy(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -20679,7 +21244,8 @@ def test_update_backup_policy_non_empty_request_with_auto_populated_field():
         client.update_backup_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_backup_policy.UpdateBackupPolicyRequest()
+        request_msg = gcn_backup_policy.UpdateBackupPolicyRequest()
+        assert args[0] == request_msg
 
 
 def test_update_backup_policy_use_cached_wrapped_rpc():
@@ -20705,9 +21271,9 @@ def test_update_backup_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_backup_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_backup_policy] = (
+            mock_rpc
+        )
         request = {}
         client.update_backup_policy(request)
 
@@ -20774,9 +21340,15 @@ async def test_update_backup_policy_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_backup_policy.UpdateBackupPolicyRequest(),
+        {},
+    ],
+)
 async def test_update_backup_policy_async(
-    transport: str = "grpc_asyncio",
-    request_type=gcn_backup_policy.UpdateBackupPolicyRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -20785,7 +21357,7 @@ async def test_update_backup_policy_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -20805,11 +21377,6 @@ async def test_update_backup_policy_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_backup_policy_async_from_dict():
-    await test_update_backup_policy_async(request_type=dict)
 
 
 def test_update_backup_policy_field_headers():
@@ -20976,8 +21543,8 @@ async def test_update_backup_policy_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        backup_policy.DeleteBackupPolicyRequest,
-        dict,
+        backup_policy.DeleteBackupPolicyRequest(),
+        {},
     ],
 )
 def test_delete_backup_policy(request_type, transport: str = "grpc"):
@@ -20988,7 +21555,7 @@ def test_delete_backup_policy(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -21033,9 +21600,10 @@ def test_delete_backup_policy_non_empty_request_with_auto_populated_field():
         client.delete_backup_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == backup_policy.DeleteBackupPolicyRequest(
+        request_msg = backup_policy.DeleteBackupPolicyRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_backup_policy_use_cached_wrapped_rpc():
@@ -21061,9 +21629,9 @@ def test_delete_backup_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_backup_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_backup_policy] = (
+            mock_rpc
+        )
         request = {}
         client.delete_backup_policy(request)
 
@@ -21130,9 +21698,15 @@ async def test_delete_backup_policy_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        backup_policy.DeleteBackupPolicyRequest(),
+        {},
+    ],
+)
 async def test_delete_backup_policy_async(
-    transport: str = "grpc_asyncio",
-    request_type=backup_policy.DeleteBackupPolicyRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -21141,7 +21715,7 @@ async def test_delete_backup_policy_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -21161,11 +21735,6 @@ async def test_delete_backup_policy_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_backup_policy_async_from_dict():
-    await test_delete_backup_policy_async(request_type=dict)
 
 
 def test_delete_backup_policy_field_headers():
@@ -21322,8 +21891,8 @@ async def test_delete_backup_policy_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        quota_rule.ListQuotaRulesRequest,
-        dict,
+        quota_rule.ListQuotaRulesRequest(),
+        {},
     ],
 )
 def test_list_quota_rules(request_type, transport: str = "grpc"):
@@ -21334,7 +21903,7 @@ def test_list_quota_rules(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_quota_rules), "__call__") as call:
@@ -21383,12 +21952,13 @@ def test_list_quota_rules_non_empty_request_with_auto_populated_field():
         client.list_quota_rules(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == quota_rule.ListQuotaRulesRequest(
+        request_msg = quota_rule.ListQuotaRulesRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_quota_rules_use_cached_wrapped_rpc():
@@ -21412,9 +21982,9 @@ def test_list_quota_rules_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_quota_rules
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_quota_rules] = (
+            mock_rpc
+        )
         request = {}
         client.list_quota_rules(request)
 
@@ -21471,9 +22041,14 @@ async def test_list_quota_rules_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_quota_rules_async(
-    transport: str = "grpc_asyncio", request_type=quota_rule.ListQuotaRulesRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        quota_rule.ListQuotaRulesRequest(),
+        {},
+    ],
+)
+async def test_list_quota_rules_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -21481,7 +22056,7 @@ async def test_list_quota_rules_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_quota_rules), "__call__") as call:
@@ -21504,11 +22079,6 @@ async def test_list_quota_rules_async(
     assert isinstance(response, pagers.ListQuotaRulesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_quota_rules_async_from_dict():
-    await test_list_quota_rules_async(request_type=dict)
 
 
 def test_list_quota_rules_field_headers():
@@ -21838,11 +22408,7 @@ async def test_list_quota_rules_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_quota_rules(request={})
-        ).pages:
+        async for page_ in (await client.list_quota_rules(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -21851,8 +22417,8 @@ async def test_list_quota_rules_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        quota_rule.GetQuotaRuleRequest,
-        dict,
+        quota_rule.GetQuotaRuleRequest(),
+        {},
     ],
 )
 def test_get_quota_rule(request_type, transport: str = "grpc"):
@@ -21863,7 +22429,7 @@ def test_get_quota_rule(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_quota_rule), "__call__") as call:
@@ -21919,9 +22485,10 @@ def test_get_quota_rule_non_empty_request_with_auto_populated_field():
         client.get_quota_rule(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == quota_rule.GetQuotaRuleRequest(
+        request_msg = quota_rule.GetQuotaRuleRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_quota_rule_use_cached_wrapped_rpc():
@@ -22002,9 +22569,14 @@ async def test_get_quota_rule_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_quota_rule_async(
-    transport: str = "grpc_asyncio", request_type=quota_rule.GetQuotaRuleRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        quota_rule.GetQuotaRuleRequest(),
+        {},
+    ],
+)
+async def test_get_quota_rule_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -22012,7 +22584,7 @@ async def test_get_quota_rule_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_quota_rule), "__call__") as call:
@@ -22045,11 +22617,6 @@ async def test_get_quota_rule_async(
     assert response.state == quota_rule.QuotaRule.State.CREATING
     assert response.state_details == "state_details_value"
     assert response.description == "description_value"
-
-
-@pytest.mark.asyncio
-async def test_get_quota_rule_async_from_dict():
-    await test_get_quota_rule_async(request_type=dict)
 
 
 def test_get_quota_rule_field_headers():
@@ -22198,8 +22765,8 @@ async def test_get_quota_rule_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_quota_rule.CreateQuotaRuleRequest,
-        dict,
+        gcn_quota_rule.CreateQuotaRuleRequest(),
+        {},
     ],
 )
 def test_create_quota_rule(request_type, transport: str = "grpc"):
@@ -22210,7 +22777,7 @@ def test_create_quota_rule(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -22256,10 +22823,11 @@ def test_create_quota_rule_non_empty_request_with_auto_populated_field():
         client.create_quota_rule(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_quota_rule.CreateQuotaRuleRequest(
+        request_msg = gcn_quota_rule.CreateQuotaRuleRequest(
             parent="parent_value",
             quota_rule_id="quota_rule_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_quota_rule_use_cached_wrapped_rpc():
@@ -22283,9 +22851,9 @@ def test_create_quota_rule_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_quota_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_quota_rule] = (
+            mock_rpc
+        )
         request = {}
         client.create_quota_rule(request)
 
@@ -22352,9 +22920,14 @@ async def test_create_quota_rule_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_quota_rule_async(
-    transport: str = "grpc_asyncio", request_type=gcn_quota_rule.CreateQuotaRuleRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_quota_rule.CreateQuotaRuleRequest(),
+        {},
+    ],
+)
+async def test_create_quota_rule_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -22362,7 +22935,7 @@ async def test_create_quota_rule_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -22382,11 +22955,6 @@ async def test_create_quota_rule_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_quota_rule_async_from_dict():
-    await test_create_quota_rule_async(request_type=dict)
 
 
 def test_create_quota_rule_field_headers():
@@ -22563,8 +23131,8 @@ async def test_create_quota_rule_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gcn_quota_rule.UpdateQuotaRuleRequest,
-        dict,
+        gcn_quota_rule.UpdateQuotaRuleRequest(),
+        {},
     ],
 )
 def test_update_quota_rule(request_type, transport: str = "grpc"):
@@ -22575,7 +23143,7 @@ def test_update_quota_rule(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -22618,7 +23186,8 @@ def test_update_quota_rule_non_empty_request_with_auto_populated_field():
         client.update_quota_rule(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gcn_quota_rule.UpdateQuotaRuleRequest()
+        request_msg = gcn_quota_rule.UpdateQuotaRuleRequest()
+        assert args[0] == request_msg
 
 
 def test_update_quota_rule_use_cached_wrapped_rpc():
@@ -22642,9 +23211,9 @@ def test_update_quota_rule_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_quota_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_quota_rule] = (
+            mock_rpc
+        )
         request = {}
         client.update_quota_rule(request)
 
@@ -22711,9 +23280,14 @@ async def test_update_quota_rule_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_quota_rule_async(
-    transport: str = "grpc_asyncio", request_type=gcn_quota_rule.UpdateQuotaRuleRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_quota_rule.UpdateQuotaRuleRequest(),
+        {},
+    ],
+)
+async def test_update_quota_rule_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -22721,7 +23295,7 @@ async def test_update_quota_rule_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -22741,11 +23315,6 @@ async def test_update_quota_rule_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_quota_rule_async_from_dict():
-    await test_update_quota_rule_async(request_type=dict)
 
 
 def test_update_quota_rule_field_headers():
@@ -22912,8 +23481,8 @@ async def test_update_quota_rule_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        quota_rule.DeleteQuotaRuleRequest,
-        dict,
+        quota_rule.DeleteQuotaRuleRequest(),
+        {},
     ],
 )
 def test_delete_quota_rule(request_type, transport: str = "grpc"):
@@ -22924,7 +23493,7 @@ def test_delete_quota_rule(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -22969,9 +23538,10 @@ def test_delete_quota_rule_non_empty_request_with_auto_populated_field():
         client.delete_quota_rule(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == quota_rule.DeleteQuotaRuleRequest(
+        request_msg = quota_rule.DeleteQuotaRuleRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_quota_rule_use_cached_wrapped_rpc():
@@ -22995,9 +23565,9 @@ def test_delete_quota_rule_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_quota_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_quota_rule] = (
+            mock_rpc
+        )
         request = {}
         client.delete_quota_rule(request)
 
@@ -23064,9 +23634,14 @@ async def test_delete_quota_rule_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_quota_rule_async(
-    transport: str = "grpc_asyncio", request_type=quota_rule.DeleteQuotaRuleRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        quota_rule.DeleteQuotaRuleRequest(),
+        {},
+    ],
+)
+async def test_delete_quota_rule_async(request_type, transport: str = "grpc_asyncio"):
     client = NetAppAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -23074,7 +23649,7 @@ async def test_delete_quota_rule_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -23094,11 +23669,6 @@ async def test_delete_quota_rule_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_quota_rule_async_from_dict():
-    await test_delete_quota_rule_async(request_type=dict)
 
 
 def test_delete_quota_rule_field_headers():
@@ -23252,6 +23822,3202 @@ async def test_delete_quota_rule_flattened_error_async():
         )
 
 
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        volume.RestoreBackupFilesRequest(),
+        {},
+    ],
+)
+def test_restore_backup_files(request_type, transport: str = "grpc"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.restore_backup_files), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.restore_backup_files(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = volume.RestoreBackupFilesRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_restore_backup_files_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = volume.RestoreBackupFilesRequest(
+        name="name_value",
+        backup="backup_value",
+        restore_destination_path="restore_destination_path_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.restore_backup_files), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.restore_backup_files(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = volume.RestoreBackupFilesRequest(
+            name="name_value",
+            backup="backup_value",
+            restore_destination_path="restore_destination_path_value",
+        )
+        assert args[0] == request_msg
+
+
+def test_restore_backup_files_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.restore_backup_files in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.restore_backup_files] = (
+            mock_rpc
+        )
+        request = {}
+        client.restore_backup_files(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.restore_backup_files(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_restore_backup_files_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetAppAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.restore_backup_files
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.restore_backup_files
+        ] = mock_rpc
+
+        request = {}
+        await client.restore_backup_files(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.restore_backup_files(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        volume.RestoreBackupFilesRequest(),
+        {},
+    ],
+)
+async def test_restore_backup_files_async(
+    request_type, transport: str = "grpc_asyncio"
+):
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.restore_backup_files), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.restore_backup_files(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = volume.RestoreBackupFilesRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_restore_backup_files_field_headers():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = volume.RestoreBackupFilesRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.restore_backup_files), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.restore_backup_files(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_restore_backup_files_field_headers_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = volume.RestoreBackupFilesRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.restore_backup_files), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.restore_backup_files(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        host_group.ListHostGroupsRequest(),
+        {},
+    ],
+)
+def test_list_host_groups(request_type, transport: str = "grpc"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_host_groups), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = host_group.ListHostGroupsResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+        response = client.list_host_groups(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = host_group.ListHostGroupsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListHostGroupsPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+def test_list_host_groups_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = host_group.ListHostGroupsRequest(
+        parent="parent_value",
+        page_token="page_token_value",
+        filter="filter_value",
+        order_by="order_by_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_host_groups), "__call__") as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.list_host_groups(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = host_group.ListHostGroupsRequest(
+            parent="parent_value",
+            page_token="page_token_value",
+            filter="filter_value",
+            order_by="order_by_value",
+        )
+        assert args[0] == request_msg
+
+
+def test_list_host_groups_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.list_host_groups in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.list_host_groups] = (
+            mock_rpc
+        )
+        request = {}
+        client.list_host_groups(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_host_groups(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_host_groups_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetAppAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.list_host_groups
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.list_host_groups
+        ] = mock_rpc
+
+        request = {}
+        await client.list_host_groups(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.list_host_groups(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        host_group.ListHostGroupsRequest(),
+        {},
+    ],
+)
+async def test_list_host_groups_async(request_type, transport: str = "grpc_asyncio"):
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_host_groups), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            host_group.ListHostGroupsResponse(
+                next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
+            )
+        )
+        response = await client.list_host_groups(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = host_group.ListHostGroupsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListHostGroupsAsyncPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+def test_list_host_groups_field_headers():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = host_group.ListHostGroupsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_host_groups), "__call__") as call:
+        call.return_value = host_group.ListHostGroupsResponse()
+        client.list_host_groups(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_list_host_groups_field_headers_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = host_group.ListHostGroupsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_host_groups), "__call__") as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            host_group.ListHostGroupsResponse()
+        )
+        await client.list_host_groups(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+def test_list_host_groups_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_host_groups), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = host_group.ListHostGroupsResponse()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.list_host_groups(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+def test_list_host_groups_flattened_error():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_host_groups(
+            host_group.ListHostGroupsRequest(),
+            parent="parent_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_list_host_groups_flattened_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_host_groups), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = host_group.ListHostGroupsResponse()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            host_group.ListHostGroupsResponse()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.list_host_groups(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_list_host_groups_flattened_error_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.list_host_groups(
+            host_group.ListHostGroupsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_host_groups_pager(transport_name: str = "grpc"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_host_groups), "__call__") as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                ],
+                next_page_token="abc",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[],
+                next_page_token="def",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                ],
+                next_page_token="ghi",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                ],
+            ),
+            RuntimeError,
+        )
+
+        expected_metadata = ()
+        retry = retries.Retry()
+        timeout = 5
+        expected_metadata = tuple(expected_metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", ""),)),
+        )
+        pager = client.list_host_groups(request={}, retry=retry, timeout=timeout)
+
+        assert pager._metadata == expected_metadata
+        assert pager._retry == retry
+        assert pager._timeout == timeout
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, host_group.HostGroup) for i in results)
+
+
+def test_list_host_groups_pages(transport_name: str = "grpc"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_host_groups), "__call__") as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                ],
+                next_page_token="abc",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[],
+                next_page_token="def",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                ],
+                next_page_token="ghi",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = list(client.list_host_groups(request={}).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.asyncio
+async def test_list_host_groups_async_pager():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_host_groups), "__call__", new_callable=mock.AsyncMock
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                ],
+                next_page_token="abc",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[],
+                next_page_token="def",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                ],
+                next_page_token="ghi",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                ],
+            ),
+            RuntimeError,
+        )
+        async_pager = await client.list_host_groups(
+            request={},
+        )
+        assert async_pager.next_page_token == "abc"
+        responses = []
+        async for response in async_pager:  # pragma: no branch
+            responses.append(response)
+
+        assert len(responses) == 6
+        assert all(isinstance(i, host_group.HostGroup) for i in responses)
+
+
+@pytest.mark.asyncio
+async def test_list_host_groups_async_pages():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_host_groups), "__call__", new_callable=mock.AsyncMock
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                ],
+                next_page_token="abc",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[],
+                next_page_token="def",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                ],
+                next_page_token="ghi",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = []
+        async for page_ in (await client.list_host_groups(request={})).pages:
+            pages.append(page_)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        host_group.GetHostGroupRequest(),
+        {},
+    ],
+)
+def test_get_host_group(request_type, transport: str = "grpc"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_host_group), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = host_group.HostGroup(
+            name="name_value",
+            type_=host_group.HostGroup.Type.ISCSI_INITIATOR,
+            state=host_group.HostGroup.State.CREATING,
+            hosts=["hosts_value"],
+            os_type=common.OsType.LINUX,
+            description="description_value",
+        )
+        response = client.get_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = host_group.GetHostGroupRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, host_group.HostGroup)
+    assert response.name == "name_value"
+    assert response.type_ == host_group.HostGroup.Type.ISCSI_INITIATOR
+    assert response.state == host_group.HostGroup.State.CREATING
+    assert response.hosts == ["hosts_value"]
+    assert response.os_type == common.OsType.LINUX
+    assert response.description == "description_value"
+
+
+def test_get_host_group_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = host_group.GetHostGroupRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_host_group), "__call__") as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.get_host_group(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = host_group.GetHostGroupRequest(
+            name="name_value",
+        )
+        assert args[0] == request_msg
+
+
+def test_get_host_group_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.get_host_group in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_host_group] = mock_rpc
+        request = {}
+        client.get_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_host_group(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_host_group_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetAppAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.get_host_group
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.get_host_group
+        ] = mock_rpc
+
+        request = {}
+        await client.get_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.get_host_group(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        host_group.GetHostGroupRequest(),
+        {},
+    ],
+)
+async def test_get_host_group_async(request_type, transport: str = "grpc_asyncio"):
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_host_group), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            host_group.HostGroup(
+                name="name_value",
+                type_=host_group.HostGroup.Type.ISCSI_INITIATOR,
+                state=host_group.HostGroup.State.CREATING,
+                hosts=["hosts_value"],
+                os_type=common.OsType.LINUX,
+                description="description_value",
+            )
+        )
+        response = await client.get_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = host_group.GetHostGroupRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, host_group.HostGroup)
+    assert response.name == "name_value"
+    assert response.type_ == host_group.HostGroup.Type.ISCSI_INITIATOR
+    assert response.state == host_group.HostGroup.State.CREATING
+    assert response.hosts == ["hosts_value"]
+    assert response.os_type == common.OsType.LINUX
+    assert response.description == "description_value"
+
+
+def test_get_host_group_field_headers():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = host_group.GetHostGroupRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_host_group), "__call__") as call:
+        call.return_value = host_group.HostGroup()
+        client.get_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_host_group_field_headers_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = host_group.GetHostGroupRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_host_group), "__call__") as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            host_group.HostGroup()
+        )
+        await client.get_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_get_host_group_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_host_group), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = host_group.HostGroup()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.get_host_group(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_get_host_group_flattened_error():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_host_group(
+            host_group.GetHostGroupRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_host_group_flattened_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_host_group), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = host_group.HostGroup()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            host_group.HostGroup()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.get_host_group(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_get_host_group_flattened_error_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.get_host_group(
+            host_group.GetHostGroupRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_host_group.CreateHostGroupRequest(),
+        {},
+    ],
+)
+def test_create_host_group(request_type, transport: str = "grpc"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.create_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = gcn_host_group.CreateHostGroupRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_create_host_group_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = gcn_host_group.CreateHostGroupRequest(
+        parent="parent_value",
+        host_group_id="host_group_id_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_host_group), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.create_host_group(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_host_group.CreateHostGroupRequest(
+            parent="parent_value",
+            host_group_id="host_group_id_value",
+        )
+        assert args[0] == request_msg
+
+
+def test_create_host_group_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.create_host_group in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.create_host_group] = (
+            mock_rpc
+        )
+        request = {}
+        client.create_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.create_host_group(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_create_host_group_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetAppAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.create_host_group
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.create_host_group
+        ] = mock_rpc
+
+        request = {}
+        await client.create_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.create_host_group(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_host_group.CreateHostGroupRequest(),
+        {},
+    ],
+)
+async def test_create_host_group_async(request_type, transport: str = "grpc_asyncio"):
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.create_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = gcn_host_group.CreateHostGroupRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_create_host_group_field_headers():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = gcn_host_group.CreateHostGroupRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_host_group), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.create_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_create_host_group_field_headers_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = gcn_host_group.CreateHostGroupRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_host_group), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.create_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+def test_create_host_group_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.create_host_group(
+            parent="parent_value",
+            host_group=gcn_host_group.HostGroup(name="name_value"),
+            host_group_id="host_group_id_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+        arg = args[0].host_group
+        mock_val = gcn_host_group.HostGroup(name="name_value")
+        assert arg == mock_val
+        arg = args[0].host_group_id
+        mock_val = "host_group_id_value"
+        assert arg == mock_val
+
+
+def test_create_host_group_flattened_error():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_host_group(
+            gcn_host_group.CreateHostGroupRequest(),
+            parent="parent_value",
+            host_group=gcn_host_group.HostGroup(name="name_value"),
+            host_group_id="host_group_id_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_host_group_flattened_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.create_host_group(
+            parent="parent_value",
+            host_group=gcn_host_group.HostGroup(name="name_value"),
+            host_group_id="host_group_id_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+        arg = args[0].host_group
+        mock_val = gcn_host_group.HostGroup(name="name_value")
+        assert arg == mock_val
+        arg = args[0].host_group_id
+        mock_val = "host_group_id_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_create_host_group_flattened_error_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.create_host_group(
+            gcn_host_group.CreateHostGroupRequest(),
+            parent="parent_value",
+            host_group=gcn_host_group.HostGroup(name="name_value"),
+            host_group_id="host_group_id_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_host_group.UpdateHostGroupRequest(),
+        {},
+    ],
+)
+def test_update_host_group(request_type, transport: str = "grpc"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.update_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = gcn_host_group.UpdateHostGroupRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_update_host_group_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = gcn_host_group.UpdateHostGroupRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_host_group), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.update_host_group(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_host_group.UpdateHostGroupRequest()
+        assert args[0] == request_msg
+
+
+def test_update_host_group_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.update_host_group in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.update_host_group] = (
+            mock_rpc
+        )
+        request = {}
+        client.update_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.update_host_group(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_update_host_group_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetAppAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.update_host_group
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.update_host_group
+        ] = mock_rpc
+
+        request = {}
+        await client.update_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.update_host_group(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_host_group.UpdateHostGroupRequest(),
+        {},
+    ],
+)
+async def test_update_host_group_async(request_type, transport: str = "grpc_asyncio"):
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.update_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = gcn_host_group.UpdateHostGroupRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_update_host_group_field_headers():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = gcn_host_group.UpdateHostGroupRequest()
+
+    request.host_group.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_host_group), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.update_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "host_group.name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_update_host_group_field_headers_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = gcn_host_group.UpdateHostGroupRequest()
+
+    request.host_group.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_host_group), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.update_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "host_group.name=name_value",
+    ) in kw["metadata"]
+
+
+def test_update_host_group_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.update_host_group(
+            host_group=gcn_host_group.HostGroup(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].host_group
+        mock_val = gcn_host_group.HostGroup(name="name_value")
+        assert arg == mock_val
+        arg = args[0].update_mask
+        mock_val = field_mask_pb2.FieldMask(paths=["paths_value"])
+        assert arg == mock_val
+
+
+def test_update_host_group_flattened_error():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_host_group(
+            gcn_host_group.UpdateHostGroupRequest(),
+            host_group=gcn_host_group.HostGroup(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_host_group_flattened_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.update_host_group(
+            host_group=gcn_host_group.HostGroup(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].host_group
+        mock_val = gcn_host_group.HostGroup(name="name_value")
+        assert arg == mock_val
+        arg = args[0].update_mask
+        mock_val = field_mask_pb2.FieldMask(paths=["paths_value"])
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_update_host_group_flattened_error_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.update_host_group(
+            gcn_host_group.UpdateHostGroupRequest(),
+            host_group=gcn_host_group.HostGroup(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        host_group.DeleteHostGroupRequest(),
+        {},
+    ],
+)
+def test_delete_host_group(request_type, transport: str = "grpc"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.delete_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = host_group.DeleteHostGroupRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_delete_host_group_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = host_group.DeleteHostGroupRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_host_group), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.delete_host_group(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = host_group.DeleteHostGroupRequest(
+            name="name_value",
+        )
+        assert args[0] == request_msg
+
+
+def test_delete_host_group_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.delete_host_group in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.delete_host_group] = (
+            mock_rpc
+        )
+        request = {}
+        client.delete_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.delete_host_group(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_delete_host_group_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetAppAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.delete_host_group
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.delete_host_group
+        ] = mock_rpc
+
+        request = {}
+        await client.delete_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.delete_host_group(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        host_group.DeleteHostGroupRequest(),
+        {},
+    ],
+)
+async def test_delete_host_group_async(request_type, transport: str = "grpc_asyncio"):
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.delete_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = host_group.DeleteHostGroupRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_delete_host_group_field_headers():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = host_group.DeleteHostGroupRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_host_group), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.delete_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_delete_host_group_field_headers_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = host_group.DeleteHostGroupRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_host_group), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.delete_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_delete_host_group_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.delete_host_group(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_delete_host_group_flattened_error():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.delete_host_group(
+            host_group.DeleteHostGroupRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_delete_host_group_flattened_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.delete_host_group(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_delete_host_group_flattened_error_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.delete_host_group(
+            host_group.DeleteHostGroupRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        ontap.ExecuteOntapPostRequest(),
+        {},
+    ],
+)
+def test_execute_ontap_post(request_type, transport: str = "grpc"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_post), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = ontap.ExecuteOntapPostResponse()
+        response = client.execute_ontap_post(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = ontap.ExecuteOntapPostRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, ontap.ExecuteOntapPostResponse)
+
+
+def test_execute_ontap_post_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = ontap.ExecuteOntapPostRequest(
+        ontap_path="ontap_path_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_post), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.execute_ontap_post(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapPostRequest(
+            ontap_path="ontap_path_value",
+        )
+        assert args[0] == request_msg
+
+
+def test_execute_ontap_post_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.execute_ontap_post in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.execute_ontap_post] = (
+            mock_rpc
+        )
+        request = {}
+        client.execute_ontap_post(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.execute_ontap_post(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_execute_ontap_post_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetAppAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.execute_ontap_post
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.execute_ontap_post
+        ] = mock_rpc
+
+        request = {}
+        await client.execute_ontap_post(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.execute_ontap_post(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        ontap.ExecuteOntapPostRequest(),
+        {},
+    ],
+)
+async def test_execute_ontap_post_async(request_type, transport: str = "grpc_asyncio"):
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_post), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            ontap.ExecuteOntapPostResponse()
+        )
+        response = await client.execute_ontap_post(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = ontap.ExecuteOntapPostRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, ontap.ExecuteOntapPostResponse)
+
+
+def test_execute_ontap_post_field_headers():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = ontap.ExecuteOntapPostRequest()
+
+    request.ontap_path = "ontap_path_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_post), "__call__"
+    ) as call:
+        call.return_value = ontap.ExecuteOntapPostResponse()
+        client.execute_ontap_post(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "ontap_path=ontap_path_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_execute_ontap_post_field_headers_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = ontap.ExecuteOntapPostRequest()
+
+    request.ontap_path = "ontap_path_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_post), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            ontap.ExecuteOntapPostResponse()
+        )
+        await client.execute_ontap_post(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "ontap_path=ontap_path_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        ontap.ExecuteOntapGetRequest(),
+        {},
+    ],
+)
+def test_execute_ontap_get(request_type, transport: str = "grpc"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_get), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = ontap.ExecuteOntapGetResponse()
+        response = client.execute_ontap_get(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = ontap.ExecuteOntapGetRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, ontap.ExecuteOntapGetResponse)
+
+
+def test_execute_ontap_get_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = ontap.ExecuteOntapGetRequest(
+        ontap_path="ontap_path_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_get), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.execute_ontap_get(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapGetRequest(
+            ontap_path="ontap_path_value",
+        )
+        assert args[0] == request_msg
+
+
+def test_execute_ontap_get_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.execute_ontap_get in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.execute_ontap_get] = (
+            mock_rpc
+        )
+        request = {}
+        client.execute_ontap_get(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.execute_ontap_get(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_execute_ontap_get_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetAppAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.execute_ontap_get
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.execute_ontap_get
+        ] = mock_rpc
+
+        request = {}
+        await client.execute_ontap_get(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.execute_ontap_get(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        ontap.ExecuteOntapGetRequest(),
+        {},
+    ],
+)
+async def test_execute_ontap_get_async(request_type, transport: str = "grpc_asyncio"):
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_get), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            ontap.ExecuteOntapGetResponse()
+        )
+        response = await client.execute_ontap_get(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = ontap.ExecuteOntapGetRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, ontap.ExecuteOntapGetResponse)
+
+
+def test_execute_ontap_get_field_headers():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = ontap.ExecuteOntapGetRequest()
+
+    request.ontap_path = "ontap_path_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_get), "__call__"
+    ) as call:
+        call.return_value = ontap.ExecuteOntapGetResponse()
+        client.execute_ontap_get(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "ontap_path=ontap_path_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_execute_ontap_get_field_headers_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = ontap.ExecuteOntapGetRequest()
+
+    request.ontap_path = "ontap_path_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_get), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            ontap.ExecuteOntapGetResponse()
+        )
+        await client.execute_ontap_get(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "ontap_path=ontap_path_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        ontap.ExecuteOntapDeleteRequest(),
+        {},
+    ],
+)
+def test_execute_ontap_delete(request_type, transport: str = "grpc"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_delete), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = ontap.ExecuteOntapDeleteResponse()
+        response = client.execute_ontap_delete(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = ontap.ExecuteOntapDeleteRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, ontap.ExecuteOntapDeleteResponse)
+
+
+def test_execute_ontap_delete_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = ontap.ExecuteOntapDeleteRequest(
+        ontap_path="ontap_path_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_delete), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.execute_ontap_delete(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapDeleteRequest(
+            ontap_path="ontap_path_value",
+        )
+        assert args[0] == request_msg
+
+
+def test_execute_ontap_delete_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.execute_ontap_delete in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.execute_ontap_delete] = (
+            mock_rpc
+        )
+        request = {}
+        client.execute_ontap_delete(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.execute_ontap_delete(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_execute_ontap_delete_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetAppAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.execute_ontap_delete
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.execute_ontap_delete
+        ] = mock_rpc
+
+        request = {}
+        await client.execute_ontap_delete(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.execute_ontap_delete(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        ontap.ExecuteOntapDeleteRequest(),
+        {},
+    ],
+)
+async def test_execute_ontap_delete_async(
+    request_type, transport: str = "grpc_asyncio"
+):
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_delete), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            ontap.ExecuteOntapDeleteResponse()
+        )
+        response = await client.execute_ontap_delete(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = ontap.ExecuteOntapDeleteRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, ontap.ExecuteOntapDeleteResponse)
+
+
+def test_execute_ontap_delete_field_headers():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = ontap.ExecuteOntapDeleteRequest()
+
+    request.ontap_path = "ontap_path_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_delete), "__call__"
+    ) as call:
+        call.return_value = ontap.ExecuteOntapDeleteResponse()
+        client.execute_ontap_delete(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "ontap_path=ontap_path_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_execute_ontap_delete_field_headers_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = ontap.ExecuteOntapDeleteRequest()
+
+    request.ontap_path = "ontap_path_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_delete), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            ontap.ExecuteOntapDeleteResponse()
+        )
+        await client.execute_ontap_delete(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "ontap_path=ontap_path_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        ontap.ExecuteOntapPatchRequest(),
+        {},
+    ],
+)
+def test_execute_ontap_patch(request_type, transport: str = "grpc"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_patch), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = ontap.ExecuteOntapPatchResponse()
+        response = client.execute_ontap_patch(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = ontap.ExecuteOntapPatchRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, ontap.ExecuteOntapPatchResponse)
+
+
+def test_execute_ontap_patch_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = ontap.ExecuteOntapPatchRequest(
+        ontap_path="ontap_path_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_patch), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.execute_ontap_patch(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapPatchRequest(
+            ontap_path="ontap_path_value",
+        )
+        assert args[0] == request_msg
+
+
+def test_execute_ontap_patch_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.execute_ontap_patch in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.execute_ontap_patch] = (
+            mock_rpc
+        )
+        request = {}
+        client.execute_ontap_patch(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.execute_ontap_patch(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_execute_ontap_patch_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetAppAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.execute_ontap_patch
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.execute_ontap_patch
+        ] = mock_rpc
+
+        request = {}
+        await client.execute_ontap_patch(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.execute_ontap_patch(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        ontap.ExecuteOntapPatchRequest(),
+        {},
+    ],
+)
+async def test_execute_ontap_patch_async(request_type, transport: str = "grpc_asyncio"):
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_patch), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            ontap.ExecuteOntapPatchResponse()
+        )
+        response = await client.execute_ontap_patch(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = ontap.ExecuteOntapPatchRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, ontap.ExecuteOntapPatchResponse)
+
+
+def test_execute_ontap_patch_field_headers():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = ontap.ExecuteOntapPatchRequest()
+
+    request.ontap_path = "ontap_path_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_patch), "__call__"
+    ) as call:
+        call.return_value = ontap.ExecuteOntapPatchResponse()
+        client.execute_ontap_patch(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "ontap_path=ontap_path_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_execute_ontap_patch_field_headers_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = ontap.ExecuteOntapPatchRequest()
+
+    request.ontap_path = "ontap_path_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_patch), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            ontap.ExecuteOntapPatchResponse()
+        )
+        await client.execute_ontap_patch(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "ontap_path=ontap_path_value",
+    ) in kw["metadata"]
+
+
 def test_list_storage_pools_rest_use_cached_wrapped_rpc():
     # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
     # instead of constructing them on each call
@@ -23275,9 +27041,9 @@ def test_list_storage_pools_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_storage_pools
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_storage_pools] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_storage_pools(request)
@@ -23373,7 +27139,7 @@ def test_list_storage_pools_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_storage_pools_rest_unset_required_fields():
@@ -23539,9 +27305,9 @@ def test_create_storage_pool_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_storage_pool
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_storage_pool] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_storage_pool(request)
@@ -23645,7 +27411,7 @@ def test_create_storage_pool_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_storage_pool_rest_unset_required_fields():
@@ -23747,9 +27513,9 @@ def test_get_storage_pool_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_storage_pool
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_storage_pool] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_storage_pool(request)
@@ -23836,7 +27602,7 @@ def test_get_storage_pool_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_storage_pool_rest_unset_required_fields():
@@ -23931,9 +27697,9 @@ def test_update_storage_pool_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_storage_pool
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_storage_pool] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_storage_pool(request)
@@ -24019,7 +27785,7 @@ def test_update_storage_pool_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_storage_pool_rest_unset_required_fields():
@@ -24124,9 +27890,9 @@ def test_delete_storage_pool_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_storage_pool
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_storage_pool] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_storage_pool(request)
@@ -24214,7 +27980,7 @@ def test_delete_storage_pool_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_storage_pool_rest_unset_required_fields():
@@ -24399,7 +28165,7 @@ def test_validate_directory_service_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_validate_directory_service_rest_unset_required_fields():
@@ -24526,7 +28292,7 @@ def test_switch_active_replica_zone_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_switch_active_replica_zone_rest_unset_required_fields():
@@ -24653,7 +28419,7 @@ def test_list_volumes_rest_required_fields(request_type=volume.ListVolumesReques
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_volumes_rest_unset_required_fields():
@@ -24899,7 +28665,7 @@ def test_get_volume_rest_required_fields(request_type=volume.GetVolumeRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_volume_rest_unset_required_fields():
@@ -25093,7 +28859,7 @@ def test_create_volume_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_volume_rest_unset_required_fields():
@@ -25280,7 +29046,7 @@ def test_update_volume_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_volume_rest_unset_required_fields():
@@ -25469,7 +29235,7 @@ def test_delete_volume_rest_required_fields(request_type=volume.DeleteVolumeRequ
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_volume_rest_unset_required_fields():
@@ -25648,7 +29414,7 @@ def test_revert_volume_rest_required_fields(request_type=volume.RevertVolumeRequ
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_revert_volume_rest_unset_required_fields():
@@ -25663,6 +29429,155 @@ def test_revert_volume_rest_unset_required_fields():
             (
                 "name",
                 "snapshotId",
+            )
+        )
+    )
+
+
+def test_establish_volume_peering_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.establish_volume_peering
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.establish_volume_peering
+        ] = mock_rpc
+
+        request = {}
+        client.establish_volume_peering(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.establish_volume_peering(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_establish_volume_peering_rest_required_fields(
+    request_type=volume.EstablishVolumePeeringRequest,
+):
+    transport_class = transports.NetAppRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request_init["peer_cluster_name"] = ""
+    request_init["peer_svm_name"] = ""
+    request_init["peer_volume_name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).establish_volume_peering._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+    jsonified_request["peerClusterName"] = "peer_cluster_name_value"
+    jsonified_request["peerSvmName"] = "peer_svm_name_value"
+    jsonified_request["peerVolumeName"] = "peer_volume_name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).establish_volume_peering._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+    assert "peerClusterName" in jsonified_request
+    assert jsonified_request["peerClusterName"] == "peer_cluster_name_value"
+    assert "peerSvmName" in jsonified_request
+    assert jsonified_request["peerSvmName"] == "peer_svm_name_value"
+    assert "peerVolumeName" in jsonified_request
+    assert jsonified_request["peerVolumeName"] == "peer_volume_name_value"
+
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.establish_volume_peering(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_establish_volume_peering_rest_unset_required_fields():
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.establish_volume_peering._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(())
+        & set(
+            (
+                "name",
+                "peerClusterName",
+                "peerSvmName",
+                "peerVolumeName",
             )
         )
     )
@@ -25785,7 +29700,7 @@ def test_list_snapshots_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_snapshots_rest_unset_required_fields():
@@ -26036,7 +29951,7 @@ def test_get_snapshot_rest_required_fields(request_type=snapshot.GetSnapshotRequ
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_snapshot_rest_unset_required_fields():
@@ -26233,7 +30148,7 @@ def test_create_snapshot_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_snapshot_rest_unset_required_fields():
@@ -26425,7 +30340,7 @@ def test_delete_snapshot_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_snapshot_rest_unset_required_fields():
@@ -26602,7 +30517,7 @@ def test_update_snapshot_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_snapshot_rest_unset_required_fields():
@@ -26808,7 +30723,7 @@ def test_list_active_directories_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_active_directories_rest_unset_required_fields():
@@ -26974,9 +30889,9 @@ def test_get_active_directory_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_active_directory
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_active_directory] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_active_directory(request)
@@ -27063,7 +30978,7 @@ def test_get_active_directory_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_active_directory_rest_unset_required_fields():
@@ -27265,7 +31180,7 @@ def test_create_active_directory_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_active_directory_rest_unset_required_fields():
@@ -27458,7 +31373,7 @@ def test_update_active_directory_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_active_directory_rest_unset_required_fields():
@@ -27654,7 +31569,7 @@ def test_delete_active_directory_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_active_directory_rest_unset_required_fields():
@@ -27745,9 +31660,9 @@ def test_list_kms_configs_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_kms_configs
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_kms_configs] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_kms_configs(request)
@@ -27841,7 +31756,7 @@ def test_list_kms_configs_rest_required_fields(request_type=kms.ListKmsConfigsRe
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_kms_configs_rest_unset_required_fields():
@@ -28002,9 +31917,9 @@ def test_create_kms_config_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_kms_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_kms_config] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_kms_config(request)
@@ -28108,7 +32023,7 @@ def test_create_kms_config_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_kms_config_rest_unset_required_fields():
@@ -28294,7 +32209,7 @@ def test_get_kms_config_rest_required_fields(request_type=kms.GetKmsConfigReques
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_kms_config_rest_unset_required_fields():
@@ -28386,9 +32301,9 @@ def test_update_kms_config_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_kms_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_kms_config] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_kms_config(request)
@@ -28474,7 +32389,7 @@ def test_update_kms_config_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_kms_config_rest_unset_required_fields():
@@ -28664,7 +32579,7 @@ def test_encrypt_volumes_rest_required_fields(request_type=kms.EncryptVolumesReq
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_encrypt_volumes_rest_unset_required_fields():
@@ -28697,9 +32612,9 @@ def test_verify_kms_config_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.verify_kms_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.verify_kms_config] = (
+            mock_rpc
+        )
 
         request = {}
         client.verify_kms_config(request)
@@ -28787,7 +32702,7 @@ def test_verify_kms_config_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_verify_kms_config_rest_unset_required_fields():
@@ -28820,9 +32735,9 @@ def test_delete_kms_config_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_kms_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_kms_config] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_kms_config(request)
@@ -28910,7 +32825,7 @@ def test_delete_kms_config_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_kms_config_rest_unset_required_fields():
@@ -29000,9 +32915,9 @@ def test_list_replications_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_replications
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_replications] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_replications(request)
@@ -29098,7 +33013,7 @@ def test_list_replications_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_replications_rest_unset_required_fields():
@@ -29353,7 +33268,7 @@ def test_get_replication_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_replication_rest_unset_required_fields():
@@ -29448,9 +33363,9 @@ def test_create_replication_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_replication
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_replication] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_replication(request)
@@ -29554,7 +33469,7 @@ def test_create_replication_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_replication_rest_unset_required_fields():
@@ -29660,9 +33575,9 @@ def test_delete_replication_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_replication
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_replication] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_replication(request)
@@ -29750,7 +33665,7 @@ def test_delete_replication_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_replication_rest_unset_required_fields():
@@ -29843,9 +33758,9 @@ def test_update_replication_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_replication
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_replication] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_replication(request)
@@ -29931,7 +33846,7 @@ def test_update_replication_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_replication_rest_unset_required_fields():
@@ -30034,9 +33949,9 @@ def test_stop_replication_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.stop_replication
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.stop_replication] = (
+            mock_rpc
+        )
 
         request = {}
         client.stop_replication(request)
@@ -30125,7 +34040,7 @@ def test_stop_replication_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_stop_replication_rest_unset_required_fields():
@@ -30160,9 +34075,9 @@ def test_resume_replication_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.resume_replication
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.resume_replication] = (
+            mock_rpc
+        )
 
         request = {}
         client.resume_replication(request)
@@ -30251,7 +34166,7 @@ def test_resume_replication_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_resume_replication_rest_unset_required_fields():
@@ -30378,7 +34293,7 @@ def test_reverse_replication_direction_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_reverse_replication_direction_rest_unset_required_fields():
@@ -30413,9 +34328,9 @@ def test_establish_peering_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.establish_peering
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.establish_peering] = (
+            mock_rpc
+        )
 
         request = {}
         client.establish_peering(request)
@@ -30516,7 +34431,7 @@ def test_establish_peering_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_establish_peering_rest_unset_required_fields():
@@ -30559,9 +34474,9 @@ def test_sync_replication_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.sync_replication
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.sync_replication] = (
+            mock_rpc
+        )
 
         request = {}
         client.sync_replication(request)
@@ -30650,7 +34565,7 @@ def test_sync_replication_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_sync_replication_rest_unset_required_fields():
@@ -30685,9 +34600,9 @@ def test_create_backup_vault_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_backup_vault
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_backup_vault] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_backup_vault(request)
@@ -30791,7 +34706,7 @@ def test_create_backup_vault_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_backup_vault_rest_unset_required_fields():
@@ -30893,9 +34808,9 @@ def test_get_backup_vault_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_backup_vault
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_backup_vault] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_backup_vault(request)
@@ -30982,7 +34897,7 @@ def test_get_backup_vault_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_backup_vault_rest_unset_required_fields():
@@ -31077,9 +34992,9 @@ def test_list_backup_vaults_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_backup_vaults
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_backup_vaults] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_backup_vaults(request)
@@ -31175,7 +35090,7 @@ def test_list_backup_vaults_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_backup_vaults_rest_unset_required_fields():
@@ -31341,9 +35256,9 @@ def test_update_backup_vault_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_backup_vault
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_backup_vault] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_backup_vault(request)
@@ -31429,7 +35344,7 @@ def test_update_backup_vault_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_backup_vault_rest_unset_required_fields():
@@ -31534,9 +35449,9 @@ def test_delete_backup_vault_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_backup_vault
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_backup_vault] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_backup_vault(request)
@@ -31624,7 +35539,7 @@ def test_delete_backup_vault_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_backup_vault_rest_unset_required_fields():
@@ -31819,7 +35734,7 @@ def test_create_backup_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_backup_rest_unset_required_fields():
@@ -32008,7 +35923,7 @@ def test_get_backup_rest_required_fields(request_type=backup.GetBackupRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_backup_rest_unset_required_fields():
@@ -32195,7 +36110,7 @@ def test_list_backups_rest_required_fields(request_type=backup.ListBackupsReques
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_backups_rest_unset_required_fields():
@@ -32447,7 +36362,7 @@ def test_delete_backup_rest_required_fields(request_type=backup.DeleteBackupRequ
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_backup_rest_unset_required_fields():
@@ -32624,7 +36539,7 @@ def test_update_backup_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_backup_rest_unset_required_fields():
@@ -32729,9 +36644,9 @@ def test_create_backup_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_backup_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_backup_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_backup_policy(request)
@@ -32835,7 +36750,7 @@ def test_create_backup_policy_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_backup_policy_rest_unset_required_fields():
@@ -32937,9 +36852,9 @@ def test_get_backup_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_backup_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_backup_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_backup_policy(request)
@@ -33026,7 +36941,7 @@ def test_get_backup_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_backup_policy_rest_unset_required_fields():
@@ -33121,9 +37036,9 @@ def test_list_backup_policies_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_backup_policies
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_backup_policies] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_backup_policies(request)
@@ -33219,7 +37134,7 @@ def test_list_backup_policies_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_backup_policies_rest_unset_required_fields():
@@ -33385,9 +37300,9 @@ def test_update_backup_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_backup_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_backup_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_backup_policy(request)
@@ -33473,7 +37388,7 @@ def test_update_backup_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_backup_policy_rest_unset_required_fields():
@@ -33578,9 +37493,9 @@ def test_delete_backup_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_backup_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_backup_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_backup_policy(request)
@@ -33668,7 +37583,7 @@ def test_delete_backup_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_backup_policy_rest_unset_required_fields():
@@ -33759,9 +37674,9 @@ def test_list_quota_rules_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_quota_rules
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_quota_rules] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_quota_rules(request)
@@ -33857,7 +37772,7 @@ def test_list_quota_rules_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_quota_rules_rest_unset_required_fields():
@@ -34110,7 +38025,7 @@ def test_get_quota_rule_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_quota_rule_rest_unset_required_fields():
@@ -34203,9 +38118,9 @@ def test_create_quota_rule_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_quota_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_quota_rule] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_quota_rule(request)
@@ -34309,7 +38224,7 @@ def test_create_quota_rule_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_quota_rule_rest_unset_required_fields():
@@ -34413,9 +38328,9 @@ def test_update_quota_rule_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_quota_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_quota_rule] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_quota_rule(request)
@@ -34501,7 +38416,7 @@ def test_update_quota_rule_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_quota_rule_rest_unset_required_fields():
@@ -34596,9 +38511,9 @@ def test_delete_quota_rule_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_quota_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_quota_rule] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_quota_rule(request)
@@ -34686,7 +38601,7 @@ def test_delete_quota_rule_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_quota_rule_rest_unset_required_fields():
@@ -34754,6 +38669,1669 @@ def test_delete_quota_rule_rest_flattened_error(transport: str = "rest"):
             quota_rule.DeleteQuotaRuleRequest(),
             name="name_value",
         )
+
+
+def test_restore_backup_files_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.restore_backup_files in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.restore_backup_files] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.restore_backup_files(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.restore_backup_files(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_restore_backup_files_rest_required_fields(
+    request_type=volume.RestoreBackupFilesRequest,
+):
+    transport_class = transports.NetAppRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request_init["backup"] = ""
+    request_init["file_list"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).restore_backup_files._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+    jsonified_request["backup"] = "backup_value"
+    jsonified_request["fileList"] = "file_list_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).restore_backup_files._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+    assert "backup" in jsonified_request
+    assert jsonified_request["backup"] == "backup_value"
+    assert "fileList" in jsonified_request
+    assert jsonified_request["fileList"] == "file_list_value"
+
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.restore_backup_files(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_restore_backup_files_rest_unset_required_fields():
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.restore_backup_files._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(())
+        & set(
+            (
+                "name",
+                "backup",
+                "fileList",
+            )
+        )
+    )
+
+
+def test_list_host_groups_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.list_host_groups in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.list_host_groups] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.list_host_groups(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_host_groups(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_host_groups_rest_required_fields(
+    request_type=host_group.ListHostGroupsRequest,
+):
+    transport_class = transports.NetAppRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_host_groups._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_host_groups._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "filter",
+            "order_by",
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = host_group.ListHostGroupsResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = host_group.ListHostGroupsResponse.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_host_groups(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_host_groups_rest_unset_required_fields():
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_host_groups._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "filter",
+                "orderBy",
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_host_groups_rest_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = host_group.ListHostGroupsResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = host_group.ListHostGroupsResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_host_groups(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/hostGroups" % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_host_groups_rest_flattened_error(transport: str = "rest"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_host_groups(
+            host_group.ListHostGroupsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_host_groups_rest_pager(transport: str = "rest"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                ],
+                next_page_token="abc",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[],
+                next_page_token="def",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                ],
+                next_page_token="ghi",
+            ),
+            host_group.ListHostGroupsResponse(
+                host_groups=[
+                    host_group.HostGroup(),
+                    host_group.HostGroup(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(host_group.ListHostGroupsResponse.to_json(x) for x in response)
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        pager = client.list_host_groups(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, host_group.HostGroup) for i in results)
+
+        pages = list(client.list_host_groups(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+def test_get_host_group_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.get_host_group in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_host_group] = mock_rpc
+
+        request = {}
+        client.get_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_host_group(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_host_group_rest_required_fields(
+    request_type=host_group.GetHostGroupRequest,
+):
+    transport_class = transports.NetAppRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_host_group._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_host_group._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = host_group.HostGroup()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = host_group.HostGroup.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_host_group(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_host_group_rest_unset_required_fields():
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_host_group._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_host_group_rest_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = host_group.HostGroup()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/hostGroups/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = host_group.HostGroup.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_host_group(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/hostGroups/*}" % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_host_group_rest_flattened_error(transport: str = "rest"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_host_group(
+            host_group.GetHostGroupRequest(),
+            name="name_value",
+        )
+
+
+def test_create_host_group_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.create_host_group in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.create_host_group] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.create_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.create_host_group(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_create_host_group_rest_required_fields(
+    request_type=gcn_host_group.CreateHostGroupRequest,
+):
+    transport_class = transports.NetAppRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request_init["host_group_id"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+    assert "hostGroupId" not in jsonified_request
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_host_group._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+    assert "hostGroupId" in jsonified_request
+    assert jsonified_request["hostGroupId"] == request_init["host_group_id"]
+
+    jsonified_request["parent"] = "parent_value"
+    jsonified_request["hostGroupId"] = "host_group_id_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_host_group._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("host_group_id",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+    assert "hostGroupId" in jsonified_request
+    assert jsonified_request["hostGroupId"] == "host_group_id_value"
+
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.create_host_group(request)
+
+            expected_params = [
+                (
+                    "hostGroupId",
+                    "",
+                ),
+                ("$alt", "json;enum-encoding=int"),
+            ]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_create_host_group_rest_unset_required_fields():
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.create_host_group._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(("hostGroupId",))
+        & set(
+            (
+                "parent",
+                "hostGroup",
+                "hostGroupId",
+            )
+        )
+    )
+
+
+def test_create_host_group_rest_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+            host_group=gcn_host_group.HostGroup(name="name_value"),
+            host_group_id="host_group_id_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.create_host_group(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/hostGroups" % client.transport._host,
+            args[1],
+        )
+
+
+def test_create_host_group_rest_flattened_error(transport: str = "rest"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_host_group(
+            gcn_host_group.CreateHostGroupRequest(),
+            parent="parent_value",
+            host_group=gcn_host_group.HostGroup(name="name_value"),
+            host_group_id="host_group_id_value",
+        )
+
+
+def test_update_host_group_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.update_host_group in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.update_host_group] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.update_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.update_host_group(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_update_host_group_rest_required_fields(
+    request_type=gcn_host_group.UpdateHostGroupRequest,
+):
+    transport_class = transports.NetAppRestTransport
+
+    request_init = {}
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_host_group._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_host_group._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("update_mask",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "patch",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.update_host_group(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_update_host_group_rest_unset_required_fields():
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.update_host_group._get_unset_required_fields({})
+    assert set(unset_fields) == (set(("updateMask",)) & set(("hostGroup",)))
+
+
+def test_update_host_group_rest_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "host_group": {
+                "name": "projects/sample1/locations/sample2/hostGroups/sample3"
+            }
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            host_group=gcn_host_group.HostGroup(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.update_host_group(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{host_group.name=projects/*/locations/*/hostGroups/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_update_host_group_rest_flattened_error(transport: str = "rest"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_host_group(
+            gcn_host_group.UpdateHostGroupRequest(),
+            host_group=gcn_host_group.HostGroup(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+def test_delete_host_group_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.delete_host_group in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.delete_host_group] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.delete_host_group(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.delete_host_group(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_delete_host_group_rest_required_fields(
+    request_type=host_group.DeleteHostGroupRequest,
+):
+    transport_class = transports.NetAppRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_host_group._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_host_group._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "delete",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.delete_host_group(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_delete_host_group_rest_unset_required_fields():
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.delete_host_group._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_delete_host_group_rest_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/hostGroups/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.delete_host_group(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/hostGroups/*}" % client.transport._host,
+            args[1],
+        )
+
+
+def test_delete_host_group_rest_flattened_error(transport: str = "rest"):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.delete_host_group(
+            host_group.DeleteHostGroupRequest(),
+            name="name_value",
+        )
+
+
+def test_execute_ontap_post_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.execute_ontap_post in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.execute_ontap_post] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.execute_ontap_post(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.execute_ontap_post(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_execute_ontap_post_rest_required_fields(
+    request_type=ontap.ExecuteOntapPostRequest,
+):
+    transport_class = transports.NetAppRestTransport
+
+    request_init = {}
+    request_init["ontap_path"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).execute_ontap_post._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["ontapPath"] = "ontap_path_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).execute_ontap_post._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "ontapPath" in jsonified_request
+    assert jsonified_request["ontapPath"] == "ontap_path_value"
+
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = ontap.ExecuteOntapPostResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = ontap.ExecuteOntapPostResponse.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.execute_ontap_post(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_execute_ontap_post_rest_unset_required_fields():
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.execute_ontap_post._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(())
+        & set(
+            (
+                "body",
+                "ontapPath",
+            )
+        )
+    )
+
+
+def test_execute_ontap_get_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.execute_ontap_get in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.execute_ontap_get] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.execute_ontap_get(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.execute_ontap_get(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_execute_ontap_get_rest_required_fields(
+    request_type=ontap.ExecuteOntapGetRequest,
+):
+    transport_class = transports.NetAppRestTransport
+
+    request_init = {}
+    request_init["ontap_path"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).execute_ontap_get._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["ontapPath"] = "ontap_path_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).execute_ontap_get._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "ontapPath" in jsonified_request
+    assert jsonified_request["ontapPath"] == "ontap_path_value"
+
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = ontap.ExecuteOntapGetResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = ontap.ExecuteOntapGetResponse.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.execute_ontap_get(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_execute_ontap_get_rest_unset_required_fields():
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.execute_ontap_get._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("ontapPath",)))
+
+
+def test_execute_ontap_delete_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.execute_ontap_delete in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.execute_ontap_delete] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.execute_ontap_delete(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.execute_ontap_delete(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_execute_ontap_delete_rest_required_fields(
+    request_type=ontap.ExecuteOntapDeleteRequest,
+):
+    transport_class = transports.NetAppRestTransport
+
+    request_init = {}
+    request_init["ontap_path"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).execute_ontap_delete._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["ontapPath"] = "ontap_path_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).execute_ontap_delete._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "ontapPath" in jsonified_request
+    assert jsonified_request["ontapPath"] == "ontap_path_value"
+
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = ontap.ExecuteOntapDeleteResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "delete",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = ontap.ExecuteOntapDeleteResponse.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.execute_ontap_delete(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_execute_ontap_delete_rest_unset_required_fields():
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.execute_ontap_delete._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("ontapPath",)))
+
+
+def test_execute_ontap_patch_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetAppClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.execute_ontap_patch in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.execute_ontap_patch] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.execute_ontap_patch(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.execute_ontap_patch(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_execute_ontap_patch_rest_required_fields(
+    request_type=ontap.ExecuteOntapPatchRequest,
+):
+    transport_class = transports.NetAppRestTransport
+
+    request_init = {}
+    request_init["ontap_path"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).execute_ontap_patch._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["ontapPath"] = "ontap_path_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).execute_ontap_patch._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "ontapPath" in jsonified_request
+    assert jsonified_request["ontapPath"] == "ontap_path_value"
+
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = ontap.ExecuteOntapPatchResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "patch",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = ontap.ExecuteOntapPatchResponse.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.execute_ontap_patch(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_execute_ontap_patch_rest_unset_required_fields():
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.execute_ontap_patch._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(())
+        & set(
+            (
+                "body",
+                "ontapPath",
+            )
+        )
+    )
 
 
 def test_credentials_transport_error():
@@ -34881,7 +40459,6 @@ def test_list_storage_pools_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.ListStoragePoolsRequest()
-
         assert args[0] == request_msg
 
 
@@ -34904,7 +40481,6 @@ def test_create_storage_pool_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_storage_pool.CreateStoragePoolRequest()
-
         assert args[0] == request_msg
 
 
@@ -34925,7 +40501,6 @@ def test_get_storage_pool_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.GetStoragePoolRequest()
-
         assert args[0] == request_msg
 
 
@@ -34948,7 +40523,6 @@ def test_update_storage_pool_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_storage_pool.UpdateStoragePoolRequest()
-
         assert args[0] == request_msg
 
 
@@ -34971,7 +40545,6 @@ def test_delete_storage_pool_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.DeleteStoragePoolRequest()
-
         assert args[0] == request_msg
 
 
@@ -34994,7 +40567,6 @@ def test_validate_directory_service_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.ValidateDirectoryServiceRequest()
-
         assert args[0] == request_msg
 
 
@@ -35017,7 +40589,6 @@ def test_switch_active_replica_zone_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.SwitchActiveReplicaZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -35038,7 +40609,6 @@ def test_list_volumes_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = volume.ListVolumesRequest()
-
         assert args[0] == request_msg
 
 
@@ -35059,7 +40629,6 @@ def test_get_volume_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = volume.GetVolumeRequest()
-
         assert args[0] == request_msg
 
 
@@ -35080,7 +40649,6 @@ def test_create_volume_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_volume.CreateVolumeRequest()
-
         assert args[0] == request_msg
 
 
@@ -35101,7 +40669,6 @@ def test_update_volume_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_volume.UpdateVolumeRequest()
-
         assert args[0] == request_msg
 
 
@@ -35122,7 +40689,6 @@ def test_delete_volume_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = volume.DeleteVolumeRequest()
-
         assert args[0] == request_msg
 
 
@@ -35143,7 +40709,28 @@ def test_revert_volume_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = volume.RevertVolumeRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_establish_volume_peering_empty_call_grpc():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.establish_volume_peering), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.establish_volume_peering(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = volume.EstablishVolumePeeringRequest()
         assert args[0] == request_msg
 
 
@@ -35164,7 +40751,6 @@ def test_list_snapshots_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = snapshot.ListSnapshotsRequest()
-
         assert args[0] == request_msg
 
 
@@ -35185,7 +40771,6 @@ def test_get_snapshot_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = snapshot.GetSnapshotRequest()
-
         assert args[0] == request_msg
 
 
@@ -35206,7 +40791,6 @@ def test_create_snapshot_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_snapshot.CreateSnapshotRequest()
-
         assert args[0] == request_msg
 
 
@@ -35227,7 +40811,6 @@ def test_delete_snapshot_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = snapshot.DeleteSnapshotRequest()
-
         assert args[0] == request_msg
 
 
@@ -35248,7 +40831,6 @@ def test_update_snapshot_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_snapshot.UpdateSnapshotRequest()
-
         assert args[0] == request_msg
 
 
@@ -35271,7 +40853,6 @@ def test_list_active_directories_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = active_directory.ListActiveDirectoriesRequest()
-
         assert args[0] == request_msg
 
 
@@ -35294,7 +40875,6 @@ def test_get_active_directory_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = active_directory.GetActiveDirectoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -35317,7 +40897,6 @@ def test_create_active_directory_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_active_directory.CreateActiveDirectoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -35340,7 +40919,6 @@ def test_update_active_directory_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_active_directory.UpdateActiveDirectoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -35363,7 +40941,6 @@ def test_delete_active_directory_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = active_directory.DeleteActiveDirectoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -35384,7 +40961,6 @@ def test_list_kms_configs_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.ListKmsConfigsRequest()
-
         assert args[0] == request_msg
 
 
@@ -35407,7 +40983,6 @@ def test_create_kms_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.CreateKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -35428,7 +41003,6 @@ def test_get_kms_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.GetKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -35451,7 +41025,6 @@ def test_update_kms_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.UpdateKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -35472,7 +41045,6 @@ def test_encrypt_volumes_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.EncryptVolumesRequest()
-
         assert args[0] == request_msg
 
 
@@ -35495,7 +41067,6 @@ def test_verify_kms_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.VerifyKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -35518,7 +41089,6 @@ def test_delete_kms_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.DeleteKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -35541,7 +41111,6 @@ def test_list_replications_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.ListReplicationsRequest()
-
         assert args[0] == request_msg
 
 
@@ -35562,7 +41131,6 @@ def test_get_replication_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.GetReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -35585,7 +41153,6 @@ def test_create_replication_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_replication.CreateReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -35608,7 +41175,6 @@ def test_delete_replication_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.DeleteReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -35631,7 +41197,6 @@ def test_update_replication_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_replication.UpdateReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -35652,7 +41217,6 @@ def test_stop_replication_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.StopReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -35675,7 +41239,6 @@ def test_resume_replication_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.ResumeReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -35698,7 +41261,6 @@ def test_reverse_replication_direction_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.ReverseReplicationDirectionRequest()
-
         assert args[0] == request_msg
 
 
@@ -35721,7 +41283,6 @@ def test_establish_peering_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.EstablishPeeringRequest()
-
         assert args[0] == request_msg
 
 
@@ -35742,7 +41303,6 @@ def test_sync_replication_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.SyncReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -35765,7 +41325,6 @@ def test_create_backup_vault_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup_vault.CreateBackupVaultRequest()
-
         assert args[0] == request_msg
 
 
@@ -35786,7 +41345,6 @@ def test_get_backup_vault_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_vault.GetBackupVaultRequest()
-
         assert args[0] == request_msg
 
 
@@ -35809,7 +41367,6 @@ def test_list_backup_vaults_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_vault.ListBackupVaultsRequest()
-
         assert args[0] == request_msg
 
 
@@ -35832,7 +41389,6 @@ def test_update_backup_vault_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup_vault.UpdateBackupVaultRequest()
-
         assert args[0] == request_msg
 
 
@@ -35855,7 +41411,6 @@ def test_delete_backup_vault_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_vault.DeleteBackupVaultRequest()
-
         assert args[0] == request_msg
 
 
@@ -35876,7 +41431,6 @@ def test_create_backup_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup.CreateBackupRequest()
-
         assert args[0] == request_msg
 
 
@@ -35897,7 +41451,6 @@ def test_get_backup_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup.GetBackupRequest()
-
         assert args[0] == request_msg
 
 
@@ -35918,7 +41471,6 @@ def test_list_backups_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup.ListBackupsRequest()
-
         assert args[0] == request_msg
 
 
@@ -35939,7 +41491,6 @@ def test_delete_backup_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup.DeleteBackupRequest()
-
         assert args[0] == request_msg
 
 
@@ -35960,7 +41511,6 @@ def test_update_backup_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup.UpdateBackupRequest()
-
         assert args[0] == request_msg
 
 
@@ -35983,7 +41533,6 @@ def test_create_backup_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup_policy.CreateBackupPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -36006,7 +41555,6 @@ def test_get_backup_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_policy.GetBackupPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -36029,7 +41577,6 @@ def test_list_backup_policies_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_policy.ListBackupPoliciesRequest()
-
         assert args[0] == request_msg
 
 
@@ -36052,7 +41599,6 @@ def test_update_backup_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup_policy.UpdateBackupPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -36075,7 +41621,6 @@ def test_delete_backup_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_policy.DeleteBackupPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -36096,7 +41641,6 @@ def test_list_quota_rules_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = quota_rule.ListQuotaRulesRequest()
-
         assert args[0] == request_msg
 
 
@@ -36117,7 +41661,6 @@ def test_get_quota_rule_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = quota_rule.GetQuotaRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -36140,7 +41683,6 @@ def test_create_quota_rule_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_quota_rule.CreateQuotaRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -36163,7 +41705,6 @@ def test_update_quota_rule_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_quota_rule.UpdateQuotaRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -36186,7 +41727,222 @@ def test_delete_quota_rule_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = quota_rule.DeleteQuotaRuleRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_restore_backup_files_empty_call_grpc():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.restore_backup_files), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.restore_backup_files(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = volume.RestoreBackupFilesRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_host_groups_empty_call_grpc():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.list_host_groups), "__call__") as call:
+        call.return_value = host_group.ListHostGroupsResponse()
+        client.list_host_groups(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = host_group.ListHostGroupsRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_host_group_empty_call_grpc():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.get_host_group), "__call__") as call:
+        call.return_value = host_group.HostGroup()
+        client.get_host_group(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = host_group.GetHostGroupRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_host_group_empty_call_grpc():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_host_group), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.create_host_group(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_host_group.CreateHostGroupRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_update_host_group_empty_call_grpc():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_host_group), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.update_host_group(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_host_group.UpdateHostGroupRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_delete_host_group_empty_call_grpc():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_host_group), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.delete_host_group(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = host_group.DeleteHostGroupRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_execute_ontap_post_empty_call_grpc():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_post), "__call__"
+    ) as call:
+        call.return_value = ontap.ExecuteOntapPostResponse()
+        client.execute_ontap_post(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapPostRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_execute_ontap_get_empty_call_grpc():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_get), "__call__"
+    ) as call:
+        call.return_value = ontap.ExecuteOntapGetResponse()
+        client.execute_ontap_get(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapGetRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_execute_ontap_delete_empty_call_grpc():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_delete), "__call__"
+    ) as call:
+        call.return_value = ontap.ExecuteOntapDeleteResponse()
+        client.execute_ontap_delete(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapDeleteRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_execute_ontap_patch_empty_call_grpc():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_patch), "__call__"
+    ) as call:
+        call.return_value = ontap.ExecuteOntapPatchResponse()
+        client.execute_ontap_patch(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapPatchRequest()
         assert args[0] == request_msg
 
 
@@ -36230,7 +41986,6 @@ async def test_list_storage_pools_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.ListStoragePoolsRequest()
-
         assert args[0] == request_msg
 
 
@@ -36257,7 +42012,6 @@ async def test_create_storage_pool_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_storage_pool.CreateStoragePoolRequest()
-
         assert args[0] == request_msg
 
 
@@ -36298,6 +42052,15 @@ async def test_get_storage_pool_empty_call_grpc_asyncio():
                 custom_performance_enabled=True,
                 total_throughput_mibps=2391,
                 total_iops=1086,
+                hot_tier_size_gib=1801,
+                enable_hot_tier_auto_resize=True,
+                qos_type=common.QosType.AUTO,
+                available_throughput_mibps=0.2772,
+                cold_tier_size_used_gib=2416,
+                hot_tier_size_used_gib=2329,
+                type_=common.StoragePoolType.FILE,
+                mode=storage_pool.Mode.DEFAULT,
+                scale_type=common.ScaleType.SCALE_TYPE_DEFAULT,
             )
         )
         await client.get_storage_pool(request=None)
@@ -36306,7 +42069,6 @@ async def test_get_storage_pool_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.GetStoragePoolRequest()
-
         assert args[0] == request_msg
 
 
@@ -36333,7 +42095,6 @@ async def test_update_storage_pool_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_storage_pool.UpdateStoragePoolRequest()
-
         assert args[0] == request_msg
 
 
@@ -36360,7 +42121,6 @@ async def test_delete_storage_pool_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.DeleteStoragePoolRequest()
-
         assert args[0] == request_msg
 
 
@@ -36387,7 +42147,6 @@ async def test_validate_directory_service_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.ValidateDirectoryServiceRequest()
-
         assert args[0] == request_msg
 
 
@@ -36414,7 +42173,6 @@ async def test_switch_active_replica_zone_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.SwitchActiveReplicaZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -36442,7 +42200,6 @@ async def test_list_volumes_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = volume.ListVolumesRequest()
-
         assert args[0] == request_msg
 
 
@@ -36489,6 +42246,8 @@ async def test_get_volume_empty_call_grpc_asyncio():
                 replica_zone="replica_zone_value",
                 zone="zone_value",
                 cold_tier_size_gib=1888,
+                throughput_mibps=0.1748,
+                hot_tier_size_used_gib=2329,
             )
         )
         await client.get_volume(request=None)
@@ -36497,7 +42256,6 @@ async def test_get_volume_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = volume.GetVolumeRequest()
-
         assert args[0] == request_msg
 
 
@@ -36522,7 +42280,6 @@ async def test_create_volume_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_volume.CreateVolumeRequest()
-
         assert args[0] == request_msg
 
 
@@ -36547,7 +42304,6 @@ async def test_update_volume_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_volume.UpdateVolumeRequest()
-
         assert args[0] == request_msg
 
 
@@ -36572,7 +42328,6 @@ async def test_delete_volume_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = volume.DeleteVolumeRequest()
-
         assert args[0] == request_msg
 
 
@@ -36597,7 +42352,32 @@ async def test_revert_volume_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = volume.RevertVolumeRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_establish_volume_peering_empty_call_grpc_asyncio():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.establish_volume_peering), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.establish_volume_peering(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = volume.EstablishVolumePeeringRequest()
         assert args[0] == request_msg
 
 
@@ -36625,7 +42405,6 @@ async def test_list_snapshots_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = snapshot.ListSnapshotsRequest()
-
         assert args[0] == request_msg
 
 
@@ -36656,7 +42435,6 @@ async def test_get_snapshot_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = snapshot.GetSnapshotRequest()
-
         assert args[0] == request_msg
 
 
@@ -36681,7 +42459,6 @@ async def test_create_snapshot_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_snapshot.CreateSnapshotRequest()
-
         assert args[0] == request_msg
 
 
@@ -36706,7 +42483,6 @@ async def test_delete_snapshot_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = snapshot.DeleteSnapshotRequest()
-
         assert args[0] == request_msg
 
 
@@ -36731,7 +42507,6 @@ async def test_update_snapshot_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_snapshot.UpdateSnapshotRequest()
-
         assert args[0] == request_msg
 
 
@@ -36761,7 +42536,6 @@ async def test_list_active_directories_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = active_directory.ListActiveDirectoriesRequest()
-
         assert args[0] == request_msg
 
 
@@ -36809,7 +42583,6 @@ async def test_get_active_directory_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = active_directory.GetActiveDirectoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -36836,7 +42609,6 @@ async def test_create_active_directory_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_active_directory.CreateActiveDirectoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -36863,7 +42635,6 @@ async def test_update_active_directory_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_active_directory.UpdateActiveDirectoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -36890,7 +42661,6 @@ async def test_delete_active_directory_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = active_directory.DeleteActiveDirectoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -36918,7 +42688,6 @@ async def test_list_kms_configs_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.ListKmsConfigsRequest()
-
         assert args[0] == request_msg
 
 
@@ -36945,7 +42714,6 @@ async def test_create_kms_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.CreateKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -36978,7 +42746,6 @@ async def test_get_kms_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.GetKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -37005,7 +42772,6 @@ async def test_update_kms_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.UpdateKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -37030,7 +42796,6 @@ async def test_encrypt_volumes_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.EncryptVolumesRequest()
-
         assert args[0] == request_msg
 
 
@@ -37061,7 +42826,6 @@ async def test_verify_kms_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.VerifyKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -37088,7 +42852,6 @@ async def test_delete_kms_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.DeleteKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -37118,7 +42881,6 @@ async def test_list_replications_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.ListReplicationsRequest()
-
         assert args[0] == request_msg
 
 
@@ -37156,7 +42918,6 @@ async def test_get_replication_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.GetReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -37183,7 +42944,6 @@ async def test_create_replication_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_replication.CreateReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -37210,7 +42970,6 @@ async def test_delete_replication_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.DeleteReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -37237,7 +42996,6 @@ async def test_update_replication_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_replication.UpdateReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -37262,7 +43020,6 @@ async def test_stop_replication_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.StopReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -37289,7 +43046,6 @@ async def test_resume_replication_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.ResumeReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -37316,7 +43072,6 @@ async def test_reverse_replication_direction_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.ReverseReplicationDirectionRequest()
-
         assert args[0] == request_msg
 
 
@@ -37343,7 +43098,6 @@ async def test_establish_peering_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.EstablishPeeringRequest()
-
         assert args[0] == request_msg
 
 
@@ -37368,7 +43122,6 @@ async def test_sync_replication_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.SyncReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -37395,7 +43148,6 @@ async def test_create_backup_vault_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup_vault.CreateBackupVaultRequest()
-
         assert args[0] == request_msg
 
 
@@ -37421,6 +43173,9 @@ async def test_get_backup_vault_empty_call_grpc_asyncio():
                 backup_region="backup_region_value",
                 source_backup_vault="source_backup_vault_value",
                 destination_backup_vault="destination_backup_vault_value",
+                kms_config="kms_config_value",
+                encryption_state=backup_vault.BackupVault.EncryptionState.ENCRYPTION_STATE_PENDING,
+                backups_crypto_key_version="backups_crypto_key_version_value",
             )
         )
         await client.get_backup_vault(request=None)
@@ -37429,7 +43184,6 @@ async def test_get_backup_vault_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_vault.GetBackupVaultRequest()
-
         assert args[0] == request_msg
 
 
@@ -37459,7 +43213,6 @@ async def test_list_backup_vaults_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_vault.ListBackupVaultsRequest()
-
         assert args[0] == request_msg
 
 
@@ -37486,7 +43239,6 @@ async def test_update_backup_vault_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup_vault.UpdateBackupVaultRequest()
-
         assert args[0] == request_msg
 
 
@@ -37513,7 +43265,6 @@ async def test_delete_backup_vault_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_vault.DeleteBackupVaultRequest()
-
         assert args[0] == request_msg
 
 
@@ -37538,7 +43289,6 @@ async def test_create_backup_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup.CreateBackupRequest()
-
         assert args[0] == request_msg
 
 
@@ -37576,7 +43326,6 @@ async def test_get_backup_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup.GetBackupRequest()
-
         assert args[0] == request_msg
 
 
@@ -37604,7 +43353,6 @@ async def test_list_backups_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup.ListBackupsRequest()
-
         assert args[0] == request_msg
 
 
@@ -37629,7 +43377,6 @@ async def test_delete_backup_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup.DeleteBackupRequest()
-
         assert args[0] == request_msg
 
 
@@ -37654,7 +43401,6 @@ async def test_update_backup_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup.UpdateBackupRequest()
-
         assert args[0] == request_msg
 
 
@@ -37681,7 +43427,6 @@ async def test_create_backup_policy_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup_policy.CreateBackupPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -37717,7 +43462,6 @@ async def test_get_backup_policy_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_policy.GetBackupPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -37747,7 +43491,6 @@ async def test_list_backup_policies_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_policy.ListBackupPoliciesRequest()
-
         assert args[0] == request_msg
 
 
@@ -37774,7 +43517,6 @@ async def test_update_backup_policy_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup_policy.UpdateBackupPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -37801,7 +43543,6 @@ async def test_delete_backup_policy_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_policy.DeleteBackupPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -37829,7 +43570,6 @@ async def test_list_quota_rules_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = quota_rule.ListQuotaRulesRequest()
-
         assert args[0] == request_msg
 
 
@@ -37862,7 +43602,6 @@ async def test_get_quota_rule_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = quota_rule.GetQuotaRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -37889,7 +43628,6 @@ async def test_create_quota_rule_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_quota_rule.CreateQuotaRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -37916,7 +43654,6 @@ async def test_update_quota_rule_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_quota_rule.UpdateQuotaRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -37943,7 +43680,272 @@ async def test_delete_quota_rule_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = quota_rule.DeleteQuotaRuleRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_restore_backup_files_empty_call_grpc_asyncio():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.restore_backup_files), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.restore_backup_files(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = volume.RestoreBackupFilesRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_list_host_groups_empty_call_grpc_asyncio():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.list_host_groups), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            host_group.ListHostGroupsResponse(
+                next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
+            )
+        )
+        await client.list_host_groups(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = host_group.ListHostGroupsRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_get_host_group_empty_call_grpc_asyncio():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.get_host_group), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            host_group.HostGroup(
+                name="name_value",
+                type_=host_group.HostGroup.Type.ISCSI_INITIATOR,
+                state=host_group.HostGroup.State.CREATING,
+                hosts=["hosts_value"],
+                os_type=common.OsType.LINUX,
+                description="description_value",
+            )
+        )
+        await client.get_host_group(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = host_group.GetHostGroupRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_create_host_group_empty_call_grpc_asyncio():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.create_host_group(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_host_group.CreateHostGroupRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_update_host_group_empty_call_grpc_asyncio():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.update_host_group(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_host_group.UpdateHostGroupRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_delete_host_group_empty_call_grpc_asyncio():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_host_group), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.delete_host_group(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = host_group.DeleteHostGroupRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_execute_ontap_post_empty_call_grpc_asyncio():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_post), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            ontap.ExecuteOntapPostResponse()
+        )
+        await client.execute_ontap_post(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapPostRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_execute_ontap_get_empty_call_grpc_asyncio():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_get), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            ontap.ExecuteOntapGetResponse()
+        )
+        await client.execute_ontap_get(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapGetRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_execute_ontap_delete_empty_call_grpc_asyncio():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_delete), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            ontap.ExecuteOntapDeleteResponse()
+        )
+        await client.execute_ontap_delete(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapDeleteRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_execute_ontap_patch_empty_call_grpc_asyncio():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_patch), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            ontap.ExecuteOntapPatchResponse()
+        )
+        await client.execute_ontap_patch(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapPatchRequest()
         assert args[0] == request_msg
 
 
@@ -37965,8 +43967,9 @@ def test_list_storage_pools_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -38029,17 +44032,19 @@ def test_list_storage_pools_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_storage_pools"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_storage_pools_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_list_storage_pools"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_storage_pools"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_storage_pools_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_list_storage_pools"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -38097,8 +44102,9 @@ def test_create_storage_pool_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -38151,6 +44157,15 @@ def test_create_storage_pool_rest_call_success(request_type):
         "custom_performance_enabled": True,
         "total_throughput_mibps": 2391,
         "total_iops": 1086,
+        "hot_tier_size_gib": 1801,
+        "enable_hot_tier_auto_resize": True,
+        "qos_type": 1,
+        "available_throughput_mibps": 0.2772,
+        "cold_tier_size_used_gib": 2416,
+        "hot_tier_size_used_gib": 2329,
+        "type_": 1,
+        "mode": 1,
+        "scale_type": 1,
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -38247,19 +44262,20 @@ def test_create_storage_pool_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_storage_pool"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_storage_pool_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_create_storage_pool"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_storage_pool"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_storage_pool_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_create_storage_pool"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -38312,8 +44328,9 @@ def test_get_storage_pool_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -38369,6 +44386,15 @@ def test_get_storage_pool_rest_call_success(request_type):
             custom_performance_enabled=True,
             total_throughput_mibps=2391,
             total_iops=1086,
+            hot_tier_size_gib=1801,
+            enable_hot_tier_auto_resize=True,
+            qos_type=common.QosType.AUTO,
+            available_throughput_mibps=0.2772,
+            cold_tier_size_used_gib=2416,
+            hot_tier_size_used_gib=2329,
+            type_=common.StoragePoolType.FILE,
+            mode=storage_pool.Mode.DEFAULT,
+            scale_type=common.ScaleType.SCALE_TYPE_DEFAULT,
         )
 
         # Wrap the value into a proper Response obj
@@ -38408,6 +44434,15 @@ def test_get_storage_pool_rest_call_success(request_type):
     assert response.custom_performance_enabled is True
     assert response.total_throughput_mibps == 2391
     assert response.total_iops == 1086
+    assert response.hot_tier_size_gib == 1801
+    assert response.enable_hot_tier_auto_resize is True
+    assert response.qos_type == common.QosType.AUTO
+    assert math.isclose(response.available_throughput_mibps, 0.2772, rel_tol=1e-6)
+    assert response.cold_tier_size_used_gib == 2416
+    assert response.hot_tier_size_used_gib == 2329
+    assert response.type_ == common.StoragePoolType.FILE
+    assert response.mode == storage_pool.Mode.DEFAULT
+    assert response.scale_type == common.ScaleType.SCALE_TYPE_DEFAULT
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -38418,17 +44453,19 @@ def test_get_storage_pool_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_storage_pool"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_storage_pool_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_get_storage_pool"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_storage_pool"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_storage_pool_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_get_storage_pool"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -38485,8 +44522,9 @@ def test_update_storage_pool_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -38543,6 +44581,15 @@ def test_update_storage_pool_rest_call_success(request_type):
         "custom_performance_enabled": True,
         "total_throughput_mibps": 2391,
         "total_iops": 1086,
+        "hot_tier_size_gib": 1801,
+        "enable_hot_tier_auto_resize": True,
+        "qos_type": 1,
+        "available_throughput_mibps": 0.2772,
+        "cold_tier_size_used_gib": 2416,
+        "hot_tier_size_used_gib": 2329,
+        "type_": 1,
+        "mode": 1,
+        "scale_type": 1,
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -38639,19 +44686,20 @@ def test_update_storage_pool_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_storage_pool"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_storage_pool_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_update_storage_pool"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_storage_pool"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_storage_pool_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_update_storage_pool"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -38704,8 +44752,9 @@ def test_delete_storage_pool_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -38760,19 +44809,20 @@ def test_delete_storage_pool_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_storage_pool"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_storage_pool_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_delete_storage_pool"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_storage_pool"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_storage_pool_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_delete_storage_pool"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -38825,8 +44875,9 @@ def test_validate_directory_service_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -38881,20 +44932,21 @@ def test_validate_directory_service_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_validate_directory_service"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor,
-        "post_validate_directory_service_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_validate_directory_service"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_validate_directory_service"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor,
+            "post_validate_directory_service_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_validate_directory_service"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -38947,8 +44999,9 @@ def test_switch_active_replica_zone_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -39003,20 +45056,21 @@ def test_switch_active_replica_zone_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_switch_active_replica_zone"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor,
-        "post_switch_active_replica_zone_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_switch_active_replica_zone"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_switch_active_replica_zone"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor,
+            "post_switch_active_replica_zone_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_switch_active_replica_zone"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -39067,8 +45121,9 @@ def test_list_volumes_rest_bad_request(request_type=volume.ListVolumesRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -39131,17 +45186,17 @@ def test_list_volumes_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_volumes"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_volumes_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_list_volumes"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_volumes"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_volumes_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.NetAppRestInterceptor, "pre_list_volumes") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -39190,8 +45245,9 @@ def test_get_volume_rest_bad_request(request_type=volume.GetVolumeRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -39253,6 +45309,8 @@ def test_get_volume_rest_call_success(request_type):
             replica_zone="replica_zone_value",
             zone="zone_value",
             cold_tier_size_gib=1888,
+            throughput_mibps=0.1748,
+            hot_tier_size_used_gib=2329,
         )
 
         # Wrap the value into a proper Response obj
@@ -39298,6 +45356,8 @@ def test_get_volume_rest_call_success(request_type):
     assert response.replica_zone == "replica_zone_value"
     assert response.zone == "zone_value"
     assert response.cold_tier_size_gib == 1888
+    assert math.isclose(response.throughput_mibps, 0.1748, rel_tol=1e-6)
+    assert response.hot_tier_size_used_gib == 2329
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -39308,17 +45368,15 @@ def test_get_volume_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_volume"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_volume_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_get_volume"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.NetAppRestInterceptor, "post_get_volume") as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_volume_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.NetAppRestInterceptor, "pre_get_volume") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -39367,8 +45425,9 @@ def test_create_volume_rest_bad_request(request_type=gcn_volume.CreateVolumeRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -39420,6 +45479,8 @@ def test_create_volume_rest_call_success(request_type):
                     "kerberos_5i_read_write": True,
                     "kerberos_5p_read_only": True,
                     "kerberos_5p_read_write": True,
+                    "squash_mode": 1,
+                    "anon_uid": 845,
                 }
             ]
         },
@@ -39484,7 +45545,11 @@ def test_create_volume_rest_call_success(request_type):
         "restricted_actions": [1],
         "large_capacity": True,
         "multiple_endpoints": True,
-        "tiering_policy": {"tier_action": 1, "cooling_threshold_days": 2343},
+        "tiering_policy": {
+            "tier_action": 1,
+            "cooling_threshold_days": 2343,
+            "hot_tier_bypass_mode_enabled": True,
+        },
         "replica_zone": "replica_zone_value",
         "zone": "zone_value",
         "cold_tier_size_gib": 1888,
@@ -39500,6 +45565,54 @@ def test_create_volume_rest_call_success(request_type):
             "cluster_location": "cluster_location_value",
             "description": "description_value",
             "labels": {},
+            "replication_schedule": 1,
+            "hybrid_replication_type": 1,
+            "large_volume_constituent_count": 3241,
+        },
+        "throughput_mibps": 0.1748,
+        "cache_parameters": {
+            "peer_volume_name": "peer_volume_name_value",
+            "peer_cluster_name": "peer_cluster_name_value",
+            "peer_svm_name": "peer_svm_name_value",
+            "peer_ip_addresses": [
+                "peer_ip_addresses_value1",
+                "peer_ip_addresses_value2",
+            ],
+            "enable_global_file_lock": True,
+            "cache_config": {
+                "cache_pre_populate": {
+                    "path_list": ["path_list_value1", "path_list_value2"],
+                    "exclude_path_list": [
+                        "exclude_path_list_value1",
+                        "exclude_path_list_value2",
+                    ],
+                    "recursion": True,
+                },
+                "writeback_enabled": True,
+                "cifs_change_notify_enabled": True,
+                "cache_pre_populate_state": 1,
+            },
+            "cache_state": 1,
+            "command": "command_value",
+            "peering_command_expiry_time": {},
+            "passphrase": "passphrase_value",
+            "state_details": "state_details_value",
+        },
+        "hot_tier_size_used_gib": 2329,
+        "block_devices": [
+            {
+                "name": "name_value",
+                "host_groups": ["host_groups_value1", "host_groups_value2"],
+                "identifier": "identifier_value",
+                "size_gib": 844,
+                "os_type": 1,
+            }
+        ],
+        "large_capacity_config": {"constituent_count": 1864},
+        "clone_details": {
+            "source_snapshot": "source_snapshot_value",
+            "source_volume": "source_volume_value",
+            "shared_space_gib": 1651,
         },
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
@@ -39597,19 +45710,18 @@ def test_create_volume_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_volume"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_volume_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_create_volume"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_volume"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_volume_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.NetAppRestInterceptor, "pre_create_volume") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -39660,8 +45772,9 @@ def test_update_volume_rest_bad_request(request_type=gcn_volume.UpdateVolumeRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -39715,6 +45828,8 @@ def test_update_volume_rest_call_success(request_type):
                     "kerberos_5i_read_write": True,
                     "kerberos_5p_read_only": True,
                     "kerberos_5p_read_write": True,
+                    "squash_mode": 1,
+                    "anon_uid": 845,
                 }
             ]
         },
@@ -39779,7 +45894,11 @@ def test_update_volume_rest_call_success(request_type):
         "restricted_actions": [1],
         "large_capacity": True,
         "multiple_endpoints": True,
-        "tiering_policy": {"tier_action": 1, "cooling_threshold_days": 2343},
+        "tiering_policy": {
+            "tier_action": 1,
+            "cooling_threshold_days": 2343,
+            "hot_tier_bypass_mode_enabled": True,
+        },
         "replica_zone": "replica_zone_value",
         "zone": "zone_value",
         "cold_tier_size_gib": 1888,
@@ -39795,6 +45914,54 @@ def test_update_volume_rest_call_success(request_type):
             "cluster_location": "cluster_location_value",
             "description": "description_value",
             "labels": {},
+            "replication_schedule": 1,
+            "hybrid_replication_type": 1,
+            "large_volume_constituent_count": 3241,
+        },
+        "throughput_mibps": 0.1748,
+        "cache_parameters": {
+            "peer_volume_name": "peer_volume_name_value",
+            "peer_cluster_name": "peer_cluster_name_value",
+            "peer_svm_name": "peer_svm_name_value",
+            "peer_ip_addresses": [
+                "peer_ip_addresses_value1",
+                "peer_ip_addresses_value2",
+            ],
+            "enable_global_file_lock": True,
+            "cache_config": {
+                "cache_pre_populate": {
+                    "path_list": ["path_list_value1", "path_list_value2"],
+                    "exclude_path_list": [
+                        "exclude_path_list_value1",
+                        "exclude_path_list_value2",
+                    ],
+                    "recursion": True,
+                },
+                "writeback_enabled": True,
+                "cifs_change_notify_enabled": True,
+                "cache_pre_populate_state": 1,
+            },
+            "cache_state": 1,
+            "command": "command_value",
+            "peering_command_expiry_time": {},
+            "passphrase": "passphrase_value",
+            "state_details": "state_details_value",
+        },
+        "hot_tier_size_used_gib": 2329,
+        "block_devices": [
+            {
+                "name": "name_value",
+                "host_groups": ["host_groups_value1", "host_groups_value2"],
+                "identifier": "identifier_value",
+                "size_gib": 844,
+                "os_type": 1,
+            }
+        ],
+        "large_capacity_config": {"constituent_count": 1864},
+        "clone_details": {
+            "source_snapshot": "source_snapshot_value",
+            "source_volume": "source_volume_value",
+            "shared_space_gib": 1651,
         },
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
@@ -39892,19 +46059,18 @@ def test_update_volume_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_volume"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_volume_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_update_volume"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_volume"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_volume_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.NetAppRestInterceptor, "pre_update_volume") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -39953,8 +46119,9 @@ def test_delete_volume_rest_bad_request(request_type=volume.DeleteVolumeRequest)
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -40009,19 +46176,18 @@ def test_delete_volume_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_volume"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_volume_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_delete_volume"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_volume"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_volume_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.NetAppRestInterceptor, "pre_delete_volume") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -40070,8 +46236,9 @@ def test_revert_volume_rest_bad_request(request_type=volume.RevertVolumeRequest)
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -40126,19 +46293,18 @@ def test_revert_volume_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_revert_volume"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_revert_volume_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_revert_volume"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_revert_volume"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_revert_volume_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.NetAppRestInterceptor, "pre_revert_volume") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -40178,6 +46344,130 @@ def test_revert_volume_rest_interceptors(null_interceptor):
         post_with_metadata.assert_called_once()
 
 
+def test_establish_volume_peering_rest_bad_request(
+    request_type=volume.EstablishVolumePeeringRequest,
+):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/volumes/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.establish_volume_peering(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        volume.EstablishVolumePeeringRequest,
+        dict,
+    ],
+)
+def test_establish_volume_peering_rest_call_success(request_type):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/volumes/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.establish_volume_peering(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_establish_volume_peering_rest_interceptors(null_interceptor):
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None if null_interceptor else transports.NetAppRestInterceptor(),
+    )
+    client = NetAppClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_establish_volume_peering"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor,
+            "post_establish_volume_peering_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_establish_volume_peering"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = volume.EstablishVolumePeeringRequest.pb(
+            volume.EstablishVolumePeeringRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = volume.EstablishVolumePeeringRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.establish_volume_peering(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
 def test_list_snapshots_rest_bad_request(request_type=snapshot.ListSnapshotsRequest):
     client = NetAppClient(
         credentials=ga_credentials.AnonymousCredentials(), transport="rest"
@@ -40187,8 +46477,9 @@ def test_list_snapshots_rest_bad_request(request_type=snapshot.ListSnapshotsRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -40251,17 +46542,19 @@ def test_list_snapshots_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_snapshots"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_snapshots_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_list_snapshots"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_snapshots"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_snapshots_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_list_snapshots"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -40314,8 +46607,9 @@ def test_get_snapshot_rest_bad_request(request_type=snapshot.GetSnapshotRequest)
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -40386,17 +46680,17 @@ def test_get_snapshot_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_snapshot"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_snapshot_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_get_snapshot"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_snapshot"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_snapshot_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.NetAppRestInterceptor, "pre_get_snapshot") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -40447,8 +46741,9 @@ def test_create_snapshot_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -40579,19 +46874,20 @@ def test_create_snapshot_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_snapshot"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_snapshot_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_create_snapshot"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_snapshot"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_snapshot_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_create_snapshot"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -40644,8 +46940,9 @@ def test_delete_snapshot_rest_bad_request(request_type=snapshot.DeleteSnapshotRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -40702,19 +46999,20 @@ def test_delete_snapshot_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_snapshot"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_snapshot_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_delete_snapshot"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_snapshot"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_snapshot_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_delete_snapshot"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -40769,8 +47067,9 @@ def test_update_snapshot_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -40905,19 +47204,20 @@ def test_update_snapshot_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_snapshot"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_snapshot_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_update_snapshot"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_snapshot"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_snapshot_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_update_snapshot"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -40970,8 +47270,9 @@ def test_list_active_directories_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -41034,17 +47335,20 @@ def test_list_active_directories_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_active_directories"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_active_directories_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_list_active_directories"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_active_directories"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor,
+            "post_list_active_directories_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_list_active_directories"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -41104,8 +47408,9 @@ def test_get_active_directory_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -41206,17 +47511,19 @@ def test_get_active_directory_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_active_directory"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_active_directory_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_get_active_directory"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_active_directory"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_active_directory_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_get_active_directory"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -41271,8 +47578,9 @@ def test_create_active_directory_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -41423,19 +47731,21 @@ def test_create_active_directory_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_active_directory"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_active_directory_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_create_active_directory"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_active_directory"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor,
+            "post_create_active_directory_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_create_active_directory"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -41492,8 +47802,9 @@ def test_update_active_directory_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -41648,19 +47959,21 @@ def test_update_active_directory_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_active_directory"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_active_directory_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_update_active_directory"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_active_directory"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor,
+            "post_update_active_directory_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_update_active_directory"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -41715,8 +48028,9 @@ def test_delete_active_directory_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -41773,19 +48087,21 @@ def test_delete_active_directory_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_active_directory"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_active_directory_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_delete_active_directory"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_active_directory"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor,
+            "post_delete_active_directory_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_delete_active_directory"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -41836,8 +48152,9 @@ def test_list_kms_configs_rest_bad_request(request_type=kms.ListKmsConfigsReques
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -41900,17 +48217,19 @@ def test_list_kms_configs_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_kms_configs"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_kms_configs_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_list_kms_configs"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_kms_configs"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_kms_configs_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_list_kms_configs"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -41959,8 +48278,9 @@ def test_create_kms_config_rest_bad_request(request_type=kms.CreateKmsConfigRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -42093,19 +48413,20 @@ def test_create_kms_config_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_kms_config"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_kms_config_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_create_kms_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_kms_config"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_kms_config_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_create_kms_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -42154,8 +48475,9 @@ def test_get_kms_config_rest_bad_request(request_type=kms.GetKmsConfigRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -42228,17 +48550,19 @@ def test_get_kms_config_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_kms_config"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_kms_config_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_get_kms_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_kms_config"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_kms_config_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_get_kms_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -42289,8 +48613,9 @@ def test_update_kms_config_rest_bad_request(request_type=kms.UpdateKmsConfigRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -42425,19 +48750,20 @@ def test_update_kms_config_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_kms_config"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_kms_config_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_update_kms_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_kms_config"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_kms_config_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_update_kms_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -42486,8 +48812,9 @@ def test_encrypt_volumes_rest_bad_request(request_type=kms.EncryptVolumesRequest
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -42542,19 +48869,20 @@ def test_encrypt_volumes_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_encrypt_volumes"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_encrypt_volumes_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_encrypt_volumes"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_encrypt_volumes"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_encrypt_volumes_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_encrypt_volumes"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -42603,8 +48931,9 @@ def test_verify_kms_config_rest_bad_request(request_type=kms.VerifyKmsConfigRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -42669,17 +48998,19 @@ def test_verify_kms_config_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_verify_kms_config"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_verify_kms_config_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_verify_kms_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_verify_kms_config"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_verify_kms_config_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_verify_kms_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -42730,8 +49061,9 @@ def test_delete_kms_config_rest_bad_request(request_type=kms.DeleteKmsConfigRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -42786,19 +49118,20 @@ def test_delete_kms_config_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_kms_config"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_kms_config_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_delete_kms_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_kms_config"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_kms_config_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_delete_kms_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -42849,8 +49182,9 @@ def test_list_replications_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -42913,17 +49247,19 @@ def test_list_replications_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_replications"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_replications_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_list_replications"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_replications"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_replications_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_list_replications"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -42983,8 +49319,9 @@ def test_get_replication_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -43075,17 +49412,19 @@ def test_get_replication_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_replication"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_replication_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_get_replication"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_replication"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_replication_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_get_replication"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -43138,8 +49477,9 @@ def test_create_replication_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -43193,7 +49533,11 @@ def test_create_replication_rest_call_success(request_type):
             "volume_id": "volume_id_value",
             "share_name": "share_name_value",
             "description": "description_value",
-            "tiering_policy": {"tier_action": 1, "cooling_threshold_days": 2343},
+            "tiering_policy": {
+                "tier_action": 1,
+                "cooling_threshold_days": 2343,
+                "hot_tier_bypass_mode_enabled": True,
+            },
         },
         "source_volume": "source_volume_value",
         "hybrid_peering_details": {
@@ -43207,6 +49551,9 @@ def test_create_replication_rest_call_success(request_type):
         },
         "cluster_location": "cluster_location_value",
         "hybrid_replication_type": 1,
+        "hybrid_replication_user_commands": {
+            "commands": ["commands_value1", "commands_value2"]
+        },
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -43303,19 +49650,20 @@ def test_create_replication_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_replication"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_replication_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_create_replication"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_replication"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_replication_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_create_replication"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -43370,8 +49718,9 @@ def test_delete_replication_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -43428,19 +49777,20 @@ def test_delete_replication_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_replication"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_replication_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_delete_replication"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_replication"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_replication_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_delete_replication"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -43497,8 +49847,9 @@ def test_update_replication_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -43556,7 +49907,11 @@ def test_update_replication_rest_call_success(request_type):
             "volume_id": "volume_id_value",
             "share_name": "share_name_value",
             "description": "description_value",
-            "tiering_policy": {"tier_action": 1, "cooling_threshold_days": 2343},
+            "tiering_policy": {
+                "tier_action": 1,
+                "cooling_threshold_days": 2343,
+                "hot_tier_bypass_mode_enabled": True,
+            },
         },
         "source_volume": "source_volume_value",
         "hybrid_peering_details": {
@@ -43570,6 +49925,9 @@ def test_update_replication_rest_call_success(request_type):
         },
         "cluster_location": "cluster_location_value",
         "hybrid_replication_type": 1,
+        "hybrid_replication_user_commands": {
+            "commands": ["commands_value1", "commands_value2"]
+        },
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -43666,19 +50024,20 @@ def test_update_replication_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_replication"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_replication_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_update_replication"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_replication"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_replication_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_update_replication"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -43733,8 +50092,9 @@ def test_stop_replication_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -43791,19 +50151,20 @@ def test_stop_replication_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_stop_replication"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_stop_replication_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_stop_replication"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_stop_replication"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_stop_replication_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_stop_replication"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -43858,8 +50219,9 @@ def test_resume_replication_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -43916,19 +50278,20 @@ def test_resume_replication_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_resume_replication"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_resume_replication_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_resume_replication"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_resume_replication"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_resume_replication_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_resume_replication"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -43983,8 +50346,9 @@ def test_reverse_replication_direction_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -44041,20 +50405,21 @@ def test_reverse_replication_direction_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_reverse_replication_direction"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor,
-        "post_reverse_replication_direction_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_reverse_replication_direction"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_reverse_replication_direction"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor,
+            "post_reverse_replication_direction_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_reverse_replication_direction"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -44109,8 +50474,9 @@ def test_establish_peering_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -44167,19 +50533,20 @@ def test_establish_peering_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_establish_peering"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_establish_peering_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_establish_peering"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_establish_peering"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_establish_peering_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_establish_peering"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -44234,8 +50601,9 @@ def test_sync_replication_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -44292,19 +50660,20 @@ def test_sync_replication_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_sync_replication"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_sync_replication_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_sync_replication"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_sync_replication"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_sync_replication_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_sync_replication"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -44357,8 +50726,9 @@ def test_create_backup_vault_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -44403,6 +50773,9 @@ def test_create_backup_vault_rest_call_success(request_type):
             "monthly_backup_immutable": True,
             "manual_backup_immutable": True,
         },
+        "kms_config": "kms_config_value",
+        "encryption_state": 1,
+        "backups_crypto_key_version": "backups_crypto_key_version_value",
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -44499,19 +50872,20 @@ def test_create_backup_vault_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_backup_vault"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_backup_vault_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_create_backup_vault"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_backup_vault"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_backup_vault_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_create_backup_vault"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -44564,8 +50938,9 @@ def test_get_backup_vault_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -44606,6 +50981,9 @@ def test_get_backup_vault_rest_call_success(request_type):
             backup_region="backup_region_value",
             source_backup_vault="source_backup_vault_value",
             destination_backup_vault="destination_backup_vault_value",
+            kms_config="kms_config_value",
+            encryption_state=backup_vault.BackupVault.EncryptionState.ENCRYPTION_STATE_PENDING,
+            backups_crypto_key_version="backups_crypto_key_version_value",
         )
 
         # Wrap the value into a proper Response obj
@@ -44632,6 +51010,12 @@ def test_get_backup_vault_rest_call_success(request_type):
     assert response.backup_region == "backup_region_value"
     assert response.source_backup_vault == "source_backup_vault_value"
     assert response.destination_backup_vault == "destination_backup_vault_value"
+    assert response.kms_config == "kms_config_value"
+    assert (
+        response.encryption_state
+        == backup_vault.BackupVault.EncryptionState.ENCRYPTION_STATE_PENDING
+    )
+    assert response.backups_crypto_key_version == "backups_crypto_key_version_value"
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -44642,17 +51026,19 @@ def test_get_backup_vault_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_backup_vault"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_backup_vault_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_get_backup_vault"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_backup_vault"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_backup_vault_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_get_backup_vault"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -44705,8 +51091,9 @@ def test_list_backup_vaults_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -44769,17 +51156,19 @@ def test_list_backup_vaults_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_backup_vaults"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_backup_vaults_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_list_backup_vaults"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_backup_vaults"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_backup_vaults_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_list_backup_vaults"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -44841,8 +51230,9 @@ def test_update_backup_vault_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -44891,6 +51281,9 @@ def test_update_backup_vault_rest_call_success(request_type):
             "monthly_backup_immutable": True,
             "manual_backup_immutable": True,
         },
+        "kms_config": "kms_config_value",
+        "encryption_state": 1,
+        "backups_crypto_key_version": "backups_crypto_key_version_value",
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -44987,19 +51380,20 @@ def test_update_backup_vault_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_backup_vault"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_backup_vault_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_update_backup_vault"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_backup_vault"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_backup_vault_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_update_backup_vault"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -45052,8 +51446,9 @@ def test_delete_backup_vault_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -45108,19 +51503,20 @@ def test_delete_backup_vault_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_backup_vault"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_backup_vault_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_delete_backup_vault"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_backup_vault"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_backup_vault_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_delete_backup_vault"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -45171,8 +51567,9 @@ def test_create_backup_rest_bad_request(request_type=gcn_backup.CreateBackupRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -45311,19 +51708,18 @@ def test_create_backup_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_backup"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_backup_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_create_backup"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_backup"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_backup_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.NetAppRestInterceptor, "pre_create_backup") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -45374,8 +51770,9 @@ def test_get_backup_rest_bad_request(request_type=backup.GetBackupRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -45460,17 +51857,15 @@ def test_get_backup_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_backup"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_backup_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_get_backup"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.NetAppRestInterceptor, "post_get_backup") as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_backup_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.NetAppRestInterceptor, "pre_get_backup") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -45519,8 +51914,9 @@ def test_list_backups_rest_bad_request(request_type=backup.ListBackupsRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -45583,17 +51979,17 @@ def test_list_backups_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_backups"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_backups_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_list_backups"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_backups"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_backups_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.NetAppRestInterceptor, "pre_list_backups") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -45644,8 +52040,9 @@ def test_delete_backup_rest_bad_request(request_type=backup.DeleteBackupRequest)
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -45702,19 +52099,18 @@ def test_delete_backup_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_backup"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_backup_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_delete_backup"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_backup"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_backup_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.NetAppRestInterceptor, "pre_delete_backup") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -45767,8 +52163,9 @@ def test_update_backup_rest_bad_request(request_type=gcn_backup.UpdateBackupRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -45911,19 +52308,18 @@ def test_update_backup_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_backup"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_backup_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_update_backup"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_backup"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_backup_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.NetAppRestInterceptor, "pre_update_backup") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -45974,8 +52370,9 @@ def test_create_backup_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -46111,19 +52508,20 @@ def test_create_backup_policy_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_backup_policy"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_backup_policy_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_create_backup_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_backup_policy"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_backup_policy_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_create_backup_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -46176,8 +52574,9 @@ def test_get_backup_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -46252,17 +52651,19 @@ def test_get_backup_policy_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_backup_policy"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_backup_policy_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_get_backup_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_backup_policy"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_backup_policy_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_get_backup_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -46315,8 +52716,9 @@ def test_list_backup_policies_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -46379,17 +52781,19 @@ def test_list_backup_policies_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_backup_policies"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_backup_policies_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_list_backup_policies"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_backup_policies"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_backup_policies_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_list_backup_policies"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -46451,8 +52855,9 @@ def test_update_backup_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -46592,19 +52997,20 @@ def test_update_backup_policy_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_backup_policy"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_backup_policy_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_update_backup_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_backup_policy"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_backup_policy_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_update_backup_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -46657,8 +53063,9 @@ def test_delete_backup_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -46713,19 +53120,20 @@ def test_delete_backup_policy_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_backup_policy"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_backup_policy_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_delete_backup_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_backup_policy"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_backup_policy_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_delete_backup_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -46778,8 +53186,9 @@ def test_list_quota_rules_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -46842,17 +53251,19 @@ def test_list_quota_rules_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_quota_rules"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_list_quota_rules_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_list_quota_rules"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_quota_rules"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_quota_rules_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_list_quota_rules"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -46907,8 +53318,9 @@ def test_get_quota_rule_rest_bad_request(request_type=quota_rule.GetQuotaRuleReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -46983,17 +53395,19 @@ def test_get_quota_rule_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_quota_rule"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_get_quota_rule_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_get_quota_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_quota_rule"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_quota_rule_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_get_quota_rule"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -47044,8 +53458,9 @@ def test_create_quota_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -47178,19 +53593,20 @@ def test_create_quota_rule_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_quota_rule"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_create_quota_rule_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_create_quota_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_quota_rule"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_quota_rule_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_create_quota_rule"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -47247,8 +53663,9 @@ def test_update_quota_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -47385,19 +53802,20 @@ def test_update_quota_rule_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_quota_rule"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_update_quota_rule_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_update_quota_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_quota_rule"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_quota_rule_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_update_quota_rule"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -47452,8 +53870,9 @@ def test_delete_quota_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -47510,19 +53929,20 @@ def test_delete_quota_rule_rest_interceptors(null_interceptor):
     )
     client = NetAppClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_quota_rule"
-    ) as post, mock.patch.object(
-        transports.NetAppRestInterceptor, "post_delete_quota_rule_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetAppRestInterceptor, "pre_delete_quota_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_quota_rule"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_quota_rule_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_delete_quota_rule"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -47564,6 +53984,1438 @@ def test_delete_quota_rule_rest_interceptors(null_interceptor):
         post_with_metadata.assert_called_once()
 
 
+def test_restore_backup_files_rest_bad_request(
+    request_type=volume.RestoreBackupFilesRequest,
+):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/volumes/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.restore_backup_files(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        volume.RestoreBackupFilesRequest,
+        dict,
+    ],
+)
+def test_restore_backup_files_rest_call_success(request_type):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/volumes/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.restore_backup_files(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_restore_backup_files_rest_interceptors(null_interceptor):
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None if null_interceptor else transports.NetAppRestInterceptor(),
+    )
+    client = NetAppClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_restore_backup_files"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_restore_backup_files_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_restore_backup_files"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = volume.RestoreBackupFilesRequest.pb(
+            volume.RestoreBackupFilesRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = volume.RestoreBackupFilesRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.restore_backup_files(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_list_host_groups_rest_bad_request(
+    request_type=host_group.ListHostGroupsRequest,
+):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_host_groups(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        host_group.ListHostGroupsRequest,
+        dict,
+    ],
+)
+def test_list_host_groups_rest_call_success(request_type):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = host_group.ListHostGroupsResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = host_group.ListHostGroupsResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_host_groups(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListHostGroupsPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_host_groups_rest_interceptors(null_interceptor):
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None if null_interceptor else transports.NetAppRestInterceptor(),
+    )
+    client = NetAppClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_host_groups"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_list_host_groups_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_list_host_groups"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = host_group.ListHostGroupsRequest.pb(
+            host_group.ListHostGroupsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = host_group.ListHostGroupsResponse.to_json(
+            host_group.ListHostGroupsResponse()
+        )
+        req.return_value.content = return_value
+
+        request = host_group.ListHostGroupsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = host_group.ListHostGroupsResponse()
+        post_with_metadata.return_value = host_group.ListHostGroupsResponse(), metadata
+
+        client.list_host_groups(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_host_group_rest_bad_request(request_type=host_group.GetHostGroupRequest):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/hostGroups/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_host_group(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        host_group.GetHostGroupRequest,
+        dict,
+    ],
+)
+def test_get_host_group_rest_call_success(request_type):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/hostGroups/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = host_group.HostGroup(
+            name="name_value",
+            type_=host_group.HostGroup.Type.ISCSI_INITIATOR,
+            state=host_group.HostGroup.State.CREATING,
+            hosts=["hosts_value"],
+            os_type=common.OsType.LINUX,
+            description="description_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = host_group.HostGroup.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_host_group(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, host_group.HostGroup)
+    assert response.name == "name_value"
+    assert response.type_ == host_group.HostGroup.Type.ISCSI_INITIATOR
+    assert response.state == host_group.HostGroup.State.CREATING
+    assert response.hosts == ["hosts_value"]
+    assert response.os_type == common.OsType.LINUX
+    assert response.description == "description_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_host_group_rest_interceptors(null_interceptor):
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None if null_interceptor else transports.NetAppRestInterceptor(),
+    )
+    client = NetAppClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_host_group"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_get_host_group_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_get_host_group"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = host_group.GetHostGroupRequest.pb(host_group.GetHostGroupRequest())
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = host_group.HostGroup.to_json(host_group.HostGroup())
+        req.return_value.content = return_value
+
+        request = host_group.GetHostGroupRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = host_group.HostGroup()
+        post_with_metadata.return_value = host_group.HostGroup(), metadata
+
+        client.get_host_group(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_create_host_group_rest_bad_request(
+    request_type=gcn_host_group.CreateHostGroupRequest,
+):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.create_host_group(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_host_group.CreateHostGroupRequest,
+        dict,
+    ],
+)
+def test_create_host_group_rest_call_success(request_type):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request_init["host_group"] = {
+        "name": "name_value",
+        "type_": 1,
+        "state": 1,
+        "create_time": {"seconds": 751, "nanos": 543},
+        "hosts": ["hosts_value1", "hosts_value2"],
+        "os_type": 1,
+        "description": "description_value",
+        "labels": {},
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = gcn_host_group.CreateHostGroupRequest.meta.fields["host_group"]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["host_group"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["host_group"][field])):
+                    del request_init["host_group"][field][i][subfield]
+            else:
+                del request_init["host_group"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.create_host_group(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_create_host_group_rest_interceptors(null_interceptor):
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None if null_interceptor else transports.NetAppRestInterceptor(),
+    )
+    client = NetAppClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_host_group"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_create_host_group_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_create_host_group"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = gcn_host_group.CreateHostGroupRequest.pb(
+            gcn_host_group.CreateHostGroupRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = gcn_host_group.CreateHostGroupRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.create_host_group(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_update_host_group_rest_bad_request(
+    request_type=gcn_host_group.UpdateHostGroupRequest,
+):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "host_group": {"name": "projects/sample1/locations/sample2/hostGroups/sample3"}
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.update_host_group(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_host_group.UpdateHostGroupRequest,
+        dict,
+    ],
+)
+def test_update_host_group_rest_call_success(request_type):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "host_group": {"name": "projects/sample1/locations/sample2/hostGroups/sample3"}
+    }
+    request_init["host_group"] = {
+        "name": "projects/sample1/locations/sample2/hostGroups/sample3",
+        "type_": 1,
+        "state": 1,
+        "create_time": {"seconds": 751, "nanos": 543},
+        "hosts": ["hosts_value1", "hosts_value2"],
+        "os_type": 1,
+        "description": "description_value",
+        "labels": {},
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = gcn_host_group.UpdateHostGroupRequest.meta.fields["host_group"]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["host_group"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["host_group"][field])):
+                    del request_init["host_group"][field][i][subfield]
+            else:
+                del request_init["host_group"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.update_host_group(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_update_host_group_rest_interceptors(null_interceptor):
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None if null_interceptor else transports.NetAppRestInterceptor(),
+    )
+    client = NetAppClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_host_group"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_update_host_group_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_update_host_group"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = gcn_host_group.UpdateHostGroupRequest.pb(
+            gcn_host_group.UpdateHostGroupRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = gcn_host_group.UpdateHostGroupRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.update_host_group(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_delete_host_group_rest_bad_request(
+    request_type=host_group.DeleteHostGroupRequest,
+):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/hostGroups/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.delete_host_group(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        host_group.DeleteHostGroupRequest,
+        dict,
+    ],
+)
+def test_delete_host_group_rest_call_success(request_type):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/hostGroups/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.delete_host_group(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_delete_host_group_rest_interceptors(null_interceptor):
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None if null_interceptor else transports.NetAppRestInterceptor(),
+    )
+    client = NetAppClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_host_group"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_delete_host_group_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_delete_host_group"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = host_group.DeleteHostGroupRequest.pb(
+            host_group.DeleteHostGroupRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = host_group.DeleteHostGroupRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.delete_host_group(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_execute_ontap_post_rest_bad_request(
+    request_type=ontap.ExecuteOntapPostRequest,
+):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "ontap_path": "projects/sample1/locations/sample2/storagePools/sample3/ontap/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.execute_ontap_post(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        ontap.ExecuteOntapPostRequest,
+        dict,
+    ],
+)
+def test_execute_ontap_post_rest_call_success(request_type):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "ontap_path": "projects/sample1/locations/sample2/storagePools/sample3/ontap/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = ontap.ExecuteOntapPostResponse()
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = ontap.ExecuteOntapPostResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.execute_ontap_post(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, ontap.ExecuteOntapPostResponse)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_execute_ontap_post_rest_interceptors(null_interceptor):
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None if null_interceptor else transports.NetAppRestInterceptor(),
+    )
+    client = NetAppClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_execute_ontap_post"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_execute_ontap_post_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_execute_ontap_post"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = ontap.ExecuteOntapPostRequest.pb(ontap.ExecuteOntapPostRequest())
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = ontap.ExecuteOntapPostResponse.to_json(
+            ontap.ExecuteOntapPostResponse()
+        )
+        req.return_value.content = return_value
+
+        request = ontap.ExecuteOntapPostRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = ontap.ExecuteOntapPostResponse()
+        post_with_metadata.return_value = ontap.ExecuteOntapPostResponse(), metadata
+
+        client.execute_ontap_post(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_execute_ontap_get_rest_bad_request(request_type=ontap.ExecuteOntapGetRequest):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "ontap_path": "projects/sample1/locations/sample2/storagePools/sample3/ontap/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.execute_ontap_get(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        ontap.ExecuteOntapGetRequest,
+        dict,
+    ],
+)
+def test_execute_ontap_get_rest_call_success(request_type):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "ontap_path": "projects/sample1/locations/sample2/storagePools/sample3/ontap/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = ontap.ExecuteOntapGetResponse()
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = ontap.ExecuteOntapGetResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.execute_ontap_get(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, ontap.ExecuteOntapGetResponse)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_execute_ontap_get_rest_interceptors(null_interceptor):
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None if null_interceptor else transports.NetAppRestInterceptor(),
+    )
+    client = NetAppClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_execute_ontap_get"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_execute_ontap_get_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_execute_ontap_get"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = ontap.ExecuteOntapGetRequest.pb(ontap.ExecuteOntapGetRequest())
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = ontap.ExecuteOntapGetResponse.to_json(
+            ontap.ExecuteOntapGetResponse()
+        )
+        req.return_value.content = return_value
+
+        request = ontap.ExecuteOntapGetRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = ontap.ExecuteOntapGetResponse()
+        post_with_metadata.return_value = ontap.ExecuteOntapGetResponse(), metadata
+
+        client.execute_ontap_get(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_execute_ontap_delete_rest_bad_request(
+    request_type=ontap.ExecuteOntapDeleteRequest,
+):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "ontap_path": "projects/sample1/locations/sample2/storagePools/sample3/ontap/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.execute_ontap_delete(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        ontap.ExecuteOntapDeleteRequest,
+        dict,
+    ],
+)
+def test_execute_ontap_delete_rest_call_success(request_type):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "ontap_path": "projects/sample1/locations/sample2/storagePools/sample3/ontap/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = ontap.ExecuteOntapDeleteResponse()
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = ontap.ExecuteOntapDeleteResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.execute_ontap_delete(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, ontap.ExecuteOntapDeleteResponse)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_execute_ontap_delete_rest_interceptors(null_interceptor):
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None if null_interceptor else transports.NetAppRestInterceptor(),
+    )
+    client = NetAppClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_execute_ontap_delete"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_execute_ontap_delete_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_execute_ontap_delete"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = ontap.ExecuteOntapDeleteRequest.pb(
+            ontap.ExecuteOntapDeleteRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = ontap.ExecuteOntapDeleteResponse.to_json(
+            ontap.ExecuteOntapDeleteResponse()
+        )
+        req.return_value.content = return_value
+
+        request = ontap.ExecuteOntapDeleteRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = ontap.ExecuteOntapDeleteResponse()
+        post_with_metadata.return_value = ontap.ExecuteOntapDeleteResponse(), metadata
+
+        client.execute_ontap_delete(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_execute_ontap_patch_rest_bad_request(
+    request_type=ontap.ExecuteOntapPatchRequest,
+):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "ontap_path": "projects/sample1/locations/sample2/storagePools/sample3/ontap/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.execute_ontap_patch(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        ontap.ExecuteOntapPatchRequest,
+        dict,
+    ],
+)
+def test_execute_ontap_patch_rest_call_success(request_type):
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "ontap_path": "projects/sample1/locations/sample2/storagePools/sample3/ontap/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = ontap.ExecuteOntapPatchResponse()
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = ontap.ExecuteOntapPatchResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.execute_ontap_patch(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, ontap.ExecuteOntapPatchResponse)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_execute_ontap_patch_rest_interceptors(null_interceptor):
+    transport = transports.NetAppRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None if null_interceptor else transports.NetAppRestInterceptor(),
+    )
+    client = NetAppClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_execute_ontap_patch"
+        ) as post,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "post_execute_ontap_patch_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetAppRestInterceptor, "pre_execute_ontap_patch"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = ontap.ExecuteOntapPatchRequest.pb(ontap.ExecuteOntapPatchRequest())
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = ontap.ExecuteOntapPatchResponse.to_json(
+            ontap.ExecuteOntapPatchResponse()
+        )
+        req.return_value.content = return_value
+
+        request = ontap.ExecuteOntapPatchRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = ontap.ExecuteOntapPatchResponse()
+        post_with_metadata.return_value = ontap.ExecuteOntapPatchResponse(), metadata
+
+        client.execute_ontap_patch(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
 def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationRequest):
     client = NetAppClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -47575,8 +55427,9 @@ def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationReq
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -47635,8 +55488,9 @@ def test_list_locations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -47697,8 +55551,9 @@ def test_cancel_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -47759,8 +55614,9 @@ def test_delete_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -47821,8 +55677,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -47883,8 +55740,9 @@ def test_list_operations_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -47957,7 +55815,6 @@ def test_list_storage_pools_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.ListStoragePoolsRequest()
-
         assert args[0] == request_msg
 
 
@@ -47979,7 +55836,6 @@ def test_create_storage_pool_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_storage_pool.CreateStoragePoolRequest()
-
         assert args[0] == request_msg
 
 
@@ -47999,7 +55855,6 @@ def test_get_storage_pool_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.GetStoragePoolRequest()
-
         assert args[0] == request_msg
 
 
@@ -48021,7 +55876,6 @@ def test_update_storage_pool_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_storage_pool.UpdateStoragePoolRequest()
-
         assert args[0] == request_msg
 
 
@@ -48043,7 +55897,6 @@ def test_delete_storage_pool_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.DeleteStoragePoolRequest()
-
         assert args[0] == request_msg
 
 
@@ -48065,7 +55918,6 @@ def test_validate_directory_service_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.ValidateDirectoryServiceRequest()
-
         assert args[0] == request_msg
 
 
@@ -48087,7 +55939,6 @@ def test_switch_active_replica_zone_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = storage_pool.SwitchActiveReplicaZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -48107,7 +55958,6 @@ def test_list_volumes_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = volume.ListVolumesRequest()
-
         assert args[0] == request_msg
 
 
@@ -48127,7 +55977,6 @@ def test_get_volume_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = volume.GetVolumeRequest()
-
         assert args[0] == request_msg
 
 
@@ -48147,7 +55996,6 @@ def test_create_volume_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_volume.CreateVolumeRequest()
-
         assert args[0] == request_msg
 
 
@@ -48167,7 +56015,6 @@ def test_update_volume_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_volume.UpdateVolumeRequest()
-
         assert args[0] == request_msg
 
 
@@ -48187,7 +56034,6 @@ def test_delete_volume_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = volume.DeleteVolumeRequest()
-
         assert args[0] == request_msg
 
 
@@ -48207,7 +56053,27 @@ def test_revert_volume_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = volume.RevertVolumeRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_establish_volume_peering_empty_call_rest():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.establish_volume_peering), "__call__"
+    ) as call:
+        client.establish_volume_peering(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = volume.EstablishVolumePeeringRequest()
         assert args[0] == request_msg
 
 
@@ -48227,7 +56093,6 @@ def test_list_snapshots_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = snapshot.ListSnapshotsRequest()
-
         assert args[0] == request_msg
 
 
@@ -48247,7 +56112,6 @@ def test_get_snapshot_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = snapshot.GetSnapshotRequest()
-
         assert args[0] == request_msg
 
 
@@ -48267,7 +56131,6 @@ def test_create_snapshot_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_snapshot.CreateSnapshotRequest()
-
         assert args[0] == request_msg
 
 
@@ -48287,7 +56150,6 @@ def test_delete_snapshot_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = snapshot.DeleteSnapshotRequest()
-
         assert args[0] == request_msg
 
 
@@ -48307,7 +56169,6 @@ def test_update_snapshot_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_snapshot.UpdateSnapshotRequest()
-
         assert args[0] == request_msg
 
 
@@ -48329,7 +56190,6 @@ def test_list_active_directories_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = active_directory.ListActiveDirectoriesRequest()
-
         assert args[0] == request_msg
 
 
@@ -48351,7 +56211,6 @@ def test_get_active_directory_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = active_directory.GetActiveDirectoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -48373,7 +56232,6 @@ def test_create_active_directory_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_active_directory.CreateActiveDirectoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -48395,7 +56253,6 @@ def test_update_active_directory_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_active_directory.UpdateActiveDirectoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -48417,7 +56274,6 @@ def test_delete_active_directory_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = active_directory.DeleteActiveDirectoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -48437,7 +56293,6 @@ def test_list_kms_configs_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.ListKmsConfigsRequest()
-
         assert args[0] == request_msg
 
 
@@ -48459,7 +56314,6 @@ def test_create_kms_config_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.CreateKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -48479,7 +56333,6 @@ def test_get_kms_config_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.GetKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -48501,7 +56354,6 @@ def test_update_kms_config_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.UpdateKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -48521,7 +56373,6 @@ def test_encrypt_volumes_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.EncryptVolumesRequest()
-
         assert args[0] == request_msg
 
 
@@ -48543,7 +56394,6 @@ def test_verify_kms_config_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.VerifyKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -48565,7 +56415,6 @@ def test_delete_kms_config_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = kms.DeleteKmsConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -48587,7 +56436,6 @@ def test_list_replications_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.ListReplicationsRequest()
-
         assert args[0] == request_msg
 
 
@@ -48607,7 +56455,6 @@ def test_get_replication_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.GetReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -48629,7 +56476,6 @@ def test_create_replication_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_replication.CreateReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -48651,7 +56497,6 @@ def test_delete_replication_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.DeleteReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -48673,7 +56518,6 @@ def test_update_replication_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_replication.UpdateReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -48693,7 +56537,6 @@ def test_stop_replication_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.StopReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -48715,7 +56558,6 @@ def test_resume_replication_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.ResumeReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -48737,7 +56579,6 @@ def test_reverse_replication_direction_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.ReverseReplicationDirectionRequest()
-
         assert args[0] == request_msg
 
 
@@ -48759,7 +56600,6 @@ def test_establish_peering_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.EstablishPeeringRequest()
-
         assert args[0] == request_msg
 
 
@@ -48779,7 +56619,6 @@ def test_sync_replication_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = replication.SyncReplicationRequest()
-
         assert args[0] == request_msg
 
 
@@ -48801,7 +56640,6 @@ def test_create_backup_vault_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup_vault.CreateBackupVaultRequest()
-
         assert args[0] == request_msg
 
 
@@ -48821,7 +56659,6 @@ def test_get_backup_vault_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_vault.GetBackupVaultRequest()
-
         assert args[0] == request_msg
 
 
@@ -48843,7 +56680,6 @@ def test_list_backup_vaults_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_vault.ListBackupVaultsRequest()
-
         assert args[0] == request_msg
 
 
@@ -48865,7 +56701,6 @@ def test_update_backup_vault_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup_vault.UpdateBackupVaultRequest()
-
         assert args[0] == request_msg
 
 
@@ -48887,7 +56722,6 @@ def test_delete_backup_vault_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_vault.DeleteBackupVaultRequest()
-
         assert args[0] == request_msg
 
 
@@ -48907,7 +56741,6 @@ def test_create_backup_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup.CreateBackupRequest()
-
         assert args[0] == request_msg
 
 
@@ -48927,7 +56760,6 @@ def test_get_backup_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup.GetBackupRequest()
-
         assert args[0] == request_msg
 
 
@@ -48947,7 +56779,6 @@ def test_list_backups_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup.ListBackupsRequest()
-
         assert args[0] == request_msg
 
 
@@ -48967,7 +56798,6 @@ def test_delete_backup_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup.DeleteBackupRequest()
-
         assert args[0] == request_msg
 
 
@@ -48987,7 +56817,6 @@ def test_update_backup_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup.UpdateBackupRequest()
-
         assert args[0] == request_msg
 
 
@@ -49009,7 +56838,6 @@ def test_create_backup_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup_policy.CreateBackupPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -49031,7 +56859,6 @@ def test_get_backup_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_policy.GetBackupPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -49053,7 +56880,6 @@ def test_list_backup_policies_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_policy.ListBackupPoliciesRequest()
-
         assert args[0] == request_msg
 
 
@@ -49075,7 +56901,6 @@ def test_update_backup_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_backup_policy.UpdateBackupPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -49097,7 +56922,6 @@ def test_delete_backup_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = backup_policy.DeleteBackupPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -49117,7 +56941,6 @@ def test_list_quota_rules_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = quota_rule.ListQuotaRulesRequest()
-
         assert args[0] == request_msg
 
 
@@ -49137,7 +56960,6 @@ def test_get_quota_rule_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = quota_rule.GetQuotaRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -49159,7 +56981,6 @@ def test_create_quota_rule_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_quota_rule.CreateQuotaRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -49181,7 +57002,6 @@ def test_update_quota_rule_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_quota_rule.UpdateQuotaRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -49203,7 +57023,212 @@ def test_delete_quota_rule_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = quota_rule.DeleteQuotaRuleRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_restore_backup_files_empty_call_rest():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.restore_backup_files), "__call__"
+    ) as call:
+        client.restore_backup_files(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = volume.RestoreBackupFilesRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_host_groups_empty_call_rest():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.list_host_groups), "__call__") as call:
+        client.list_host_groups(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = host_group.ListHostGroupsRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_host_group_empty_call_rest():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.get_host_group), "__call__") as call:
+        client.get_host_group(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = host_group.GetHostGroupRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_host_group_empty_call_rest():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_host_group), "__call__"
+    ) as call:
+        client.create_host_group(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_host_group.CreateHostGroupRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_update_host_group_empty_call_rest():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_host_group), "__call__"
+    ) as call:
+        client.update_host_group(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_host_group.UpdateHostGroupRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_delete_host_group_empty_call_rest():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_host_group), "__call__"
+    ) as call:
+        client.delete_host_group(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = host_group.DeleteHostGroupRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_execute_ontap_post_empty_call_rest():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_post), "__call__"
+    ) as call:
+        client.execute_ontap_post(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapPostRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_execute_ontap_get_empty_call_rest():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_get), "__call__"
+    ) as call:
+        client.execute_ontap_get(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapGetRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_execute_ontap_delete_empty_call_rest():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_delete), "__call__"
+    ) as call:
+        client.execute_ontap_delete(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapDeleteRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_execute_ontap_patch_empty_call_rest():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.execute_ontap_patch), "__call__"
+    ) as call:
+        client.execute_ontap_patch(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = ontap.ExecuteOntapPatchRequest()
         assert args[0] == request_msg
 
 
@@ -49270,6 +57295,7 @@ def test_net_app_base_transport():
         "update_volume",
         "delete_volume",
         "revert_volume",
+        "establish_volume_peering",
         "list_snapshots",
         "get_snapshot",
         "create_snapshot",
@@ -49317,6 +57343,16 @@ def test_net_app_base_transport():
         "create_quota_rule",
         "update_quota_rule",
         "delete_quota_rule",
+        "restore_backup_files",
+        "list_host_groups",
+        "get_host_group",
+        "create_host_group",
+        "update_host_group",
+        "delete_host_group",
+        "execute_ontap_post",
+        "execute_ontap_get",
+        "execute_ontap_delete",
+        "execute_ontap_patch",
         "get_location",
         "list_locations",
         "get_operation",
@@ -49347,11 +57383,14 @@ def test_net_app_base_transport():
 
 def test_net_app_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.netapp_v1.services.net_app.transports.NetAppTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.netapp_v1.services.net_app.transports.NetAppTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.NetAppTransport(
@@ -49368,9 +57407,12 @@ def test_net_app_base_transport_with_credentials_file():
 
 def test_net_app_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.netapp_v1.services.net_app.transports.NetAppTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.netapp_v1.services.net_app.transports.NetAppTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.NetAppTransport()
@@ -49442,11 +57484,12 @@ def test_net_app_transport_auth_gdch_credentials(transport_class):
 def test_net_app_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -49622,6 +57665,9 @@ def test_net_app_client_transport_session_collision(transport_name):
     session1 = client1.transport.revert_volume._session
     session2 = client2.transport.revert_volume._session
     assert session1 != session2
+    session1 = client1.transport.establish_volume_peering._session
+    session2 = client2.transport.establish_volume_peering._session
+    assert session1 != session2
     session1 = client1.transport.list_snapshots._session
     session2 = client2.transport.list_snapshots._session
     assert session1 != session2
@@ -49763,6 +57809,36 @@ def test_net_app_client_transport_session_collision(transport_name):
     session1 = client1.transport.delete_quota_rule._session
     session2 = client2.transport.delete_quota_rule._session
     assert session1 != session2
+    session1 = client1.transport.restore_backup_files._session
+    session2 = client2.transport.restore_backup_files._session
+    assert session1 != session2
+    session1 = client1.transport.list_host_groups._session
+    session2 = client2.transport.list_host_groups._session
+    assert session1 != session2
+    session1 = client1.transport.get_host_group._session
+    session2 = client2.transport.get_host_group._session
+    assert session1 != session2
+    session1 = client1.transport.create_host_group._session
+    session2 = client2.transport.create_host_group._session
+    assert session1 != session2
+    session1 = client1.transport.update_host_group._session
+    session2 = client2.transport.update_host_group._session
+    assert session1 != session2
+    session1 = client1.transport.delete_host_group._session
+    session2 = client2.transport.delete_host_group._session
+    assert session1 != session2
+    session1 = client1.transport.execute_ontap_post._session
+    session2 = client2.transport.execute_ontap_post._session
+    assert session1 != session2
+    session1 = client1.transport.execute_ontap_get._session
+    session2 = client2.transport.execute_ontap_get._session
+    assert session1 != session2
+    session1 = client1.transport.execute_ontap_delete._session
+    session2 = client2.transport.execute_ontap_delete._session
+    assert session1 != session2
+    session1 = client1.transport.execute_ontap_patch._session
+    session2 = client2.transport.execute_ontap_patch._session
+    assert session1 != session2
 
 
 def test_net_app_grpc_transport_channel():
@@ -49793,6 +57869,7 @@ def test_net_app_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [transports.NetAppGrpcTransport, transports.NetAppGrpcAsyncIOTransport],
@@ -50028,10 +58105,36 @@ def test_parse_backup_vault_path():
     assert expected == actual
 
 
-def test_kms_config_path():
+def test_host_group_path():
     project = "whelk"
     location = "octopus"
-    kms_config = "oyster"
+    host_group = "oyster"
+    expected = "projects/{project}/locations/{location}/hostGroups/{host_group}".format(
+        project=project,
+        location=location,
+        host_group=host_group,
+    )
+    actual = NetAppClient.host_group_path(project, location, host_group)
+    assert expected == actual
+
+
+def test_parse_host_group_path():
+    expected = {
+        "project": "nudibranch",
+        "location": "cuttlefish",
+        "host_group": "mussel",
+    }
+    path = NetAppClient.host_group_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = NetAppClient.parse_host_group_path(path)
+    assert expected == actual
+
+
+def test_kms_config_path():
+    project = "winkle"
+    location = "nautilus"
+    kms_config = "scallop"
     expected = "projects/{project}/locations/{location}/kmsConfigs/{kms_config}".format(
         project=project,
         location=location,
@@ -50043,9 +58146,9 @@ def test_kms_config_path():
 
 def test_parse_kms_config_path():
     expected = {
-        "project": "nudibranch",
-        "location": "cuttlefish",
-        "kms_config": "mussel",
+        "project": "abalone",
+        "location": "squid",
+        "kms_config": "clam",
     }
     path = NetAppClient.kms_config_path(**expected)
 
@@ -50055,8 +58158,8 @@ def test_parse_kms_config_path():
 
 
 def test_network_path():
-    project = "winkle"
-    network = "nautilus"
+    project = "whelk"
+    network = "octopus"
     expected = "projects/{project}/global/networks/{network}".format(
         project=project,
         network=network,
@@ -50067,8 +58170,8 @@ def test_network_path():
 
 def test_parse_network_path():
     expected = {
-        "project": "scallop",
-        "network": "abalone",
+        "project": "oyster",
+        "network": "nudibranch",
     }
     path = NetAppClient.network_path(**expected)
 
@@ -50078,10 +58181,10 @@ def test_parse_network_path():
 
 
 def test_quota_rule_path():
-    project = "squid"
-    location = "clam"
-    volume = "whelk"
-    quota_rule = "octopus"
+    project = "cuttlefish"
+    location = "mussel"
+    volume = "winkle"
+    quota_rule = "nautilus"
     expected = "projects/{project}/locations/{location}/volumes/{volume}/quotaRules/{quota_rule}".format(
         project=project,
         location=location,
@@ -50094,10 +58197,10 @@ def test_quota_rule_path():
 
 def test_parse_quota_rule_path():
     expected = {
-        "project": "oyster",
-        "location": "nudibranch",
-        "volume": "cuttlefish",
-        "quota_rule": "mussel",
+        "project": "scallop",
+        "location": "abalone",
+        "volume": "squid",
+        "quota_rule": "clam",
     }
     path = NetAppClient.quota_rule_path(**expected)
 
@@ -50107,10 +58210,10 @@ def test_parse_quota_rule_path():
 
 
 def test_replication_path():
-    project = "winkle"
-    location = "nautilus"
-    volume = "scallop"
-    replication = "abalone"
+    project = "whelk"
+    location = "octopus"
+    volume = "oyster"
+    replication = "nudibranch"
     expected = "projects/{project}/locations/{location}/volumes/{volume}/replications/{replication}".format(
         project=project,
         location=location,
@@ -50123,10 +58226,10 @@ def test_replication_path():
 
 def test_parse_replication_path():
     expected = {
-        "project": "squid",
-        "location": "clam",
-        "volume": "whelk",
-        "replication": "octopus",
+        "project": "cuttlefish",
+        "location": "mussel",
+        "volume": "winkle",
+        "replication": "nautilus",
     }
     path = NetAppClient.replication_path(**expected)
 
@@ -50136,10 +58239,10 @@ def test_parse_replication_path():
 
 
 def test_snapshot_path():
-    project = "oyster"
-    location = "nudibranch"
-    volume = "cuttlefish"
-    snapshot = "mussel"
+    project = "scallop"
+    location = "abalone"
+    volume = "squid"
+    snapshot = "clam"
     expected = "projects/{project}/locations/{location}/volumes/{volume}/snapshots/{snapshot}".format(
         project=project,
         location=location,
@@ -50152,10 +58255,10 @@ def test_snapshot_path():
 
 def test_parse_snapshot_path():
     expected = {
-        "project": "winkle",
-        "location": "nautilus",
-        "volume": "scallop",
-        "snapshot": "abalone",
+        "project": "whelk",
+        "location": "octopus",
+        "volume": "oyster",
+        "snapshot": "nudibranch",
     }
     path = NetAppClient.snapshot_path(**expected)
 
@@ -50165,9 +58268,9 @@ def test_parse_snapshot_path():
 
 
 def test_storage_pool_path():
-    project = "squid"
-    location = "clam"
-    storage_pool = "whelk"
+    project = "cuttlefish"
+    location = "mussel"
+    storage_pool = "winkle"
     expected = (
         "projects/{project}/locations/{location}/storagePools/{storage_pool}".format(
             project=project,
@@ -50181,9 +58284,9 @@ def test_storage_pool_path():
 
 def test_parse_storage_pool_path():
     expected = {
-        "project": "octopus",
-        "location": "oyster",
-        "storage_pool": "nudibranch",
+        "project": "nautilus",
+        "location": "scallop",
+        "storage_pool": "abalone",
     }
     path = NetAppClient.storage_pool_path(**expected)
 
@@ -50193,9 +58296,9 @@ def test_parse_storage_pool_path():
 
 
 def test_volume_path():
-    project = "cuttlefish"
-    location = "mussel"
-    volume = "winkle"
+    project = "squid"
+    location = "clam"
+    volume = "whelk"
     expected = "projects/{project}/locations/{location}/volumes/{volume}".format(
         project=project,
         location=location,
@@ -50207,9 +58310,9 @@ def test_volume_path():
 
 def test_parse_volume_path():
     expected = {
-        "project": "nautilus",
-        "location": "scallop",
-        "volume": "abalone",
+        "project": "octopus",
+        "location": "oyster",
+        "volume": "nudibranch",
     }
     path = NetAppClient.volume_path(**expected)
 
@@ -50219,7 +58322,7 @@ def test_parse_volume_path():
 
 
 def test_common_billing_account_path():
-    billing_account = "squid"
+    billing_account = "cuttlefish"
     expected = "billingAccounts/{billing_account}".format(
         billing_account=billing_account,
     )
@@ -50229,7 +58332,7 @@ def test_common_billing_account_path():
 
 def test_parse_common_billing_account_path():
     expected = {
-        "billing_account": "clam",
+        "billing_account": "mussel",
     }
     path = NetAppClient.common_billing_account_path(**expected)
 
@@ -50239,7 +58342,7 @@ def test_parse_common_billing_account_path():
 
 
 def test_common_folder_path():
-    folder = "whelk"
+    folder = "winkle"
     expected = "folders/{folder}".format(
         folder=folder,
     )
@@ -50249,7 +58352,7 @@ def test_common_folder_path():
 
 def test_parse_common_folder_path():
     expected = {
-        "folder": "octopus",
+        "folder": "nautilus",
     }
     path = NetAppClient.common_folder_path(**expected)
 
@@ -50259,7 +58362,7 @@ def test_parse_common_folder_path():
 
 
 def test_common_organization_path():
-    organization = "oyster"
+    organization = "scallop"
     expected = "organizations/{organization}".format(
         organization=organization,
     )
@@ -50269,7 +58372,7 @@ def test_common_organization_path():
 
 def test_parse_common_organization_path():
     expected = {
-        "organization": "nudibranch",
+        "organization": "abalone",
     }
     path = NetAppClient.common_organization_path(**expected)
 
@@ -50279,7 +58382,7 @@ def test_parse_common_organization_path():
 
 
 def test_common_project_path():
-    project = "cuttlefish"
+    project = "squid"
     expected = "projects/{project}".format(
         project=project,
     )
@@ -50289,7 +58392,7 @@ def test_common_project_path():
 
 def test_parse_common_project_path():
     expected = {
-        "project": "mussel",
+        "project": "clam",
     }
     path = NetAppClient.common_project_path(**expected)
 
@@ -50299,8 +58402,8 @@ def test_parse_common_project_path():
 
 
 def test_common_location_path():
-    project = "winkle"
-    location = "nautilus"
+    project = "whelk"
+    location = "octopus"
     expected = "projects/{project}/locations/{location}".format(
         project=project,
         location=location,
@@ -50311,8 +58414,8 @@ def test_common_location_path():
 
 def test_parse_common_location_path():
     expected = {
-        "project": "scallop",
-        "location": "abalone",
+        "project": "oyster",
+        "location": "nudibranch",
     }
     path = NetAppClient.common_location_path(**expected)
 
@@ -50483,6 +58586,38 @@ async def test_delete_operation_from_dict_async():
         call.assert_called()
 
 
+def test_delete_operation_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_flattened_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
 def test_cancel_operation(transport: str = "grpc"):
     client = NetAppClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -50620,6 +58755,38 @@ async def test_cancel_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_cancel_operation_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
 
 
 def test_get_operation(transport: str = "grpc"):
@@ -50767,6 +58934,40 @@ async def test_get_operation_from_dict_async():
         call.assert_called()
 
 
+def test_get_operation_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
 def test_list_operations(transport: str = "grpc"):
     client = NetAppClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -50910,6 +59111,40 @@ async def test_list_operations_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_list_operations_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
 
 
 def test_list_locations(transport: str = "grpc"):
@@ -51057,6 +59292,40 @@ async def test_list_locations_from_dict_async():
         call.assert_called()
 
 
+def test_list_locations_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_flattened_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
 def test_get_location(transport: str = "grpc"):
     client = NetAppClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -51196,6 +59465,40 @@ async def test_get_location_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_location_flattened():
+    client = NetAppClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_location_flattened_async():
+    client = NetAppAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
 
 
 def test_transport_close_grpc():

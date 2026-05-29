@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
-from google.ai.generativelanguage_v1alpha.types import tuned_model as gag_tuned_model
 from google.ai.generativelanguage_v1alpha.types import model
+from google.ai.generativelanguage_v1alpha.types import tuned_model as gag_tuned_model
 
 __protobuf__ = proto.module(
     package="google.ai.generativelanguage.v1alpha",

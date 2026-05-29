@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ async def sample_publish():
 
     # Initialize request argument(s)
     proto_message = eventarc_publishing_v1.CloudEvent()
-    proto_message.binary_data = b'binary_data_blob'
+    proto_message.binary_data = b"binary_data_blob"
     proto_message.id = "id_value"
     proto_message.source = "source_value"
     proto_message.spec_version = "spec_version_value"
@@ -56,5 +56,6 @@ async def sample_publish():
 
     # Handle the response
     print(response)
+
 
 # [END eventarcpublishing_v1_generated_Publisher_Publish_async]

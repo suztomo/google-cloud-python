@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.network_security_v1 import gapic_version as package_version
 
@@ -61,31 +61,55 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.network_security_v1.services.network_security import pagers
 from google.cloud.network_security_v1.types import (
+    authorization_policy,
+    authz_policy,
+    backend_authentication_config,
+    client_tls_policy,
+    common,
+    gateway_security_policy,
+    gateway_security_policy_rule,
+    server_tls_policy,
+    tls,
+    tls_inspection_policy,
+    url_list,
+)
+from google.cloud.network_security_v1.types import (
     authorization_policy as gcn_authorization_policy,
+)
+from google.cloud.network_security_v1.types import authz_policy as gcn_authz_policy
+from google.cloud.network_security_v1.types import (
+    backend_authentication_config as gcn_backend_authentication_config,
 )
 from google.cloud.network_security_v1.types import (
     client_tls_policy as gcn_client_tls_policy,
 )
 from google.cloud.network_security_v1.types import (
+    gateway_security_policy as gcn_gateway_security_policy,
+)
+from google.cloud.network_security_v1.types import (
+    gateway_security_policy_rule as gcn_gateway_security_policy_rule,
+)
+from google.cloud.network_security_v1.types import (
     server_tls_policy as gcn_server_tls_policy,
 )
-from google.cloud.network_security_v1.types import authorization_policy
-from google.cloud.network_security_v1.types import client_tls_policy
-from google.cloud.network_security_v1.types import common
-from google.cloud.network_security_v1.types import server_tls_policy
-from google.cloud.network_security_v1.types import tls
+from google.cloud.network_security_v1.types import (
+    tls_inspection_policy as gcn_tls_inspection_policy,
+)
+from google.cloud.network_security_v1.types import url_list as gcn_url_list
 
 from .transports.base import DEFAULT_CLIENT_INFO, NetworkSecurityTransport
 from .transports.grpc import NetworkSecurityGrpcTransport
@@ -101,9 +125,7 @@ class NetworkSecurityClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[NetworkSecurityTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[NetworkSecurityTransport]]
     _transport_registry["grpc"] = NetworkSecurityGrpcTransport
     _transport_registry["grpc_asyncio"] = NetworkSecurityGrpcAsyncIOTransport
     _transport_registry["rest"] = NetworkSecurityRestTransport
@@ -137,7 +159,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
     """
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -145,7 +167,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -155,6 +177,10 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -174,6 +200,34 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "networksecurity.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -245,6 +299,96 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         return m.groupdict() if m else {}
 
     @staticmethod
+    def authz_policy_path(
+        project: str,
+        location: str,
+        authz_policy: str,
+    ) -> str:
+        """Returns a fully-qualified authz_policy string."""
+        return "projects/{project}/locations/{location}/authzPolicies/{authz_policy}".format(
+            project=project,
+            location=location,
+            authz_policy=authz_policy,
+        )
+
+    @staticmethod
+    def parse_authz_policy_path(path: str) -> Dict[str, str]:
+        """Parses a authz_policy path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/authzPolicies/(?P<authz_policy>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def backend_authentication_config_path(
+        project: str,
+        location: str,
+        backend_authentication_config: str,
+    ) -> str:
+        """Returns a fully-qualified backend_authentication_config string."""
+        return "projects/{project}/locations/{location}/backendAuthenticationConfigs/{backend_authentication_config}".format(
+            project=project,
+            location=location,
+            backend_authentication_config=backend_authentication_config,
+        )
+
+    @staticmethod
+    def parse_backend_authentication_config_path(path: str) -> Dict[str, str]:
+        """Parses a backend_authentication_config path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/backendAuthenticationConfigs/(?P<backend_authentication_config>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def ca_pool_path(
+        project: str,
+        location: str,
+        ca_pool: str,
+    ) -> str:
+        """Returns a fully-qualified ca_pool string."""
+        return "projects/{project}/locations/{location}/caPools/{ca_pool}".format(
+            project=project,
+            location=location,
+            ca_pool=ca_pool,
+        )
+
+    @staticmethod
+    def parse_ca_pool_path(path: str) -> Dict[str, str]:
+        """Parses a ca_pool path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/caPools/(?P<ca_pool>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def certificate_path(
+        project: str,
+        location: str,
+        certificate: str,
+    ) -> str:
+        """Returns a fully-qualified certificate string."""
+        return (
+            "projects/{project}/locations/{location}/certificates/{certificate}".format(
+                project=project,
+                location=location,
+                certificate=certificate,
+            )
+        )
+
+    @staticmethod
+    def parse_certificate_path(path: str) -> Dict[str, str]:
+        """Parses a certificate path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/certificates/(?P<certificate>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
     def client_tls_policy_path(
         project: str,
         location: str,
@@ -267,6 +411,52 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         return m.groupdict() if m else {}
 
     @staticmethod
+    def gateway_security_policy_path(
+        project: str,
+        location: str,
+        gateway_security_policy: str,
+    ) -> str:
+        """Returns a fully-qualified gateway_security_policy string."""
+        return "projects/{project}/locations/{location}/gatewaySecurityPolicies/{gateway_security_policy}".format(
+            project=project,
+            location=location,
+            gateway_security_policy=gateway_security_policy,
+        )
+
+    @staticmethod
+    def parse_gateway_security_policy_path(path: str) -> Dict[str, str]:
+        """Parses a gateway_security_policy path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/gatewaySecurityPolicies/(?P<gateway_security_policy>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def gateway_security_policy_rule_path(
+        project: str,
+        location: str,
+        gateway_security_policy: str,
+        rule: str,
+    ) -> str:
+        """Returns a fully-qualified gateway_security_policy_rule string."""
+        return "projects/{project}/locations/{location}/gatewaySecurityPolicies/{gateway_security_policy}/rules/{rule}".format(
+            project=project,
+            location=location,
+            gateway_security_policy=gateway_security_policy,
+            rule=rule,
+        )
+
+    @staticmethod
+    def parse_gateway_security_policy_rule_path(path: str) -> Dict[str, str]:
+        """Parses a gateway_security_policy_rule path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/gatewaySecurityPolicies/(?P<gateway_security_policy>.+?)/rules/(?P<rule>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
     def server_tls_policy_path(
         project: str,
         location: str,
@@ -284,6 +474,72 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         """Parses a server_tls_policy path into its component segments."""
         m = re.match(
             r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/serverTlsPolicies/(?P<server_tls_policy>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def tls_inspection_policy_path(
+        project: str,
+        location: str,
+        tls_inspection_policy: str,
+    ) -> str:
+        """Returns a fully-qualified tls_inspection_policy string."""
+        return "projects/{project}/locations/{location}/tlsInspectionPolicies/{tls_inspection_policy}".format(
+            project=project,
+            location=location,
+            tls_inspection_policy=tls_inspection_policy,
+        )
+
+    @staticmethod
+    def parse_tls_inspection_policy_path(path: str) -> Dict[str, str]:
+        """Parses a tls_inspection_policy path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/tlsInspectionPolicies/(?P<tls_inspection_policy>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def trust_config_path(
+        project: str,
+        location: str,
+        trust_config: str,
+    ) -> str:
+        """Returns a fully-qualified trust_config string."""
+        return "projects/{project}/locations/{location}/trustConfigs/{trust_config}".format(
+            project=project,
+            location=location,
+            trust_config=trust_config,
+        )
+
+    @staticmethod
+    def parse_trust_config_path(path: str) -> Dict[str, str]:
+        """Parses a trust_config path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/trustConfigs/(?P<trust_config>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def url_list_path(
+        project: str,
+        location: str,
+        url_list: str,
+    ) -> str:
+        """Returns a fully-qualified url_list string."""
+        return "projects/{project}/locations/{location}/urlLists/{url_list}".format(
+            project=project,
+            location=location,
+            url_list=url_list,
+        )
+
+    @staticmethod
+    def parse_url_list_path(path: str) -> Dict[str, str]:
+        """Parses a url_list path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/urlLists/(?P<url_list>.+?)$",
             path,
         )
         return m.groupdict() if m else {}
@@ -406,12 +662,8 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = NetworkSecurityClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -419,7 +671,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -451,20 +703,14 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = NetworkSecurityClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -488,7 +734,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -585,7 +831,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -674,18 +920,16 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = NetworkSecurityClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            NetworkSecurityClient._read_environment_variables()
+        )
         self._client_cert_source = NetworkSecurityClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = NetworkSecurityClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -713,8 +957,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(NetworkSecurityTransport, transport)
             self._api_endpoint = self._transport.host
@@ -1485,6 +1728,805 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Done; return the response.
         return response
 
+    def list_backend_authentication_configs(
+        self,
+        request: Optional[
+            Union[
+                backend_authentication_config.ListBackendAuthenticationConfigsRequest,
+                dict,
+            ]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListBackendAuthenticationConfigsPager:
+        r"""Lists BackendAuthenticationConfigs in a given project
+        and location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_list_backend_authentication_configs():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.ListBackendAuthenticationConfigsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_backend_authentication_configs(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.ListBackendAuthenticationConfigsRequest, dict]):
+                The request object. Request used by the
+                ListBackendAuthenticationConfigs method.
+            parent (str):
+                Required. The project and location from which the
+                BackendAuthenticationConfigs should be listed, specified
+                in the format ``projects/*/locations/{location}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_security_v1.services.network_security.pagers.ListBackendAuthenticationConfigsPager:
+                Response returned by the
+                ListBackendAuthenticationConfigs method.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request,
+            backend_authentication_config.ListBackendAuthenticationConfigsRequest,
+        ):
+            request = (
+                backend_authentication_config.ListBackendAuthenticationConfigsRequest(
+                    request
+                )
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.list_backend_authentication_configs
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListBackendAuthenticationConfigsPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_backend_authentication_config(
+        self,
+        request: Optional[
+            Union[
+                backend_authentication_config.GetBackendAuthenticationConfigRequest,
+                dict,
+            ]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> backend_authentication_config.BackendAuthenticationConfig:
+        r"""Gets details of a single BackendAuthenticationConfig
+        to BackendAuthenticationConfig.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_get_backend_authentication_config():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.GetBackendAuthenticationConfigRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = client.get_backend_authentication_config(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.GetBackendAuthenticationConfigRequest, dict]):
+                The request object. Request used by the
+                GetBackendAuthenticationConfig method.
+            name (str):
+                Required. A name of the BackendAuthenticationConfig to
+                get. Must be in the format
+                ``projects/*/locations/{location}/backendAuthenticationConfigs/*``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_security_v1.types.BackendAuthenticationConfig:
+                BackendAuthenticationConfig message groups the TrustConfig together with
+                   other settings that control how the load balancer
+                   authenticates, and expresses its identity to, the
+                   backend:
+
+                   - trustConfig is the attached TrustConfig.
+
+                   \* wellKnownRoots indicates whether the load balance
+                   should trust backend server certificates that are
+                   issued by public certificate authorities, in addition
+                   to certificates trusted by the TrustConfig.
+
+                   \* clientCertificate is a client certificate that the
+                   load balancer uses to express its identity to the
+                   backend, if the connection to the backend uses mTLS.
+
+                   You can attach the BackendAuthenticationConfig to the
+                   load balancer's BackendService directly determining
+                   how that BackendService negotiates TLS.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, backend_authentication_config.GetBackendAuthenticationConfigRequest
+        ):
+            request = (
+                backend_authentication_config.GetBackendAuthenticationConfigRequest(
+                    request
+                )
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.get_backend_authentication_config
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def create_backend_authentication_config(
+        self,
+        request: Optional[
+            Union[
+                gcn_backend_authentication_config.CreateBackendAuthenticationConfigRequest,
+                dict,
+            ]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        backend_authentication_config: Optional[
+            gcn_backend_authentication_config.BackendAuthenticationConfig
+        ] = None,
+        backend_authentication_config_id: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Creates a new BackendAuthenticationConfig in a given
+        project and location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_create_backend_authentication_config():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                backend_authentication_config = network_security_v1.BackendAuthenticationConfig()
+                backend_authentication_config.name = "name_value"
+
+                request = network_security_v1.CreateBackendAuthenticationConfigRequest(
+                    parent="parent_value",
+                    backend_authentication_config_id="backend_authentication_config_id_value",
+                    backend_authentication_config=backend_authentication_config,
+                )
+
+                # Make the request
+                operation = client.create_backend_authentication_config(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.CreateBackendAuthenticationConfigRequest, dict]):
+                The request object. Request used by the
+                CreateBackendAuthenticationConfig
+                method.
+            parent (str):
+                Required. The parent resource of the
+                BackendAuthenticationConfig. Must be in the format
+                ``projects/*/locations/{location}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            backend_authentication_config (google.cloud.network_security_v1.types.BackendAuthenticationConfig):
+                Required. BackendAuthenticationConfig
+                resource to be created.
+
+                This corresponds to the ``backend_authentication_config`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            backend_authentication_config_id (str):
+                Required. Short name of the
+                BackendAuthenticationConfig resource to
+                be created. This value should be 1-63
+                characters long, containing only
+                letters, numbers, hyphens, and
+                underscores, and should not start with a
+                number. E.g. "backend-auth-config".
+
+                This corresponds to the ``backend_authentication_config_id`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_security_v1.types.BackendAuthenticationConfig` BackendAuthenticationConfig message groups the TrustConfig together with
+                   other settings that control how the load balancer
+                   authenticates, and expresses its identity to, the
+                   backend:
+
+                   - trustConfig is the attached TrustConfig.
+
+                   \* wellKnownRoots indicates whether the load balance
+                   should trust backend server certificates that are
+                   issued by public certificate authorities, in addition
+                   to certificates trusted by the TrustConfig.
+
+                   \* clientCertificate is a client certificate that the
+                   load balancer uses to express its identity to the
+                   backend, if the connection to the backend uses mTLS.
+
+                   You can attach the BackendAuthenticationConfig to the
+                   load balancer's BackendService directly determining
+                   how that BackendService negotiates TLS.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [
+            parent,
+            backend_authentication_config,
+            backend_authentication_config_id,
+        ]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request,
+            gcn_backend_authentication_config.CreateBackendAuthenticationConfigRequest,
+        ):
+            request = gcn_backend_authentication_config.CreateBackendAuthenticationConfigRequest(
+                request
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if backend_authentication_config is not None:
+                request.backend_authentication_config = backend_authentication_config
+            if backend_authentication_config_id is not None:
+                request.backend_authentication_config_id = (
+                    backend_authentication_config_id
+                )
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.create_backend_authentication_config
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            gcn_backend_authentication_config.BackendAuthenticationConfig,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def update_backend_authentication_config(
+        self,
+        request: Optional[
+            Union[
+                gcn_backend_authentication_config.UpdateBackendAuthenticationConfigRequest,
+                dict,
+            ]
+        ] = None,
+        *,
+        backend_authentication_config: Optional[
+            gcn_backend_authentication_config.BackendAuthenticationConfig
+        ] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Updates the parameters of a single
+        BackendAuthenticationConfig to
+        BackendAuthenticationConfig.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_update_backend_authentication_config():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                backend_authentication_config = network_security_v1.BackendAuthenticationConfig()
+                backend_authentication_config.name = "name_value"
+
+                request = network_security_v1.UpdateBackendAuthenticationConfigRequest(
+                    backend_authentication_config=backend_authentication_config,
+                )
+
+                # Make the request
+                operation = client.update_backend_authentication_config(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.UpdateBackendAuthenticationConfigRequest, dict]):
+                The request object. Request used by
+                UpdateBackendAuthenticationConfig
+                method.
+            backend_authentication_config (google.cloud.network_security_v1.types.BackendAuthenticationConfig):
+                Required. Updated
+                BackendAuthenticationConfig resource.
+
+                This corresponds to the ``backend_authentication_config`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Optional. Field mask is used to specify the fields to be
+                overwritten in the BackendAuthenticationConfig resource
+                by the update. The fields specified in the update_mask
+                are relative to the resource, not the full request. A
+                field will be overwritten if it is in the mask. If the
+                user does not provide a mask then all fields will be
+                overwritten.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_security_v1.types.BackendAuthenticationConfig` BackendAuthenticationConfig message groups the TrustConfig together with
+                   other settings that control how the load balancer
+                   authenticates, and expresses its identity to, the
+                   backend:
+
+                   - trustConfig is the attached TrustConfig.
+
+                   \* wellKnownRoots indicates whether the load balance
+                   should trust backend server certificates that are
+                   issued by public certificate authorities, in addition
+                   to certificates trusted by the TrustConfig.
+
+                   \* clientCertificate is a client certificate that the
+                   load balancer uses to express its identity to the
+                   backend, if the connection to the backend uses mTLS.
+
+                   You can attach the BackendAuthenticationConfig to the
+                   load balancer's BackendService directly determining
+                   how that BackendService negotiates TLS.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [backend_authentication_config, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request,
+            gcn_backend_authentication_config.UpdateBackendAuthenticationConfigRequest,
+        ):
+            request = gcn_backend_authentication_config.UpdateBackendAuthenticationConfigRequest(
+                request
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if backend_authentication_config is not None:
+                request.backend_authentication_config = backend_authentication_config
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.update_backend_authentication_config
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (
+                    (
+                        "backend_authentication_config.name",
+                        request.backend_authentication_config.name,
+                    ),
+                )
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            gcn_backend_authentication_config.BackendAuthenticationConfig,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def delete_backend_authentication_config(
+        self,
+        request: Optional[
+            Union[
+                backend_authentication_config.DeleteBackendAuthenticationConfigRequest,
+                dict,
+            ]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Deletes a single BackendAuthenticationConfig to
+        BackendAuthenticationConfig.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_delete_backend_authentication_config():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.DeleteBackendAuthenticationConfigRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.delete_backend_authentication_config(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.DeleteBackendAuthenticationConfigRequest, dict]):
+                The request object. Request used by the
+                DeleteBackendAuthenticationConfig
+                method.
+            name (str):
+                Required. A name of the BackendAuthenticationConfig to
+                delete. Must be in the format
+                ``projects/*/locations/{location}/backendAuthenticationConfigs/*``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request,
+            backend_authentication_config.DeleteBackendAuthenticationConfigRequest,
+        ):
+            request = (
+                backend_authentication_config.DeleteBackendAuthenticationConfigRequest(
+                    request
+                )
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.delete_backend_authentication_config
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
     def list_server_tls_policies(
         self,
         request: Optional[
@@ -1673,13 +2715,19 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
         Returns:
             google.cloud.network_security_v1.types.ServerTlsPolicy:
-                ServerTlsPolicy is a resource that
-                specifies how a server should
-                authenticate incoming requests. This
-                resource itself does not affect
-                configuration unless it is attached to a
-                target https proxy or endpoint config
-                selector resource.
+                ServerTlsPolicy is a resource that specifies how a server should authenticate
+                   incoming requests. This resource itself does not
+                   affect configuration unless it is attached to a
+                   target HTTPS proxy or endpoint config selector
+                   resource.
+
+                   ServerTlsPolicy in the form accepted by Application
+                   Load Balancers can be attached only to
+                   TargetHttpsProxy with an EXTERNAL, EXTERNAL_MANAGED
+                   or INTERNAL_MANAGED load balancing scheme. Traffic
+                   Director compatible ServerTlsPolicies can be attached
+                   to EndpointPolicy and TargetHttpsProxy with Traffic
+                   Director INTERNAL_SELF_MANAGED load balancing scheme.
 
         """
         # Create or coerce a protobuf request object.
@@ -1823,8 +2871,16 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
                 The result type for the operation will be :class:`google.cloud.network_security_v1.types.ServerTlsPolicy` ServerTlsPolicy is a resource that specifies how a server should authenticate
                    incoming requests. This resource itself does not
                    affect configuration unless it is attached to a
-                   target https proxy or endpoint config selector
+                   target HTTPS proxy or endpoint config selector
                    resource.
+
+                   ServerTlsPolicy in the form accepted by Application
+                   Load Balancers can be attached only to
+                   TargetHttpsProxy with an EXTERNAL, EXTERNAL_MANAGED
+                   or INTERNAL_MANAGED load balancing scheme. Traffic
+                   Director compatible ServerTlsPolicies can be attached
+                   to EndpointPolicy and TargetHttpsProxy with Traffic
+                   Director INTERNAL_SELF_MANAGED load balancing scheme.
 
         """
         # Create or coerce a protobuf request object.
@@ -1970,8 +3026,16 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
                 The result type for the operation will be :class:`google.cloud.network_security_v1.types.ServerTlsPolicy` ServerTlsPolicy is a resource that specifies how a server should authenticate
                    incoming requests. This resource itself does not
                    affect configuration unless it is attached to a
-                   target https proxy or endpoint config selector
+                   target HTTPS proxy or endpoint config selector
                    resource.
+
+                   ServerTlsPolicy in the form accepted by Application
+                   Load Balancers can be attached only to
+                   TargetHttpsProxy with an EXTERNAL, EXTERNAL_MANAGED
+                   or INTERNAL_MANAGED load balancing scheme. Traffic
+                   Director compatible ServerTlsPolicies can be attached
+                   to EndpointPolicy and TargetHttpsProxy with Traffic
+                   Director INTERNAL_SELF_MANAGED load balancing scheme.
 
         """
         # Create or coerce a protobuf request object.
@@ -2842,6 +3906,3481 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Done; return the response.
         return response
 
+    def list_gateway_security_policies(
+        self,
+        request: Optional[
+            Union[gateway_security_policy.ListGatewaySecurityPoliciesRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListGatewaySecurityPoliciesPager:
+        r"""Lists GatewaySecurityPolicies in a given project and
+        location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_list_gateway_security_policies():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.ListGatewaySecurityPoliciesRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_gateway_security_policies(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.ListGatewaySecurityPoliciesRequest, dict]):
+                The request object. Request used with the
+                ListGatewaySecurityPolicies method.
+            parent (str):
+                Required. The project and location from which the
+                GatewaySecurityPolicies should be listed, specified in
+                the format ``projects/{project}/locations/{location}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_security_v1.services.network_security.pagers.ListGatewaySecurityPoliciesPager:
+                Response returned by the
+                ListGatewaySecurityPolicies method.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, gateway_security_policy.ListGatewaySecurityPoliciesRequest
+        ):
+            request = gateway_security_policy.ListGatewaySecurityPoliciesRequest(
+                request
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.list_gateway_security_policies
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListGatewaySecurityPoliciesPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_gateway_security_policy(
+        self,
+        request: Optional[
+            Union[gateway_security_policy.GetGatewaySecurityPolicyRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> gateway_security_policy.GatewaySecurityPolicy:
+        r"""Gets details of a single GatewaySecurityPolicy.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_get_gateway_security_policy():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.GetGatewaySecurityPolicyRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = client.get_gateway_security_policy(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.GetGatewaySecurityPolicyRequest, dict]):
+                The request object. Request used by the
+                GetGatewaySecurityPolicy method.
+            name (str):
+                Required. A name of the GatewaySecurityPolicy to get.
+                Must be in the format
+                ``projects/{project}/locations/{location}/gatewaySecurityPolicies/*``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_security_v1.types.GatewaySecurityPolicy:
+                The GatewaySecurityPolicy resource
+                contains a collection of
+                GatewaySecurityPolicyRules and
+                associated metadata.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, gateway_security_policy.GetGatewaySecurityPolicyRequest
+        ):
+            request = gateway_security_policy.GetGatewaySecurityPolicyRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.get_gateway_security_policy
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def create_gateway_security_policy(
+        self,
+        request: Optional[
+            Union[gcn_gateway_security_policy.CreateGatewaySecurityPolicyRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        gateway_security_policy: Optional[
+            gcn_gateway_security_policy.GatewaySecurityPolicy
+        ] = None,
+        gateway_security_policy_id: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Creates a new GatewaySecurityPolicy in a given
+        project and location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_create_gateway_security_policy():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                gateway_security_policy = network_security_v1.GatewaySecurityPolicy()
+                gateway_security_policy.name = "name_value"
+
+                request = network_security_v1.CreateGatewaySecurityPolicyRequest(
+                    parent="parent_value",
+                    gateway_security_policy_id="gateway_security_policy_id_value",
+                    gateway_security_policy=gateway_security_policy,
+                )
+
+                # Make the request
+                operation = client.create_gateway_security_policy(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.CreateGatewaySecurityPolicyRequest, dict]):
+                The request object. Request used by the
+                CreateGatewaySecurityPolicy method.
+            parent (str):
+                Required. The parent resource of the
+                GatewaySecurityPolicy. Must be in the format
+                ``projects/{project}/locations/{location}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            gateway_security_policy (google.cloud.network_security_v1.types.GatewaySecurityPolicy):
+                Required. GatewaySecurityPolicy
+                resource to be created.
+
+                This corresponds to the ``gateway_security_policy`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            gateway_security_policy_id (str):
+                Required. Short name of the GatewaySecurityPolicy
+                resource to be created. This value should be 1-63
+                characters long, containing only letters, numbers,
+                hyphens, and underscores, and should not start with a
+                number. E.g. "gateway_security_policy1".
+
+                This corresponds to the ``gateway_security_policy_id`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_security_v1.types.GatewaySecurityPolicy` The GatewaySecurityPolicy resource contains a collection of
+                   GatewaySecurityPolicyRules and associated metadata.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, gateway_security_policy, gateway_security_policy_id]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, gcn_gateway_security_policy.CreateGatewaySecurityPolicyRequest
+        ):
+            request = gcn_gateway_security_policy.CreateGatewaySecurityPolicyRequest(
+                request
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if gateway_security_policy is not None:
+                request.gateway_security_policy = gateway_security_policy
+            if gateway_security_policy_id is not None:
+                request.gateway_security_policy_id = gateway_security_policy_id
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.create_gateway_security_policy
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            gcn_gateway_security_policy.GatewaySecurityPolicy,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def update_gateway_security_policy(
+        self,
+        request: Optional[
+            Union[gcn_gateway_security_policy.UpdateGatewaySecurityPolicyRequest, dict]
+        ] = None,
+        *,
+        gateway_security_policy: Optional[
+            gcn_gateway_security_policy.GatewaySecurityPolicy
+        ] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Updates the parameters of a single
+        GatewaySecurityPolicy.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_update_gateway_security_policy():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                gateway_security_policy = network_security_v1.GatewaySecurityPolicy()
+                gateway_security_policy.name = "name_value"
+
+                request = network_security_v1.UpdateGatewaySecurityPolicyRequest(
+                    gateway_security_policy=gateway_security_policy,
+                )
+
+                # Make the request
+                operation = client.update_gateway_security_policy(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.UpdateGatewaySecurityPolicyRequest, dict]):
+                The request object. Request used by the
+                UpdateGatewaySecurityPolicy method.
+            gateway_security_policy (google.cloud.network_security_v1.types.GatewaySecurityPolicy):
+                Required. Updated
+                GatewaySecurityPolicy resource.
+
+                This corresponds to the ``gateway_security_policy`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Optional. Field mask is used to specify the fields to be
+                overwritten in the GatewaySecurityPolicy resource by the
+                update. The fields specified in the update_mask are
+                relative to the resource, not the full request. A field
+                will be overwritten if it is in the mask. If the user
+                does not provide a mask then all fields will be
+                overwritten.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_security_v1.types.GatewaySecurityPolicy` The GatewaySecurityPolicy resource contains a collection of
+                   GatewaySecurityPolicyRules and associated metadata.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [gateway_security_policy, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, gcn_gateway_security_policy.UpdateGatewaySecurityPolicyRequest
+        ):
+            request = gcn_gateway_security_policy.UpdateGatewaySecurityPolicyRequest(
+                request
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if gateway_security_policy is not None:
+                request.gateway_security_policy = gateway_security_policy
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.update_gateway_security_policy
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (
+                    (
+                        "gateway_security_policy.name",
+                        request.gateway_security_policy.name,
+                    ),
+                )
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            gcn_gateway_security_policy.GatewaySecurityPolicy,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def delete_gateway_security_policy(
+        self,
+        request: Optional[
+            Union[gateway_security_policy.DeleteGatewaySecurityPolicyRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Deletes a single GatewaySecurityPolicy.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_delete_gateway_security_policy():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.DeleteGatewaySecurityPolicyRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.delete_gateway_security_policy(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.DeleteGatewaySecurityPolicyRequest, dict]):
+                The request object. Request used by the
+                DeleteGatewaySecurityPolicy method.
+            name (str):
+                Required. A name of the GatewaySecurityPolicy to delete.
+                Must be in the format
+                ``projects/{project}/locations/{location}/gatewaySecurityPolicies/*``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, gateway_security_policy.DeleteGatewaySecurityPolicyRequest
+        ):
+            request = gateway_security_policy.DeleteGatewaySecurityPolicyRequest(
+                request
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.delete_gateway_security_policy
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def list_gateway_security_policy_rules(
+        self,
+        request: Optional[
+            Union[
+                gateway_security_policy_rule.ListGatewaySecurityPolicyRulesRequest, dict
+            ]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListGatewaySecurityPolicyRulesPager:
+        r"""Lists GatewaySecurityPolicyRules in a given project
+        and location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_list_gateway_security_policy_rules():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.ListGatewaySecurityPolicyRulesRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_gateway_security_policy_rules(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.ListGatewaySecurityPolicyRulesRequest, dict]):
+                The request object. Request used with the
+                ListGatewaySecurityPolicyRules method.
+            parent (str):
+                Required. The project, location and
+                GatewaySecurityPolicy from which the
+                GatewaySecurityPolicyRules should be listed, specified
+                in the format
+                ``projects/{project}/locations/{location}/gatewaySecurityPolicies/{gatewaySecurityPolicy}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_security_v1.services.network_security.pagers.ListGatewaySecurityPolicyRulesPager:
+                Response returned by the
+                ListGatewaySecurityPolicyRules method.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, gateway_security_policy_rule.ListGatewaySecurityPolicyRulesRequest
+        ):
+            request = (
+                gateway_security_policy_rule.ListGatewaySecurityPolicyRulesRequest(
+                    request
+                )
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.list_gateway_security_policy_rules
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListGatewaySecurityPolicyRulesPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_gateway_security_policy_rule(
+        self,
+        request: Optional[
+            Union[
+                gateway_security_policy_rule.GetGatewaySecurityPolicyRuleRequest, dict
+            ]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> gateway_security_policy_rule.GatewaySecurityPolicyRule:
+        r"""Gets details of a single GatewaySecurityPolicyRule.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_get_gateway_security_policy_rule():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.GetGatewaySecurityPolicyRuleRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = client.get_gateway_security_policy_rule(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.GetGatewaySecurityPolicyRuleRequest, dict]):
+                The request object. Request used by the
+                GetGatewaySecurityPolicyRule method.
+            name (str):
+                Required. The name of the GatewaySecurityPolicyRule to
+                retrieve. Format:
+                projects/{project}/location/{location}/gatewaySecurityPolicies/*/rules/*
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_security_v1.types.GatewaySecurityPolicyRule:
+                The GatewaySecurityPolicyRule
+                resource is in a nested collection
+                within a GatewaySecurityPolicy and
+                represents a traffic matching condition
+                and associated action to perform.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, gateway_security_policy_rule.GetGatewaySecurityPolicyRuleRequest
+        ):
+            request = gateway_security_policy_rule.GetGatewaySecurityPolicyRuleRequest(
+                request
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.get_gateway_security_policy_rule
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def create_gateway_security_policy_rule(
+        self,
+        request: Optional[
+            Union[
+                gcn_gateway_security_policy_rule.CreateGatewaySecurityPolicyRuleRequest,
+                dict,
+            ]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        gateway_security_policy_rule: Optional[
+            gcn_gateway_security_policy_rule.GatewaySecurityPolicyRule
+        ] = None,
+        gateway_security_policy_rule_id: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Creates a new GatewaySecurityPolicy in a given
+        project and location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_create_gateway_security_policy_rule():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                gateway_security_policy_rule = network_security_v1.GatewaySecurityPolicyRule()
+                gateway_security_policy_rule.basic_profile = "DENY"
+                gateway_security_policy_rule.name = "name_value"
+                gateway_security_policy_rule.enabled = True
+                gateway_security_policy_rule.priority = 898
+                gateway_security_policy_rule.session_matcher = "session_matcher_value"
+
+                request = network_security_v1.CreateGatewaySecurityPolicyRuleRequest(
+                    parent="parent_value",
+                    gateway_security_policy_rule=gateway_security_policy_rule,
+                )
+
+                # Make the request
+                operation = client.create_gateway_security_policy_rule(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.CreateGatewaySecurityPolicyRuleRequest, dict]):
+                The request object. Methods for GatewaySecurityPolicy
+                RULES/GatewaySecurityPolicyRules.
+                Request used by the
+                CreateGatewaySecurityPolicyRule method.
+            parent (str):
+                Required. The parent where this rule will be created.
+                Format :
+                projects/{project}/location/{location}/gatewaySecurityPolicies/\*
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            gateway_security_policy_rule (google.cloud.network_security_v1.types.GatewaySecurityPolicyRule):
+                Required. The rule to be created.
+                This corresponds to the ``gateway_security_policy_rule`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            gateway_security_policy_rule_id (str):
+                The ID to use for the rule, which will become the final
+                component of the rule's resource name. This value should
+                be 4-63 characters, and valid characters are
+                /[a-z][0-9]-/.
+
+                This corresponds to the ``gateway_security_policy_rule_id`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_security_v1.types.GatewaySecurityPolicyRule` The GatewaySecurityPolicyRule resource is in a nested collection within a
+                   GatewaySecurityPolicy and represents a traffic
+                   matching condition and associated action to perform.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [
+            parent,
+            gateway_security_policy_rule,
+            gateway_security_policy_rule_id,
+        ]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request,
+            gcn_gateway_security_policy_rule.CreateGatewaySecurityPolicyRuleRequest,
+        ):
+            request = (
+                gcn_gateway_security_policy_rule.CreateGatewaySecurityPolicyRuleRequest(
+                    request
+                )
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if gateway_security_policy_rule is not None:
+                request.gateway_security_policy_rule = gateway_security_policy_rule
+            if gateway_security_policy_rule_id is not None:
+                request.gateway_security_policy_rule_id = (
+                    gateway_security_policy_rule_id
+                )
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.create_gateway_security_policy_rule
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            gcn_gateway_security_policy_rule.GatewaySecurityPolicyRule,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def update_gateway_security_policy_rule(
+        self,
+        request: Optional[
+            Union[
+                gcn_gateway_security_policy_rule.UpdateGatewaySecurityPolicyRuleRequest,
+                dict,
+            ]
+        ] = None,
+        *,
+        gateway_security_policy_rule: Optional[
+            gcn_gateway_security_policy_rule.GatewaySecurityPolicyRule
+        ] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Updates the parameters of a single
+        GatewaySecurityPolicyRule.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_update_gateway_security_policy_rule():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                gateway_security_policy_rule = network_security_v1.GatewaySecurityPolicyRule()
+                gateway_security_policy_rule.basic_profile = "DENY"
+                gateway_security_policy_rule.name = "name_value"
+                gateway_security_policy_rule.enabled = True
+                gateway_security_policy_rule.priority = 898
+                gateway_security_policy_rule.session_matcher = "session_matcher_value"
+
+                request = network_security_v1.UpdateGatewaySecurityPolicyRuleRequest(
+                    gateway_security_policy_rule=gateway_security_policy_rule,
+                )
+
+                # Make the request
+                operation = client.update_gateway_security_policy_rule(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.UpdateGatewaySecurityPolicyRuleRequest, dict]):
+                The request object. Request used by the
+                UpdateGatewaySecurityPolicyRule method.
+            gateway_security_policy_rule (google.cloud.network_security_v1.types.GatewaySecurityPolicyRule):
+                Required. Updated
+                GatewaySecurityPolicyRule resource.
+
+                This corresponds to the ``gateway_security_policy_rule`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Optional. Field mask is used to specify the fields to be
+                overwritten in the GatewaySecurityPolicy resource by the
+                update. The fields specified in the update_mask are
+                relative to the resource, not the full request. A field
+                will be overwritten if it is in the mask. If the user
+                does not provide a mask then all fields will be
+                overwritten.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_security_v1.types.GatewaySecurityPolicyRule` The GatewaySecurityPolicyRule resource is in a nested collection within a
+                   GatewaySecurityPolicy and represents a traffic
+                   matching condition and associated action to perform.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [gateway_security_policy_rule, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request,
+            gcn_gateway_security_policy_rule.UpdateGatewaySecurityPolicyRuleRequest,
+        ):
+            request = (
+                gcn_gateway_security_policy_rule.UpdateGatewaySecurityPolicyRuleRequest(
+                    request
+                )
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if gateway_security_policy_rule is not None:
+                request.gateway_security_policy_rule = gateway_security_policy_rule
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.update_gateway_security_policy_rule
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (
+                    (
+                        "gateway_security_policy_rule.name",
+                        request.gateway_security_policy_rule.name,
+                    ),
+                )
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            gcn_gateway_security_policy_rule.GatewaySecurityPolicyRule,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def delete_gateway_security_policy_rule(
+        self,
+        request: Optional[
+            Union[
+                gateway_security_policy_rule.DeleteGatewaySecurityPolicyRuleRequest,
+                dict,
+            ]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Deletes a single GatewaySecurityPolicyRule.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_delete_gateway_security_policy_rule():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.DeleteGatewaySecurityPolicyRuleRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.delete_gateway_security_policy_rule(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.DeleteGatewaySecurityPolicyRuleRequest, dict]):
+                The request object. Request used by the
+                DeleteGatewaySecurityPolicyRule method.
+            name (str):
+                Required. A name of the GatewaySecurityPolicyRule to
+                delete. Must be in the format
+                ``projects/{project}/locations/{location}/gatewaySecurityPolicies/{gatewaySecurityPolicy}/rules/*``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, gateway_security_policy_rule.DeleteGatewaySecurityPolicyRuleRequest
+        ):
+            request = (
+                gateway_security_policy_rule.DeleteGatewaySecurityPolicyRuleRequest(
+                    request
+                )
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.delete_gateway_security_policy_rule
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def list_url_lists(
+        self,
+        request: Optional[Union[url_list.ListUrlListsRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListUrlListsPager:
+        r"""Lists UrlLists in a given project and location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_list_url_lists():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.ListUrlListsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_url_lists(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.ListUrlListsRequest, dict]):
+                The request object. Request used by the ListUrlList
+                method.
+            parent (str):
+                Required. The project and location from which the
+                UrlLists should be listed, specified in the format
+                ``projects/{project}/locations/{location}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_security_v1.services.network_security.pagers.ListUrlListsPager:
+                Response returned by the ListUrlLists
+                method.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, url_list.ListUrlListsRequest):
+            request = url_list.ListUrlListsRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.list_url_lists]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListUrlListsPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_url_list(
+        self,
+        request: Optional[Union[url_list.GetUrlListRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> url_list.UrlList:
+        r"""Gets details of a single UrlList.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_get_url_list():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.GetUrlListRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = client.get_url_list(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.GetUrlListRequest, dict]):
+                The request object. Request used by the GetUrlList
+                method.
+            name (str):
+                Required. A name of the UrlList to get. Must be in the
+                format ``projects/*/locations/{location}/urlLists/*``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_security_v1.types.UrlList:
+                UrlList proto helps users to set
+                reusable, independently manageable lists
+                of hosts, host patterns, URLs, URL
+                patterns.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, url_list.GetUrlListRequest):
+            request = url_list.GetUrlListRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.get_url_list]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def create_url_list(
+        self,
+        request: Optional[Union[gcn_url_list.CreateUrlListRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        url_list: Optional[gcn_url_list.UrlList] = None,
+        url_list_id: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Creates a new UrlList in a given project and
+        location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_create_url_list():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                url_list = network_security_v1.UrlList()
+                url_list.name = "name_value"
+                url_list.values = ['values_value1', 'values_value2']
+
+                request = network_security_v1.CreateUrlListRequest(
+                    parent="parent_value",
+                    url_list_id="url_list_id_value",
+                    url_list=url_list,
+                )
+
+                # Make the request
+                operation = client.create_url_list(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.CreateUrlListRequest, dict]):
+                The request object. Request used by the CreateUrlList
+                method.
+            parent (str):
+                Required. The parent resource of the UrlList. Must be in
+                the format ``projects/*/locations/{location}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            url_list (google.cloud.network_security_v1.types.UrlList):
+                Required. UrlList resource to be
+                created.
+
+                This corresponds to the ``url_list`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            url_list_id (str):
+                Required. Short name of the UrlList resource to be
+                created. This value should be 1-63 characters long,
+                containing only letters, numbers, hyphens, and
+                underscores, and should not start with a number. E.g.
+                "url_list".
+
+                This corresponds to the ``url_list_id`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_security_v1.types.UrlList` UrlList proto helps users to set reusable, independently manageable lists
+                   of hosts, host patterns, URLs, URL patterns.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, url_list, url_list_id]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, gcn_url_list.CreateUrlListRequest):
+            request = gcn_url_list.CreateUrlListRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if url_list is not None:
+                request.url_list = url_list
+            if url_list_id is not None:
+                request.url_list_id = url_list_id
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.create_url_list]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            gcn_url_list.UrlList,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def update_url_list(
+        self,
+        request: Optional[Union[gcn_url_list.UpdateUrlListRequest, dict]] = None,
+        *,
+        url_list: Optional[gcn_url_list.UrlList] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Updates the parameters of a single UrlList.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_update_url_list():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                url_list = network_security_v1.UrlList()
+                url_list.name = "name_value"
+                url_list.values = ['values_value1', 'values_value2']
+
+                request = network_security_v1.UpdateUrlListRequest(
+                    url_list=url_list,
+                )
+
+                # Make the request
+                operation = client.update_url_list(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.UpdateUrlListRequest, dict]):
+                The request object. Request used by UpdateUrlList method.
+            url_list (google.cloud.network_security_v1.types.UrlList):
+                Required. Updated UrlList resource.
+                This corresponds to the ``url_list`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Optional. Field mask is used to specify the fields to be
+                overwritten in the UrlList resource by the update. The
+                fields specified in the update_mask are relative to the
+                resource, not the full request. A field will be
+                overwritten if it is in the mask. If the user does not
+                provide a mask then all fields will be overwritten.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_security_v1.types.UrlList` UrlList proto helps users to set reusable, independently manageable lists
+                   of hosts, host patterns, URLs, URL patterns.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [url_list, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, gcn_url_list.UpdateUrlListRequest):
+            request = gcn_url_list.UpdateUrlListRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if url_list is not None:
+                request.url_list = url_list
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.update_url_list]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("url_list.name", request.url_list.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            gcn_url_list.UrlList,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def delete_url_list(
+        self,
+        request: Optional[Union[url_list.DeleteUrlListRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Deletes a single UrlList.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_delete_url_list():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.DeleteUrlListRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.delete_url_list(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.DeleteUrlListRequest, dict]):
+                The request object. Request used by the DeleteUrlList
+                method.
+            name (str):
+                Required. A name of the UrlList to delete. Must be in
+                the format
+                ``projects/*/locations/{location}/urlLists/*``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, url_list.DeleteUrlListRequest):
+            request = url_list.DeleteUrlListRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.delete_url_list]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def list_tls_inspection_policies(
+        self,
+        request: Optional[
+            Union[tls_inspection_policy.ListTlsInspectionPoliciesRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListTlsInspectionPoliciesPager:
+        r"""Lists TlsInspectionPolicies in a given project and
+        location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_list_tls_inspection_policies():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.ListTlsInspectionPoliciesRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_tls_inspection_policies(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.ListTlsInspectionPoliciesRequest, dict]):
+                The request object. Request used with the
+                ListTlsInspectionPolicies method.
+            parent (str):
+                Required. The project and location from which the
+                TlsInspectionPolicies should be listed, specified in the
+                format ``projects/{project}/locations/{location}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_security_v1.services.network_security.pagers.ListTlsInspectionPoliciesPager:
+                Response returned by the
+                ListTlsInspectionPolicies method.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, tls_inspection_policy.ListTlsInspectionPoliciesRequest
+        ):
+            request = tls_inspection_policy.ListTlsInspectionPoliciesRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.list_tls_inspection_policies
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListTlsInspectionPoliciesPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_tls_inspection_policy(
+        self,
+        request: Optional[
+            Union[tls_inspection_policy.GetTlsInspectionPolicyRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> tls_inspection_policy.TlsInspectionPolicy:
+        r"""Gets details of a single TlsInspectionPolicy.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_get_tls_inspection_policy():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.GetTlsInspectionPolicyRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = client.get_tls_inspection_policy(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.GetTlsInspectionPolicyRequest, dict]):
+                The request object. Request used by the
+                GetTlsInspectionPolicy method.
+            name (str):
+                Required. A name of the TlsInspectionPolicy to get. Must
+                be in the format
+                ``projects/{project}/locations/{location}/tlsInspectionPolicies/{tls_inspection_policy}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_security_v1.types.TlsInspectionPolicy:
+                The TlsInspectionPolicy resource
+                contains references to CA pools in
+                Certificate Authority Service and
+                associated metadata.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, tls_inspection_policy.GetTlsInspectionPolicyRequest):
+            request = tls_inspection_policy.GetTlsInspectionPolicyRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.get_tls_inspection_policy
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def create_tls_inspection_policy(
+        self,
+        request: Optional[
+            Union[gcn_tls_inspection_policy.CreateTlsInspectionPolicyRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        tls_inspection_policy: Optional[
+            gcn_tls_inspection_policy.TlsInspectionPolicy
+        ] = None,
+        tls_inspection_policy_id: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Creates a new TlsInspectionPolicy in a given project
+        and location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_create_tls_inspection_policy():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                tls_inspection_policy = network_security_v1.TlsInspectionPolicy()
+                tls_inspection_policy.name = "name_value"
+                tls_inspection_policy.ca_pool = "ca_pool_value"
+
+                request = network_security_v1.CreateTlsInspectionPolicyRequest(
+                    parent="parent_value",
+                    tls_inspection_policy_id="tls_inspection_policy_id_value",
+                    tls_inspection_policy=tls_inspection_policy,
+                )
+
+                # Make the request
+                operation = client.create_tls_inspection_policy(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.CreateTlsInspectionPolicyRequest, dict]):
+                The request object. Request used by the
+                CreateTlsInspectionPolicy method.
+            parent (str):
+                Required. The parent resource of the
+                TlsInspectionPolicy. Must be in the format
+                ``projects/{project}/locations/{location}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            tls_inspection_policy (google.cloud.network_security_v1.types.TlsInspectionPolicy):
+                Required. TlsInspectionPolicy
+                resource to be created.
+
+                This corresponds to the ``tls_inspection_policy`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            tls_inspection_policy_id (str):
+                Required. Short name of the TlsInspectionPolicy resource
+                to be created. This value should be 1-63 characters
+                long, containing only letters, numbers, hyphens, and
+                underscores, and should not start with a number. E.g.
+                "tls_inspection_policy1".
+
+                This corresponds to the ``tls_inspection_policy_id`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_security_v1.types.TlsInspectionPolicy` The TlsInspectionPolicy resource contains references to CA pools in
+                   Certificate Authority Service and associated
+                   metadata.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, tls_inspection_policy, tls_inspection_policy_id]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, gcn_tls_inspection_policy.CreateTlsInspectionPolicyRequest
+        ):
+            request = gcn_tls_inspection_policy.CreateTlsInspectionPolicyRequest(
+                request
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if tls_inspection_policy is not None:
+                request.tls_inspection_policy = tls_inspection_policy
+            if tls_inspection_policy_id is not None:
+                request.tls_inspection_policy_id = tls_inspection_policy_id
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.create_tls_inspection_policy
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            gcn_tls_inspection_policy.TlsInspectionPolicy,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def update_tls_inspection_policy(
+        self,
+        request: Optional[
+            Union[gcn_tls_inspection_policy.UpdateTlsInspectionPolicyRequest, dict]
+        ] = None,
+        *,
+        tls_inspection_policy: Optional[
+            gcn_tls_inspection_policy.TlsInspectionPolicy
+        ] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Updates the parameters of a single
+        TlsInspectionPolicy.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_update_tls_inspection_policy():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                tls_inspection_policy = network_security_v1.TlsInspectionPolicy()
+                tls_inspection_policy.name = "name_value"
+                tls_inspection_policy.ca_pool = "ca_pool_value"
+
+                request = network_security_v1.UpdateTlsInspectionPolicyRequest(
+                    tls_inspection_policy=tls_inspection_policy,
+                )
+
+                # Make the request
+                operation = client.update_tls_inspection_policy(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.UpdateTlsInspectionPolicyRequest, dict]):
+                The request object. Request used by the
+                UpdateTlsInspectionPolicy method.
+            tls_inspection_policy (google.cloud.network_security_v1.types.TlsInspectionPolicy):
+                Required. Updated TlsInspectionPolicy
+                resource.
+
+                This corresponds to the ``tls_inspection_policy`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Optional. Field mask is used to specify the fields to be
+                overwritten in the TlsInspectionPolicy resource by the
+                update. The fields specified in the update_mask are
+                relative to the resource, not the full request. A field
+                will be overwritten if it is in the mask. If the user
+                does not provide a mask then all fields will be
+                overwritten.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_security_v1.types.TlsInspectionPolicy` The TlsInspectionPolicy resource contains references to CA pools in
+                   Certificate Authority Service and associated
+                   metadata.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [tls_inspection_policy, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, gcn_tls_inspection_policy.UpdateTlsInspectionPolicyRequest
+        ):
+            request = gcn_tls_inspection_policy.UpdateTlsInspectionPolicyRequest(
+                request
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if tls_inspection_policy is not None:
+                request.tls_inspection_policy = tls_inspection_policy
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.update_tls_inspection_policy
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("tls_inspection_policy.name", request.tls_inspection_policy.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            gcn_tls_inspection_policy.TlsInspectionPolicy,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def delete_tls_inspection_policy(
+        self,
+        request: Optional[
+            Union[tls_inspection_policy.DeleteTlsInspectionPolicyRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Deletes a single TlsInspectionPolicy.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_delete_tls_inspection_policy():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.DeleteTlsInspectionPolicyRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.delete_tls_inspection_policy(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.DeleteTlsInspectionPolicyRequest, dict]):
+                The request object. Request used by the
+                DeleteTlsInspectionPolicy method.
+            name (str):
+                Required. A name of the TlsInspectionPolicy to delete.
+                Must be in the format
+                ``projects/{project}/locations/{location}/tlsInspectionPolicies/{tls_inspection_policy}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, tls_inspection_policy.DeleteTlsInspectionPolicyRequest
+        ):
+            request = tls_inspection_policy.DeleteTlsInspectionPolicyRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.delete_tls_inspection_policy
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def list_authz_policies(
+        self,
+        request: Optional[Union[authz_policy.ListAuthzPoliciesRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListAuthzPoliciesPager:
+        r"""Lists AuthzPolicies in a given project and location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_list_authz_policies():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.ListAuthzPoliciesRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_authz_policies(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.ListAuthzPoliciesRequest, dict]):
+                The request object. Message for requesting list of ``AuthzPolicy``
+                resources.
+            parent (str):
+                Required. The project and location from which the
+                ``AuthzPolicy`` resources are listed, specified in the
+                following format:
+                ``projects/{project}/locations/{location}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_security_v1.services.network_security.pagers.ListAuthzPoliciesPager:
+                Message for response to listing AuthzPolicy resources.
+
+                Iterating over this object will yield results and
+                resolve additional pages automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, authz_policy.ListAuthzPoliciesRequest):
+            request = authz_policy.ListAuthzPoliciesRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.list_authz_policies]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListAuthzPoliciesPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_authz_policy(
+        self,
+        request: Optional[Union[authz_policy.GetAuthzPolicyRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> authz_policy.AuthzPolicy:
+        r"""Gets details of a single AuthzPolicy.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_get_authz_policy():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.GetAuthzPolicyRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = client.get_authz_policy(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.GetAuthzPolicyRequest, dict]):
+                The request object. Message for getting a ``AuthzPolicy`` resource.
+            name (str):
+                Required. A name of the ``AuthzPolicy`` resource to get.
+                Must be in the format
+                ``projects/{project}/locations/{location}/authzPolicies/{authz_policy}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_security_v1.types.AuthzPolicy:
+                AuthzPolicy is a resource that allows to forward traffic to a
+                   callout backend designed to scan the traffic for
+                   security purposes.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, authz_policy.GetAuthzPolicyRequest):
+            request = authz_policy.GetAuthzPolicyRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.get_authz_policy]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def create_authz_policy(
+        self,
+        request: Optional[
+            Union[gcn_authz_policy.CreateAuthzPolicyRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        authz_policy: Optional[gcn_authz_policy.AuthzPolicy] = None,
+        authz_policy_id: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Creates a new AuthzPolicy in a given project and
+        location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_create_authz_policy():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                authz_policy = network_security_v1.AuthzPolicy()
+                authz_policy.name = "name_value"
+                authz_policy.target.resources = ['resources_value1', 'resources_value2']
+                authz_policy.action = "CUSTOM"
+
+                request = network_security_v1.CreateAuthzPolicyRequest(
+                    parent="parent_value",
+                    authz_policy_id="authz_policy_id_value",
+                    authz_policy=authz_policy,
+                )
+
+                # Make the request
+                operation = client.create_authz_policy(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.CreateAuthzPolicyRequest, dict]):
+                The request object. Message for creating an ``AuthzPolicy`` resource.
+            parent (str):
+                Required. The parent resource of the ``AuthzPolicy``
+                resource. Must be in the format
+                ``projects/{project}/locations/{location}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            authz_policy (google.cloud.network_security_v1.types.AuthzPolicy):
+                Required. ``AuthzPolicy`` resource to be created.
+                This corresponds to the ``authz_policy`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            authz_policy_id (str):
+                Required. User-provided ID of the ``AuthzPolicy``
+                resource to be created.
+
+                This corresponds to the ``authz_policy_id`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_security_v1.types.AuthzPolicy` AuthzPolicy is a resource that allows to forward traffic to a
+                   callout backend designed to scan the traffic for
+                   security purposes.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, authz_policy, authz_policy_id]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, gcn_authz_policy.CreateAuthzPolicyRequest):
+            request = gcn_authz_policy.CreateAuthzPolicyRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if authz_policy is not None:
+                request.authz_policy = authz_policy
+            if authz_policy_id is not None:
+                request.authz_policy_id = authz_policy_id
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.create_authz_policy]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            gcn_authz_policy.AuthzPolicy,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def update_authz_policy(
+        self,
+        request: Optional[
+            Union[gcn_authz_policy.UpdateAuthzPolicyRequest, dict]
+        ] = None,
+        *,
+        authz_policy: Optional[gcn_authz_policy.AuthzPolicy] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Updates the parameters of a single AuthzPolicy.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_update_authz_policy():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                authz_policy = network_security_v1.AuthzPolicy()
+                authz_policy.name = "name_value"
+                authz_policy.target.resources = ['resources_value1', 'resources_value2']
+                authz_policy.action = "CUSTOM"
+
+                request = network_security_v1.UpdateAuthzPolicyRequest(
+                    authz_policy=authz_policy,
+                )
+
+                # Make the request
+                operation = client.update_authz_policy(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.UpdateAuthzPolicyRequest, dict]):
+                The request object. Message for updating an ``AuthzPolicy`` resource.
+            authz_policy (google.cloud.network_security_v1.types.AuthzPolicy):
+                Required. ``AuthzPolicy`` resource being updated.
+                This corresponds to the ``authz_policy`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Required. Used to specify the fields to be overwritten
+                in the ``AuthzPolicy`` resource by the update. The
+                fields specified in the ``update_mask`` are relative to
+                the resource, not the full request. A field is
+                overwritten if it is in the mask. If the user does not
+                specify a mask, then all fields are overwritten.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_security_v1.types.AuthzPolicy` AuthzPolicy is a resource that allows to forward traffic to a
+                   callout backend designed to scan the traffic for
+                   security purposes.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [authz_policy, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, gcn_authz_policy.UpdateAuthzPolicyRequest):
+            request = gcn_authz_policy.UpdateAuthzPolicyRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if authz_policy is not None:
+                request.authz_policy = authz_policy
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.update_authz_policy]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("authz_policy.name", request.authz_policy.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            gcn_authz_policy.AuthzPolicy,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def delete_authz_policy(
+        self,
+        request: Optional[Union[authz_policy.DeleteAuthzPolicyRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Deletes a single AuthzPolicy.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_security_v1
+
+            def sample_delete_authz_policy():
+                # Create a client
+                client = network_security_v1.NetworkSecurityClient()
+
+                # Initialize request argument(s)
+                request = network_security_v1.DeleteAuthzPolicyRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.delete_authz_policy(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.network_security_v1.types.DeleteAuthzPolicyRequest, dict]):
+                The request object. Message for deleting an ``AuthzPolicy`` resource.
+            name (str):
+                Required. The name of the ``AuthzPolicy`` resource to
+                delete. Must be in the format
+                ``projects/{project}/locations/{location}/authzPolicies/{authz_policy}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, authz_policy.DeleteAuthzPolicyRequest):
+            request = authz_policy.DeleteAuthzPolicyRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.delete_authz_policy]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
     def __enter__(self) -> "NetworkSecurityClient":
         return self
 
@@ -2857,7 +7396,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
     def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2883,8 +7422,12 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2893,7 +7436,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2902,7 +7445,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -2916,7 +7459,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
     def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2942,8 +7485,12 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2952,7 +7499,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2961,7 +7508,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -2975,7 +7522,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
     def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3005,8 +7552,12 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3015,7 +7566,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3023,7 +7574,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
         # Send the request.
         rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -3031,7 +7582,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
     def cancel_operation(
         self,
-        request: Optional[operations_pb2.CancelOperationRequest] = None,
+        request: Optional[Union[operations_pb2.CancelOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3060,8 +7611,12 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.CancelOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.CancelOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.CancelOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3070,7 +7625,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3078,7 +7633,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
         # Send the request.
         rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -3086,7 +7641,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
     def set_iam_policy(
         self,
-        request: Optional[iam_policy_pb2.SetIamPolicyRequest] = None,
+        request: Optional[Union[iam_policy_pb2.SetIamPolicyRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3178,8 +7733,12 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.SetIamPolicyRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.SetIamPolicyRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.SetIamPolicyRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3188,7 +7747,9 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -3197,7 +7758,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -3211,7 +7772,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
     def get_iam_policy(
         self,
-        request: Optional[iam_policy_pb2.GetIamPolicyRequest] = None,
+        request: Optional[Union[iam_policy_pb2.GetIamPolicyRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3304,8 +7865,12 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.GetIamPolicyRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.GetIamPolicyRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.GetIamPolicyRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3314,7 +7879,9 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -3323,7 +7890,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -3337,7 +7904,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
     def test_iam_permissions(
         self,
-        request: Optional[iam_policy_pb2.TestIamPermissionsRequest] = None,
+        request: Optional[Union[iam_policy_pb2.TestIamPermissionsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3368,8 +7935,12 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.TestIamPermissionsRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3378,7 +7949,9 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -3387,7 +7960,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -3401,7 +7974,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
     def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3427,8 +8000,12 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3437,7 +8014,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3446,7 +8023,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -3460,7 +8037,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
 
     def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3486,8 +8063,12 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3496,7 +8077,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3505,7 +8086,7 @@ class NetworkSecurityClient(metaclass=NetworkSecurityClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,

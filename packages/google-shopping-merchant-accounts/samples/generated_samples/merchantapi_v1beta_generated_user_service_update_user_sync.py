@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_user():
     client = merchant_accounts_v1beta.UserServiceClient()
 
     # Initialize request argument(s)
-    request = merchant_accounts_v1beta.UpdateUserRequest(
-    )
+    request = merchant_accounts_v1beta.UpdateUserRequest()
 
     # Make the request
     response = client.update_user(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END merchantapi_v1beta_generated_UserService_UpdateUser_sync]

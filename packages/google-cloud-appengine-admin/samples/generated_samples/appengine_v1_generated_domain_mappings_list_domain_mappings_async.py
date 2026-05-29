@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ async def sample_list_domain_mappings():
     client = appengine_admin_v1.DomainMappingsAsyncClient()
 
     # Initialize request argument(s)
-    request = appengine_admin_v1.ListDomainMappingsRequest(
-    )
+    request = appengine_admin_v1.ListDomainMappingsRequest()
 
     # Make the request
     page_result = client.list_domain_mappings(request=request)
@@ -48,5 +47,6 @@ async def sample_list_domain_mappings():
     # Handle the response
     async for response in page_result:
         print(response)
+
 
 # [END appengine_v1_generated_DomainMappings_ListDomainMappings_async]

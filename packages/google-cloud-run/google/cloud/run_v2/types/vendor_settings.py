@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ __protobuf__ = proto.module(
         "RevisionScaling",
         "ServiceMesh",
         "ServiceScaling",
+        "WorkerPoolScaling",
         "NodeSelector",
         "BuildConfig",
     },
@@ -52,6 +53,7 @@ class IngressTraffic(proto.Enum):
         INGRESS_TRAFFIC_NONE (4):
             No ingress traffic is allowed.
     """
+
     INGRESS_TRAFFIC_UNSPECIFIED = 0
     INGRESS_TRAFFIC_ALL = 1
     INGRESS_TRAFFIC_INTERNAL_ONLY = 2
@@ -70,6 +72,7 @@ class ExecutionEnvironment(proto.Enum):
         EXECUTION_ENVIRONMENT_GEN2 (2):
             Uses Second Generation environment.
     """
+
     EXECUTION_ENVIRONMENT_UNSPECIFIED = 0
     EXECUTION_ENVIRONMENT_GEN1 = 1
     EXECUTION_ENVIRONMENT_GEN2 = 2
@@ -88,6 +91,7 @@ class EncryptionKeyRevocationAction(proto.Enum):
             Shuts down existing instances, and prevents
             creation of new ones.
     """
+
     ENCRYPTION_KEY_REVOCATION_ACTION_UNSPECIFIED = 0
     PREVENT_NEW = 1
     SHUTDOWN = 2
@@ -128,6 +132,7 @@ class VpcAccess(proto.Message):
                 Only private IP ranges are routed through the
                 VPC connector.
         """
+
         VPC_EGRESS_UNSPECIFIED = 0
         ALL_TRAFFIC = 1
         PRIVATE_RANGES_ONLY = 2
@@ -291,6 +296,11 @@ class ServiceScaling(proto.Message):
             on the percent of traffic they are receiving.
         scaling_mode (google.cloud.run_v2.types.ServiceScaling.ScalingMode):
             Optional. The scaling mode for the service.
+        max_instance_count (int):
+            Optional. total max instances for the
+            service. This number of instances is divided
+            among all revisions with specified traffic based
+            on the percent of traffic they are receiving.
         manual_instance_count (int):
             Optional. total instance count for the
             service in manual scaling mode. This number of
@@ -315,6 +325,7 @@ class ServiceScaling(proto.Message):
                 Scale to exactly min instances and ignore max
                 instances.
         """
+
         SCALING_MODE_UNSPECIFIED = 0
         AUTOMATIC = 1
         MANUAL = 2
@@ -328,6 +339,30 @@ class ServiceScaling(proto.Message):
         number=3,
         enum=ScalingMode,
     )
+    max_instance_count: int = proto.Field(
+        proto.INT32,
+        number=4,
+    )
+    manual_instance_count: int = proto.Field(
+        proto.INT32,
+        number=6,
+        optional=True,
+    )
+
+
+class WorkerPoolScaling(proto.Message):
+    r"""Worker pool scaling settings.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        manual_instance_count (int):
+            Optional. The total number of instances in
+            manual scaling mode.
+
+            This field is a member of `oneof`_ ``_manual_instance_count``.
+    """
+
     manual_instance_count: int = proto.Field(
         proto.INT32,
         number=6,

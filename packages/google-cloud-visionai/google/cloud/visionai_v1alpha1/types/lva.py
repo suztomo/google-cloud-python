@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ class AnalyzerDefinition(proto.Message):
         analyzer (str):
             The name of this analyzer.
 
-            Tentatively [a-z][a-z0-9]*(_[a-z0-9]+)*.
+            Tentatively [a-z][a-z0-9]\ *(\_[a-z0-9]+)*.
         operator (str):
             The name of the operator that this analyzer
             runs.

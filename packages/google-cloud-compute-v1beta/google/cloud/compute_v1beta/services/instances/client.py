@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import functools
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -33,8 +34,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import extended_operation, gapic_v1
@@ -44,7 +45,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.compute_v1beta import gapic_version as package_version
 
@@ -62,7 +62,7 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.api_core import extended_operation  # type: ignore
+import google.api_core.extended_operation as extended_operation  # type: ignore
 
 from google.cloud.compute_v1beta.services.instances import pagers
 from google.cloud.compute_v1beta.types import compute
@@ -108,7 +108,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
     """The Instances API."""
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -116,7 +116,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -126,6 +126,10 @@ class InstancesClient(metaclass=InstancesClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -145,6 +149,34 @@ class InstancesClient(metaclass=InstancesClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "compute.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -311,12 +343,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = InstancesClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -324,7 +352,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -356,20 +384,14 @@ class InstancesClient(metaclass=InstancesClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = InstancesClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -393,7 +415,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -490,7 +512,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -580,18 +602,16 @@ class InstancesClient(metaclass=InstancesClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = InstancesClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            InstancesClient._read_environment_variables()
+        )
         self._client_cert_source = InstancesClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = InstancesClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -619,8 +639,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(InstancesTransport, transport)
             self._api_endpoint = self._transport.host
@@ -1690,11 +1709,14 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.AggregatedListPager:
         r"""Retrieves an aggregated list of all of the instances in your
-        project across all regions and zones. The performance of this
-        method degrades when a filter is specified on a project that has
-        a very large number of instances. To prevent failure, Google
-        recommends that you set the ``returnPartialSuccess`` parameter
-        to ``true``.
+        project across all regions and zones.
+
+        The performance of this method degrades when a filter is
+        specified on a project that has a very large number of
+        instances.
+
+        To prevent failure, Google recommends that you set the
+        ``returnPartialSuccess`` parameter to ``true``.
 
         .. code-block:: python
 
@@ -1820,8 +1842,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         r"""Attaches an existing Disk resource to an instance.
         You must first create the disk before you can attach it.
         It is not possible to create and attach a disk at the
-        same time. For more information, read Adding a
-        persistent disk to your instance.
+        same time. For more information, readAdding a persistent
+        disk to your instance.
 
         .. code-block:: python
 
@@ -1965,8 +1987,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         r"""Attaches an existing Disk resource to an instance.
         You must first create the disk before you can attach it.
         It is not possible to create and attach a disk at the
-        same time. For more information, read Adding a
-        persistent disk to your instance.
+        same time. For more information, readAdding a persistent
+        disk to your instance.
 
         .. code-block:: python
 
@@ -2134,8 +2156,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Creates multiple instances. Count specifies the
-        number of instances to create. For more information, see
-        About bulk creation of VMs.
+        number of instances to create. For more information,
+        seeAbout bulk creation of VMs.
 
         .. code-block:: python
 
@@ -2271,8 +2293,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Creates multiple instances. Count specifies the
-        number of instances to create. For more information, see
-        About bulk creation of VMs.
+        number of instances to create. For more information,
+        seeAbout bulk creation of VMs.
 
         .. code-block:: python
 
@@ -2431,7 +2453,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Deletes the specified Instance resource. For more
-        information, see Deleting an instance.
+        information, seeDeleting an instance.
 
         .. code-block:: python
 
@@ -2567,7 +2589,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Deletes the specified Instance resource. For more
-        information, see Deleting an instance.
+        information, seeDeleting an instance.
 
         .. code-block:: python
 
@@ -3068,10 +3090,12 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Deletes one dynamic network interface from an active instance.
-        InstancesDeleteNetworkInterfaceRequest indicates: - instance
-        from which to delete, using project+zone+resource_id fields; -
-        dynamic network interface to be deleted, using
-        network_interface_name field;
+        InstancesDeleteNetworkInterfaceRequest indicates:
+
+        - instance from which to delete, using project+zone+resource_id
+          fields;
+        - dynamic network interface to be deleted, using
+          network_interface_name field;
 
         .. code-block:: python
 
@@ -3222,10 +3246,12 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Deletes one dynamic network interface from an active instance.
-        InstancesDeleteNetworkInterfaceRequest indicates: - instance
-        from which to delete, using project+zone+resource_id fields; -
-        dynamic network interface to be deleted, using
-        network_interface_name field;
+        InstancesDeleteNetworkInterfaceRequest indicates:
+
+        - instance from which to delete, using project+zone+resource_id
+          fields;
+        - dynamic network interface to be deleted, using
+          network_interface_name field;
 
         .. code-block:: python
 
@@ -3777,10 +3803,11 @@ class InstancesClient(metaclass=InstancesClientMeta):
 
         Returns:
             google.cloud.compute_v1beta.types.Instance:
-                Represents an Instance resource. An
-                instance is a virtual machine that is
+                Represents an Instance resource.
+
+                An instance is a virtual machine that is
                 hosted on Google Cloud Platform. For
-                more information, read Virtual Machine
+                more information, readVirtual Machine
                 Instances.
 
         """
@@ -4198,28 +4225,36 @@ class InstancesClient(metaclass=InstancesClientMeta):
 
         Returns:
             google.cloud.compute_v1beta.types.Policy:
-                An Identity and Access Management (IAM) policy, which
-                specifies access controls for Google Cloud resources. A
-                Policy is a collection of bindings. A binding binds one
-                or more members, or principals, to a single role.
-                Principals can be user accounts, service accounts,
-                Google groups, and domains (such as G Suite). A role is
-                a named list of permissions; each role can be an IAM
-                predefined role or a user-created custom role. For some
-                types of Google Cloud resources, a binding can also
-                specify a condition, which is a logical expression that
-                allows access to a resource only if the expression
-                evaluates to true. A condition can add constraints based
-                on attributes of the request, the resource, or both. To
-                learn which resources support conditions in their IAM
-                policies, see the [IAM
-                documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
-                **JSON example:**
-                :literal:`\` { "bindings": [ { "role": "roles/resourcemanager.organizationAdmin", "members": [ "user:mike@example.com", "group:admins@example.com", "domain:google.com", "serviceAccount:my-project-id@appspot.gserviceaccount.com" ] }, { "role": "roles/resourcemanager.organizationViewer", "members": [ "user:eve@example.com" ], "condition": { "title": "expirable access", "description": "Does not grant access after Sep 2020", "expression": "request.time < timestamp('2020-10-01T00:00:00.000Z')", } } ], "etag": "BwWWja0YfJA=", "version": 3 }`\ \`
-                **YAML example:**
-                :literal:`\` bindings: - members: - user:mike@example.com - group:admins@example.com - domain:google.com - serviceAccount:my-project-id@appspot.gserviceaccount.com role: roles/resourcemanager.organizationAdmin - members: - user:eve@example.com role: roles/resourcemanager.organizationViewer condition: title: expirable access description: Does not grant access after Sep 2020 expression: request.time < timestamp('2020-10-01T00:00:00.000Z') etag: BwWWja0YfJA= version: 3`\ \`
-                For a description of IAM and its features, see the [IAM
-                documentation](\ https://cloud.google.com/iam/docs/).
+                An Identity and Access Management (IAM) policy, which specifies access
+                   controls for Google Cloud resources.
+
+                   A Policy is a collection of bindings. A binding binds
+                   one or more members, or principals, to a single role.
+                   Principals can be user accounts, service accounts,
+                   Google groups, and domains (such as G Suite). A role
+                   is a named list of permissions; each role can be an
+                   IAM predefined role or a user-created custom role.
+
+                   For some types of Google Cloud resources, a binding
+                   can also specify a condition, which is a logical
+                   expression that allows access to a resource only if
+                   the expression evaluates to true. A condition can add
+                   constraints based on attributes of the request, the
+                   resource, or both. To learn which resources support
+                   conditions in their IAM policies, see the [IAM
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
+
+                   **JSON example:**
+
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time < timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+
+                   **YAML example:**
+
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+
+                   For a description of IAM and its features, see the
+                   [IAM
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         # Create or coerce a protobuf request object.
@@ -4356,9 +4391,10 @@ class InstancesClient(metaclass=InstancesClientMeta):
 
         Returns:
             google.cloud.compute_v1beta.types.PartnerMetadata:
-                Model definition of partner_metadata field. To be used
-                in dedicated Partner Metadata methods and to be inlined
-                in the Instance and InstanceTemplate resources.
+                Model definition of partner_metadata field.
+                   To be used in dedicated Partner Metadata methods and
+                   to be inlined in the Instance and InstanceTemplate
+                   resources.
 
         """
         # Create or coerce a protobuf request object.
@@ -5257,8 +5293,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.ListPager:
-        r"""Retrieves the list of instances contained within the
-        specified zone.
+        r"""Retrieves the list of instances contained within
+        the specified zone.
 
         .. code-block:: python
 
@@ -5400,8 +5436,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         instance specified in the request. For example, if the
         VM instance is part of a managed or unmanaged instance
         group, the referrers list includes the instance group.
-        For more information, read Viewing referrers to VM
-        instances.
+        For more information, readViewing
+        referrers to VM instances.
 
         .. code-block:: python
 
@@ -6833,7 +6869,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
     ) -> compute.Operation:
         r"""Performs a reset on the instance. This is a hard
         reset. The VM does not do a graceful shutdown. For more
-        information, see Resetting an instance.
+        information, seeResetting an instance.
 
         .. code-block:: python
 
@@ -6970,7 +7006,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
     ) -> extended_operation.ExtendedOperation:
         r"""Performs a reset on the instance. This is a hard
         reset. The VM does not do a graceful shutdown. For more
-        information, see Resetting an instance.
+        information, seeResetting an instance.
 
         .. code-block:: python
 
@@ -7130,8 +7166,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
-        r"""Resumes an instance that was suspended using the
-        instances().suspend method.
+        r"""Resumes an instance that was suspended using
+        theinstances().suspend method.
 
         .. code-block:: python
 
@@ -7266,8 +7302,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
-        r"""Resumes an instance that was suspended using the
-        instances().suspend method.
+        r"""Resumes an instance that was suspended using
+        theinstances().suspend method.
 
         .. code-block:: python
 
@@ -8278,28 +8314,36 @@ class InstancesClient(metaclass=InstancesClientMeta):
 
         Returns:
             google.cloud.compute_v1beta.types.Policy:
-                An Identity and Access Management (IAM) policy, which
-                specifies access controls for Google Cloud resources. A
-                Policy is a collection of bindings. A binding binds one
-                or more members, or principals, to a single role.
-                Principals can be user accounts, service accounts,
-                Google groups, and domains (such as G Suite). A role is
-                a named list of permissions; each role can be an IAM
-                predefined role or a user-created custom role. For some
-                types of Google Cloud resources, a binding can also
-                specify a condition, which is a logical expression that
-                allows access to a resource only if the expression
-                evaluates to true. A condition can add constraints based
-                on attributes of the request, the resource, or both. To
-                learn which resources support conditions in their IAM
-                policies, see the [IAM
-                documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
-                **JSON example:**
-                :literal:`\` { "bindings": [ { "role": "roles/resourcemanager.organizationAdmin", "members": [ "user:mike@example.com", "group:admins@example.com", "domain:google.com", "serviceAccount:my-project-id@appspot.gserviceaccount.com" ] }, { "role": "roles/resourcemanager.organizationViewer", "members": [ "user:eve@example.com" ], "condition": { "title": "expirable access", "description": "Does not grant access after Sep 2020", "expression": "request.time < timestamp('2020-10-01T00:00:00.000Z')", } } ], "etag": "BwWWja0YfJA=", "version": 3 }`\ \`
-                **YAML example:**
-                :literal:`\` bindings: - members: - user:mike@example.com - group:admins@example.com - domain:google.com - serviceAccount:my-project-id@appspot.gserviceaccount.com role: roles/resourcemanager.organizationAdmin - members: - user:eve@example.com role: roles/resourcemanager.organizationViewer condition: title: expirable access description: Does not grant access after Sep 2020 expression: request.time < timestamp('2020-10-01T00:00:00.000Z') etag: BwWWja0YfJA= version: 3`\ \`
-                For a description of IAM and its features, see the [IAM
-                documentation](\ https://cloud.google.com/iam/docs/).
+                An Identity and Access Management (IAM) policy, which specifies access
+                   controls for Google Cloud resources.
+
+                   A Policy is a collection of bindings. A binding binds
+                   one or more members, or principals, to a single role.
+                   Principals can be user accounts, service accounts,
+                   Google groups, and domains (such as G Suite). A role
+                   is a named list of permissions; each role can be an
+                   IAM predefined role or a user-created custom role.
+
+                   For some types of Google Cloud resources, a binding
+                   can also specify a condition, which is a logical
+                   expression that allows access to a resource only if
+                   the expression evaluates to true. A condition can add
+                   constraints based on attributes of the request, the
+                   resource, or both. To learn which resources support
+                   conditions in their IAM policies, see the [IAM
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
+
+                   **JSON example:**
+
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time < timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+
+                   **YAML example:**
+
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+
+                   For a description of IAM and its features, see the
+                   [IAM
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         # Create or coerce a protobuf request object.
@@ -8376,8 +8420,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
-        r"""Sets labels on an instance. To learn more about
-        labels, read the Labeling Resources documentation.
+        r"""Sets labels on an instance.  To learn more about
+        labels, read theLabeling Resources documentation.
 
         .. code-block:: python
 
@@ -8529,8 +8573,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
-        r"""Sets labels on an instance. To learn more about
-        labels, read the Labeling Resources documentation.
+        r"""Sets labels on an instance.  To learn more about
+        labels, read theLabeling Resources documentation.
 
         .. code-block:: python
 
@@ -9687,9 +9731,9 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Changes the minimum CPU platform that this instance
-        should use. This method can only be called on a stopped
-        instance. For more information, read Specifying a
-        Minimum CPU Platform.
+        should use. This method can only
+        be called on a stopped instance. For more information,
+        readSpecifying a Minimum CPU Platform.
 
         .. code-block:: python
 
@@ -9842,9 +9886,9 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Changes the minimum CPU platform that this instance
-        should use. This method can only be called on a stopped
-        instance. For more information, read Specifying a
-        Minimum CPU Platform.
+        should use. This method can only
+        be called on a stopped instance. For more information,
+        readSpecifying a Minimum CPU Platform.
 
         .. code-block:: python
 
@@ -10345,11 +10389,11 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Sets an instance's scheduling options. You can only call this
-        method on a stopped instance, that is, a VM instance that is in
-        a ``TERMINATED`` state. See Instance Life Cycle for more
+        method on astopped instance, that is, a VM instance that is in a
+        ``TERMINATED`` state. SeeInstance Life Cycle for more
         information on the possible instance states. For more
-        information about setting scheduling options for a VM, see Set
-        VM host maintenance policy.
+        information about setting scheduling options for a VM, seeSet VM
+        host maintenance policy.
 
         .. code-block:: python
 
@@ -10491,11 +10535,11 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Sets an instance's scheduling options. You can only call this
-        method on a stopped instance, that is, a VM instance that is in
-        a ``TERMINATED`` state. See Instance Life Cycle for more
+        method on astopped instance, that is, a VM instance that is in a
+        ``TERMINATED`` state. SeeInstance Life Cycle for more
         information on the possible instance states. For more
-        information about setting scheduling options for a VM, see Set
-        VM host maintenance policy.
+        information about setting scheduling options for a VM, seeSet VM
+        host maintenance policy.
 
         .. code-block:: python
 
@@ -10664,7 +10708,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Sets the Google Cloud Armor security policy for the
-        specified instance. For more information, see Google
+        specified instance. For more information, seeGoogle
         Cloud Armor Overview
 
         .. code-block:: python
@@ -10819,7 +10863,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Sets the Google Cloud Armor security policy for the
-        specified instance. For more information, see Google
+        specified instance. For more information, seeGoogle
         Cloud Armor Overview
 
         .. code-block:: python
@@ -10999,8 +11043,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Sets the service account on the instance. For more
-        information, read Changing the service account and
-        access scopes for an instance.
+        information, readChanging
+        the service account and access scopes for an instance.
 
         .. code-block:: python
 
@@ -11153,8 +11197,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Sets the service account on the instance. For more
-        information, read Changing the service account and
-        access scopes for an instance.
+        information, readChanging
+        the service account and access scopes for an instance.
 
         .. code-block:: python
 
@@ -12019,8 +12063,9 @@ class InstancesClient(metaclass=InstancesClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
-        r"""Sets network tags for the specified instance to the
-        data included in the request.
+        r"""Sets network tags
+        for the specified instance to the data included in the
+        request.
 
         .. code-block:: python
 
@@ -12163,8 +12208,9 @@ class InstancesClient(metaclass=InstancesClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
-        r"""Sets network tags for the specified instance to the
-        data included in the request.
+        r"""Sets network tags
+        for the specified instance to the data included in the
+        request.
 
         .. code-block:: python
 
@@ -12636,9 +12682,9 @@ class InstancesClient(metaclass=InstancesClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
-        r"""Starts an instance that was stopped using the
-        instances().stop method. For more information, see
-        Restart an instance.
+        r"""Starts an instance that was stopped using
+        theinstances().stop method. For more information,
+        seeRestart an instance.
 
         .. code-block:: python
 
@@ -12773,9 +12819,9 @@ class InstancesClient(metaclass=InstancesClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
-        r"""Starts an instance that was stopped using the
-        instances().stop method. For more information, see
-        Restart an instance.
+        r"""Starts an instance that was stopped using
+        theinstances().stop method. For more information,
+        seeRestart an instance.
 
         .. code-block:: python
 
@@ -12940,9 +12986,9 @@ class InstancesClient(metaclass=InstancesClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
-        r"""Starts an instance that was stopped using the
-        instances().stop method. For more information, see
-        Restart an instance.
+        r"""Starts an instance that was stopped using
+        theinstances().stop method. For more information,
+        seeRestart an instance.
 
         .. code-block:: python
 
@@ -13098,9 +13144,9 @@ class InstancesClient(metaclass=InstancesClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
-        r"""Starts an instance that was stopped using the
-        instances().stop method. For more information, see
-        Restart an instance.
+        r"""Starts an instance that was stopped using
+        theinstances().stop method. For more information,
+        seeRestart an instance.
 
         .. code-block:: python
 
@@ -13282,7 +13328,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
         they are stopped. However, resources that the VM is
         using, such as persistent disks and static IP addresses,
         will continue to be charged until they are deleted. For
-        more information, see Stopping an instance.
+        more information, seeStopping an instance.
 
         .. code-block:: python
 
@@ -13422,7 +13468,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
         they are stopped. However, resources that the VM is
         using, such as persistent disks and static IP addresses,
         will continue to be charged until they are deleted. For
-        more information, see Stopping an instance.
+        more information, seeStopping an instance.
 
         .. code-block:: python
 
@@ -13589,7 +13635,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         charged resources the virtual machine was using, such as
         persistent disks and static IP addresses, will continue
         to be charged while the instance is suspended. For more
-        information, see Suspending and resuming an instance.
+        information, see
+        Suspending and resuming an instance.
 
         .. code-block:: python
 
@@ -13732,7 +13779,8 @@ class InstancesClient(metaclass=InstancesClientMeta):
         charged resources the virtual machine was using, such as
         persistent disks and static IP addresses, will continue
         to be charged while the instance is suspended. For more
-        information, see Suspending and resuming an instance.
+        information, see
+        Suspending and resuming an instance.
 
         .. code-block:: python
 
@@ -14363,8 +14411,9 @@ class InstancesClient(metaclass=InstancesClientMeta):
     ) -> compute.Operation:
         r"""Updates the specified access config from an
         instance's network interface with the data included in
-        the request. This method supports PATCH semantics and
-        uses the JSON merge patch format and processing rules.
+        the request. This method supportsPATCH semantics and
+        uses theJSON merge
+        patch format and processing rules.
 
         .. code-block:: python
 
@@ -14526,8 +14575,9 @@ class InstancesClient(metaclass=InstancesClientMeta):
     ) -> extended_operation.ExtendedOperation:
         r"""Updates the specified access config from an
         instance's network interface with the data included in
-        the request. This method supports PATCH semantics and
-        uses the JSON merge patch format and processing rules.
+        the request. This method supportsPATCH semantics and
+        uses theJSON merge
+        patch format and processing rules.
 
         .. code-block:: python
 
@@ -14713,7 +14763,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
     ) -> compute.Operation:
         r"""Updates the Display config for a VM instance. You can
         only use this method on a stopped VM instance. This
-        method supports PATCH semantics and uses the JSON merge
+        method supportsPATCH semantics and uses theJSON merge
         patch format and processing rules.
 
         .. code-block:: python
@@ -14861,7 +14911,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
     ) -> extended_operation.ExtendedOperation:
         r"""Updates the Display config for a VM instance. You can
         only use this method on a stopped VM instance. This
-        method supports PATCH semantics and uses the JSON merge
+        method supportsPATCH semantics and uses theJSON merge
         patch format and processing rules.
 
         .. code-block:: python
@@ -15037,9 +15087,9 @@ class InstancesClient(metaclass=InstancesClientMeta):
         can only update an interface's alias IP range and
         attached network. See Modifying alias IP ranges for an
         existing instance for instructions on changing alias IP
-        ranges. See Migrating a VM between networks for
-        instructions on migrating an interface. This method
-        follows PATCH semantics.
+        ranges. See Migrating
+        a VM between networks for instructions on migrating an
+        interface. This method follows PATCH semantics.
 
         .. code-block:: python
 
@@ -15203,9 +15253,9 @@ class InstancesClient(metaclass=InstancesClientMeta):
         can only update an interface's alias IP range and
         attached network. See Modifying alias IP ranges for an
         existing instance for instructions on changing alias IP
-        ranges. See Migrating a VM between networks for
-        instructions on migrating an interface. This method
-        follows PATCH semantics.
+        ranges. See Migrating
+        a VM between networks for instructions on migrating an
+        interface. This method follows PATCH semantics.
 
         .. code-block:: python
 
@@ -15393,7 +15443,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
     ) -> compute.Operation:
         r"""Updates the Shielded Instance config for an instance.
         You can only use this method on a stopped instance. This
-        method supports PATCH semantics and uses the JSON merge
+        method supportsPATCH semantics and uses theJSON merge
         patch format and processing rules.
 
         .. code-block:: python
@@ -15547,7 +15597,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
     ) -> extended_operation.ExtendedOperation:
         r"""Updates the Shielded Instance config for an instance.
         You can only use this method on a stopped instance. This
-        method supports PATCH semantics and uses the JSON merge
+        method supportsPATCH semantics and uses theJSON merge
         patch format and processing rules.
 
         .. code-block:: python
@@ -15724,7 +15774,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
     ) -> compute.Operation:
         r"""Updates the Shielded VM config for a VM instance. You
         can only use this method on a stopped VM instance. This
-        method supports PATCH semantics and uses the JSON merge
+        method supportsPATCH semantics and uses theJSON merge
         patch format and processing rules.
 
         .. code-block:: python
@@ -15874,7 +15924,7 @@ class InstancesClient(metaclass=InstancesClientMeta):
     ) -> extended_operation.ExtendedOperation:
         r"""Updates the Shielded VM config for a VM instance. You
         can only use this method on a stopped VM instance. This
-        method supports PATCH semantics and uses the JSON merge
+        method supportsPATCH semantics and uses theJSON merge
         patch format and processing rules.
 
         .. code-block:: python

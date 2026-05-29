@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,17 +39,17 @@ async def sample_update_certificate_revocation_list():
     client = privateca_v1.CertificateAuthorityServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = privateca_v1.UpdateCertificateRevocationListRequest(
-    )
+    request = privateca_v1.UpdateCertificateRevocationListRequest()
 
     # Make the request
-    operation = client.update_certificate_revocation_list(request=request)
+    operation = await client.update_certificate_revocation_list(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END privateca_v1_generated_CertificateAuthorityService_UpdateCertificateRevocationList_async]

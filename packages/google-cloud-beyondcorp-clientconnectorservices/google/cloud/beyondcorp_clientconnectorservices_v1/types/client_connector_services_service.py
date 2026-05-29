@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -51,9 +51,9 @@ class ClientConnectorService(proto.Message):
             Optional. User-provided name. The display name should follow
             certain format.
 
-            -  Must be 6 to 30 characters in length.
-            -  Can only contain lowercase letters, numbers, and hyphens.
-            -  Must start with a letter.
+            - Must be 6 to 30 characters in length.
+            - Can only contain lowercase letters, numbers, and hyphens.
+            - Must start with a letter.
         ingress (google.cloud.beyondcorp_clientconnectorservices_v1.types.ClientConnectorService.Ingress):
             Required. The details of the ingress
             settings.
@@ -86,6 +86,7 @@ class ClientConnectorService(proto.Message):
                 ClientConnectorService encountered an error
                 and is in an indeterministic state.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         UPDATING = 2
@@ -129,6 +130,7 @@ class ClientConnectorService(proto.Message):
                     TCP (1):
                         TCP protocol.
                 """
+
                 TRANSPORT_PROTOCOL_UNSPECIFIED = 0
                 TCP = 1
 
@@ -307,12 +309,12 @@ class ListClientConnectorServicesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    client_connector_services: MutableSequence[
-        "ClientConnectorService"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="ClientConnectorService",
+    client_connector_services: MutableSequence["ClientConnectorService"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="ClientConnectorService",
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -348,10 +350,10 @@ class CreateClientConnectorServiceRequest(proto.Message):
             Optional. User-settable client connector service resource
             ID.
 
-            -  Must start with a letter.
-            -  Must contain between 4-63 characters from
-               ``/[a-z][0-9]-/``.
-            -  Must end with a number or a letter.
+            - Must start with a letter.
+            - Must contain between 4-63 characters from
+              ``/[a-z][0-9]-/``.
+            - Must end with a number or a letter.
 
             A random system generated name will be assigned if not
             specified by the user.

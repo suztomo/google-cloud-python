@@ -87,6 +87,16 @@
               "methods": [
                 "calendar_mode"
               ]
+            },
+            "Capacity": {
+              "methods": [
+                "capacity"
+              ]
+            },
+            "CapacityHistory": {
+              "methods": [
+                "capacity_history"
+              ]
             }
           }
         }
@@ -149,6 +159,11 @@
             "AddSignedUrlKey": {
               "methods": [
                 "add_signed_url_key"
+              ]
+            },
+            "AggregatedList": {
+              "methods": [
+                "aggregated_list"
               ]
             },
             "Delete": {
@@ -484,6 +499,11 @@
             "Update": {
               "methods": [
                 "update"
+              ]
+            },
+            "UpdateKmsKey": {
+              "methods": [
+                "update_kms_key"
               ]
             }
           }
@@ -1019,6 +1039,45 @@
         }
       }
     },
+    "GlobalVmExtensionPolicies": {
+      "clients": {
+        "rest": {
+          "libraryClient": "GlobalVmExtensionPoliciesClient",
+          "rpcs": {
+            "AggregatedList": {
+              "methods": [
+                "aggregated_list"
+              ]
+            },
+            "Delete": {
+              "methods": [
+                "delete"
+              ]
+            },
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "Insert": {
+              "methods": [
+                "insert"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
+              ]
+            },
+            "Update": {
+              "methods": [
+                "update"
+              ]
+            }
+          }
+        }
+      }
+    },
     "HealthChecks": {
       "clients": {
         "rest": {
@@ -1200,6 +1259,11 @@
                 "apply_updates_to_instances"
               ]
             },
+            "ConfigureAcceleratorTopologies": {
+              "methods": [
+                "configure_accelerator_topologies"
+              ]
+            },
             "CreateInstances": {
               "methods": [
                 "create_instances"
@@ -1223,6 +1287,11 @@
             "Get": {
               "methods": [
                 "get"
+              ]
+            },
+            "GetAvailableAcceleratorTopologies": {
+              "methods": [
+                "get_available_accelerator_topologies"
               ]
             },
             "Insert": {
@@ -1745,6 +1814,50 @@
         }
       }
     },
+    "InstantSnapshotGroups": {
+      "clients": {
+        "rest": {
+          "libraryClient": "InstantSnapshotGroupsClient",
+          "rpcs": {
+            "Delete": {
+              "methods": [
+                "delete"
+              ]
+            },
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "GetIamPolicy": {
+              "methods": [
+                "get_iam_policy"
+              ]
+            },
+            "Insert": {
+              "methods": [
+                "insert"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
+              ]
+            },
+            "SetIamPolicy": {
+              "methods": [
+                "set_iam_policy"
+              ]
+            },
+            "TestIamPermissions": {
+              "methods": [
+                "test_iam_permissions"
+              ]
+            }
+          }
+        }
+      }
+    },
     "InstantSnapshots": {
       "clients": {
         "rest": {
@@ -2061,6 +2174,16 @@
             "Get": {
               "methods": [
                 "get"
+              ]
+            },
+            "GetIamPolicy": {
+              "methods": [
+                "get_iam_policy"
+              ]
+            },
+            "SetIamPolicy": {
+              "methods": [
+                "set_iam_policy"
               ]
             },
             "TestIamPermissions": {
@@ -2477,6 +2600,11 @@
             "AddPeering": {
               "methods": [
                 "add_peering"
+              ]
+            },
+            "CancelRequestRemovePeering": {
+              "methods": [
+                "cancel_request_remove_peering"
               ]
             },
             "Delete": {
@@ -3078,6 +3206,60 @@
         }
       }
     },
+    "RegionBackendBuckets": {
+      "clients": {
+        "rest": {
+          "libraryClient": "RegionBackendBucketsClient",
+          "rpcs": {
+            "Delete": {
+              "methods": [
+                "delete"
+              ]
+            },
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "GetIamPolicy": {
+              "methods": [
+                "get_iam_policy"
+              ]
+            },
+            "Insert": {
+              "methods": [
+                "insert"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
+              ]
+            },
+            "ListUsable": {
+              "methods": [
+                "list_usable"
+              ]
+            },
+            "Patch": {
+              "methods": [
+                "patch"
+              ]
+            },
+            "SetIamPolicy": {
+              "methods": [
+                "set_iam_policy"
+              ]
+            },
+            "TestIamPermissions": {
+              "methods": [
+                "test_iam_permissions"
+              ]
+            }
+          }
+        }
+      }
+    },
     "RegionBackendServices": {
       "clients": {
         "rest": {
@@ -3185,6 +3367,55 @@
             "UpdateReservations": {
               "methods": [
                 "update_reservations"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "RegionCompositeHealthChecks": {
+      "clients": {
+        "rest": {
+          "libraryClient": "RegionCompositeHealthChecksClient",
+          "rpcs": {
+            "AggregatedList": {
+              "methods": [
+                "aggregated_list"
+              ]
+            },
+            "Delete": {
+              "methods": [
+                "delete"
+              ]
+            },
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "GetHealth": {
+              "methods": [
+                "get_health"
+              ]
+            },
+            "Insert": {
+              "methods": [
+                "insert"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
+              ]
+            },
+            "Patch": {
+              "methods": [
+                "patch"
+              ]
+            },
+            "TestIamPermissions": {
+              "methods": [
+                "test_iam_permissions"
               ]
             }
           }
@@ -3318,6 +3549,55 @@
               "methods": [
                 "update"
               ]
+            },
+            "UpdateKmsKey": {
+              "methods": [
+                "update_kms_key"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "RegionHealthAggregationPolicies": {
+      "clients": {
+        "rest": {
+          "libraryClient": "RegionHealthAggregationPoliciesClient",
+          "rpcs": {
+            "AggregatedList": {
+              "methods": [
+                "aggregated_list"
+              ]
+            },
+            "Delete": {
+              "methods": [
+                "delete"
+              ]
+            },
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "Insert": {
+              "methods": [
+                "insert"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
+              ]
+            },
+            "Patch": {
+              "methods": [
+                "patch"
+              ]
+            },
+            "TestIamPermissions": {
+              "methods": [
+                "test_iam_permissions"
+              ]
             }
           }
         }
@@ -3328,6 +3608,11 @@
         "rest": {
           "libraryClient": "RegionHealthCheckServicesClient",
           "rpcs": {
+            "AggregatedList": {
+              "methods": [
+                "aggregated_list"
+              ]
+            },
             "Delete": {
               "methods": [
                 "delete"
@@ -3406,6 +3691,55 @@
         }
       }
     },
+    "RegionHealthSources": {
+      "clients": {
+        "rest": {
+          "libraryClient": "RegionHealthSourcesClient",
+          "rpcs": {
+            "AggregatedList": {
+              "methods": [
+                "aggregated_list"
+              ]
+            },
+            "Delete": {
+              "methods": [
+                "delete"
+              ]
+            },
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "GetHealth": {
+              "methods": [
+                "get_health"
+              ]
+            },
+            "Insert": {
+              "methods": [
+                "insert"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
+              ]
+            },
+            "Patch": {
+              "methods": [
+                "patch"
+              ]
+            },
+            "TestIamPermissions": {
+              "methods": [
+                "test_iam_permissions"
+              ]
+            }
+          }
+        }
+      }
+    },
     "RegionInstanceGroupManagerResizeRequests": {
       "clients": {
         "rest": {
@@ -3448,6 +3782,11 @@
             "AbandonInstances": {
               "methods": [
                 "abandon_instances"
+              ]
+            },
+            "AdoptInstances": {
+              "methods": [
+                "adopt_instances"
               ]
             },
             "ApplyUpdatesToInstances": {
@@ -3661,6 +4000,50 @@
         }
       }
     },
+    "RegionInstantSnapshotGroups": {
+      "clients": {
+        "rest": {
+          "libraryClient": "RegionInstantSnapshotGroupsClient",
+          "rpcs": {
+            "Delete": {
+              "methods": [
+                "delete"
+              ]
+            },
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "GetIamPolicy": {
+              "methods": [
+                "get_iam_policy"
+              ]
+            },
+            "Insert": {
+              "methods": [
+                "insert"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
+              ]
+            },
+            "SetIamPolicy": {
+              "methods": [
+                "set_iam_policy"
+              ]
+            },
+            "TestIamPermissions": {
+              "methods": [
+                "test_iam_permissions"
+              ]
+            }
+          }
+        }
+      }
+    },
     "RegionInstantSnapshots": {
       "clients": {
         "rest": {
@@ -3704,6 +4087,25 @@
             "TestIamPermissions": {
               "methods": [
                 "test_iam_permissions"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "RegionMultiMigMembers": {
+      "clients": {
+        "rest": {
+          "libraryClient": "RegionMultiMigMembersClient",
+          "rpcs": {
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
               ]
             }
           }
@@ -3882,11 +4284,90 @@
         }
       }
     },
+    "RegionNetworkPolicies": {
+      "clients": {
+        "rest": {
+          "libraryClient": "RegionNetworkPoliciesClient",
+          "rpcs": {
+            "AddAssociation": {
+              "methods": [
+                "add_association"
+              ]
+            },
+            "AddTrafficClassificationRule": {
+              "methods": [
+                "add_traffic_classification_rule"
+              ]
+            },
+            "AggregatedList": {
+              "methods": [
+                "aggregated_list"
+              ]
+            },
+            "Delete": {
+              "methods": [
+                "delete"
+              ]
+            },
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "GetAssociation": {
+              "methods": [
+                "get_association"
+              ]
+            },
+            "GetTrafficClassificationRule": {
+              "methods": [
+                "get_traffic_classification_rule"
+              ]
+            },
+            "Insert": {
+              "methods": [
+                "insert"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
+              ]
+            },
+            "Patch": {
+              "methods": [
+                "patch"
+              ]
+            },
+            "PatchTrafficClassificationRule": {
+              "methods": [
+                "patch_traffic_classification_rule"
+              ]
+            },
+            "RemoveAssociation": {
+              "methods": [
+                "remove_association"
+              ]
+            },
+            "RemoveTrafficClassificationRule": {
+              "methods": [
+                "remove_traffic_classification_rule"
+              ]
+            }
+          }
+        }
+      }
+    },
     "RegionNotificationEndpoints": {
       "clients": {
         "rest": {
           "libraryClient": "RegionNotificationEndpointsClient",
           "rpcs": {
+            "AggregatedList": {
+              "methods": [
+                "aggregated_list"
+              ]
+            },
             "Delete": {
               "methods": [
                 "delete"
@@ -4066,6 +4547,11 @@
             "TestIamPermissions": {
               "methods": [
                 "test_iam_permissions"
+              ]
+            },
+            "UpdateKmsKey": {
+              "methods": [
+                "update_kms_key"
               ]
             }
           }
@@ -4369,6 +4855,11 @@
                 "get"
               ]
             },
+            "GetIamPolicy": {
+              "methods": [
+                "get_iam_policy"
+              ]
+            },
             "List": {
               "methods": [
                 "list"
@@ -4377,6 +4868,94 @@
             "PerformMaintenance": {
               "methods": [
                 "perform_maintenance"
+              ]
+            },
+            "SetIamPolicy": {
+              "methods": [
+                "set_iam_policy"
+              ]
+            },
+            "TestIamPermissions": {
+              "methods": [
+                "test_iam_permissions"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "ReservationSlots": {
+      "clients": {
+        "rest": {
+          "libraryClient": "ReservationSlotsClient",
+          "rpcs": {
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "GetVersion": {
+              "methods": [
+                "get_version"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
+              ]
+            },
+            "Update": {
+              "methods": [
+                "update"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "ReservationSubBlocks": {
+      "clients": {
+        "rest": {
+          "libraryClient": "ReservationSubBlocksClient",
+          "rpcs": {
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "GetIamPolicy": {
+              "methods": [
+                "get_iam_policy"
+              ]
+            },
+            "GetVersion": {
+              "methods": [
+                "get_version"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
+              ]
+            },
+            "PerformMaintenance": {
+              "methods": [
+                "perform_maintenance"
+              ]
+            },
+            "ReportFaulty": {
+              "methods": [
+                "report_faulty"
+              ]
+            },
+            "SetIamPolicy": {
+              "methods": [
+                "set_iam_policy"
+              ]
+            },
+            "TestIamPermissions": {
+              "methods": [
+                "test_iam_permissions"
               ]
             }
           }
@@ -4501,6 +5080,64 @@
         }
       }
     },
+    "RolloutPlans": {
+      "clients": {
+        "rest": {
+          "libraryClient": "RolloutPlansClient",
+          "rpcs": {
+            "Delete": {
+              "methods": [
+                "delete"
+              ]
+            },
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "Insert": {
+              "methods": [
+                "insert"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "Rollouts": {
+      "clients": {
+        "rest": {
+          "libraryClient": "RolloutsClient",
+          "rpcs": {
+            "Cancel": {
+              "methods": [
+                "cancel"
+              ]
+            },
+            "Delete": {
+              "methods": [
+                "delete"
+              ]
+            },
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
+              ]
+            }
+          }
+        }
+      }
+    },
     "Routers": {
       "clients": {
         "rest": {
@@ -4516,6 +5153,11 @@
                 "delete"
               ]
             },
+            "DeleteNamedSet": {
+              "methods": [
+                "delete_named_set"
+              ]
+            },
             "DeleteRoutePolicy": {
               "methods": [
                 "delete_route_policy"
@@ -4524,6 +5166,11 @@
             "Get": {
               "methods": [
                 "get"
+              ]
+            },
+            "GetNamedSet": {
+              "methods": [
+                "get_named_set"
               ]
             },
             "GetNatIpInfo": {
@@ -4561,6 +5208,11 @@
                 "list_bgp_routes"
               ]
             },
+            "ListNamedSets": {
+              "methods": [
+                "list_named_sets"
+              ]
+            },
             "ListRoutePolicies": {
               "methods": [
                 "list_route_policies"
@@ -4569,6 +5221,11 @@
             "Patch": {
               "methods": [
                 "patch"
+              ]
+            },
+            "PatchNamedSet": {
+              "methods": [
+                "patch_named_set"
               ]
             },
             "PatchRoutePolicy": {
@@ -4589,6 +5246,11 @@
             "Update": {
               "methods": [
                 "update"
+              ]
+            },
+            "UpdateNamedSet": {
+              "methods": [
+                "update_named_set"
               ]
             },
             "UpdateRoutePolicy": {
@@ -4762,6 +5424,50 @@
         }
       }
     },
+    "SnapshotGroups": {
+      "clients": {
+        "rest": {
+          "libraryClient": "SnapshotGroupsClient",
+          "rpcs": {
+            "Delete": {
+              "methods": [
+                "delete"
+              ]
+            },
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "GetIamPolicy": {
+              "methods": [
+                "get_iam_policy"
+              ]
+            },
+            "Insert": {
+              "methods": [
+                "insert"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
+              ]
+            },
+            "SetIamPolicy": {
+              "methods": [
+                "set_iam_policy"
+              ]
+            },
+            "TestIamPermissions": {
+              "methods": [
+                "test_iam_permissions"
+              ]
+            }
+          }
+        }
+      }
+    },
     "SnapshotSettingsService": {
       "clients": {
         "rest": {
@@ -4829,6 +5535,11 @@
             "TestIamPermissions": {
               "methods": [
                 "test_iam_permissions"
+              ]
+            },
+            "UpdateKmsKey": {
+              "methods": [
+                "update_kms_key"
               ]
             }
           }
@@ -5711,6 +6422,40 @@
             "Wait": {
               "methods": [
                 "wait"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "ZoneVmExtensionPolicies": {
+      "clients": {
+        "rest": {
+          "libraryClient": "ZoneVmExtensionPoliciesClient",
+          "rpcs": {
+            "Delete": {
+              "methods": [
+                "delete"
+              ]
+            },
+            "Get": {
+              "methods": [
+                "get"
+              ]
+            },
+            "Insert": {
+              "methods": [
+                "insert"
+              ]
+            },
+            "List": {
+              "methods": [
+                "list"
+              ]
+            },
+            "Update": {
+              "methods": [
+                "update"
               ]
             }
           }

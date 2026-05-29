@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ async def sample_list_cached_contents():
     client = generativelanguage_v1beta.CacheServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = generativelanguage_v1beta.ListCachedContentsRequest(
-    )
+    request = generativelanguage_v1beta.ListCachedContentsRequest()
 
     # Make the request
     page_result = client.list_cached_contents(request=request)
@@ -48,5 +47,6 @@ async def sample_list_cached_contents():
     # Handle the response
     async for response in page_result:
         print(response)
+
 
 # [END generativelanguage_v1beta_generated_CacheService_ListCachedContents_async]

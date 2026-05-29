@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,8 +38,16 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api_core import gapic_v1, grpc_helpers, grpc_helpers_async, path_template
-from google.api_core import client_options
+import google.auth
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+from google.api_core import (
+    client_options,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
 from google.api_core import retry as retries
 from google.apps.script.type.calendar.types import calendar_addon_manifest
@@ -58,12 +61,9 @@ from google.apps.script.type.types import (
     extension_point,
     script_manifest,
 )
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.oauth2 import service_account
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
 
 from google.cloud.gsuiteaddons_v1.services.g_suite_add_ons import (
     GSuiteAddOnsAsyncClient,
@@ -121,12 +121,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert GSuiteAddOnsClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -145,6 +161,10 @@ def test__get_default_mtls_endpoint():
         == sandbox_mtls_endpoint
     )
     assert GSuiteAddOnsClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    assert (
+        GSuiteAddOnsClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
+    )
 
 
 def test__read_environment_variables():
@@ -159,12 +179,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            GSuiteAddOnsClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                GSuiteAddOnsClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert GSuiteAddOnsClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert GSuiteAddOnsClient._read_environment_variables() == (
@@ -197,6 +224,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert GSuiteAddOnsClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert GSuiteAddOnsClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert GSuiteAddOnsClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert GSuiteAddOnsClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert GSuiteAddOnsClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert GSuiteAddOnsClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert GSuiteAddOnsClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert GSuiteAddOnsClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert GSuiteAddOnsClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                GSuiteAddOnsClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert GSuiteAddOnsClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert GSuiteAddOnsClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -564,17 +690,6 @@ def test_g_suite_add_ons_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -786,6 +901,117 @@ def test_g_suite_add_ons_client_get_mtls_endpoint_and_cert_source(client_class):
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -818,10 +1044,9 @@ def test_g_suite_add_ons_client_get_mtls_endpoint_and_cert_source(client_class):
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -834,18 +1059,6 @@ def test_g_suite_add_ons_client_get_mtls_endpoint_and_cert_source(client_class):
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1072,13 +1285,13 @@ def test_g_suite_add_ons_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1103,8 +1316,8 @@ def test_g_suite_add_ons_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        gsuiteaddons.GetAuthorizationRequest,
-        dict,
+        gsuiteaddons.GetAuthorizationRequest(),
+        {},
     ],
 )
 def test_get_authorization(request_type, transport: str = "grpc"):
@@ -1115,7 +1328,7 @@ def test_get_authorization(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1167,9 +1380,10 @@ def test_get_authorization_non_empty_request_with_auto_populated_field():
         client.get_authorization(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gsuiteaddons.GetAuthorizationRequest(
+        request_msg = gsuiteaddons.GetAuthorizationRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_authorization_use_cached_wrapped_rpc():
@@ -1193,9 +1407,9 @@ def test_get_authorization_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_authorization
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_authorization] = (
+            mock_rpc
+        )
         request = {}
         client.get_authorization(request)
 
@@ -1252,9 +1466,14 @@ async def test_get_authorization_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_authorization_async(
-    transport: str = "grpc_asyncio", request_type=gsuiteaddons.GetAuthorizationRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gsuiteaddons.GetAuthorizationRequest(),
+        {},
+    ],
+)
+async def test_get_authorization_async(request_type, transport: str = "grpc_asyncio"):
     client = GSuiteAddOnsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1262,7 +1481,7 @@ async def test_get_authorization_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1289,11 +1508,6 @@ async def test_get_authorization_async(
     assert response.name == "name_value"
     assert response.service_account_email == "service_account_email_value"
     assert response.oauth_client_id == "oauth_client_id_value"
-
-
-@pytest.mark.asyncio
-async def test_get_authorization_async_from_dict():
-    await test_get_authorization_async(request_type=dict)
 
 
 def test_get_authorization_field_headers():
@@ -1450,8 +1664,8 @@ async def test_get_authorization_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gsuiteaddons.CreateDeploymentRequest,
-        dict,
+        gsuiteaddons.CreateDeploymentRequest(),
+        {},
     ],
 )
 def test_create_deployment(request_type, transport: str = "grpc"):
@@ -1462,7 +1676,7 @@ def test_create_deployment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1515,10 +1729,11 @@ def test_create_deployment_non_empty_request_with_auto_populated_field():
         client.create_deployment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gsuiteaddons.CreateDeploymentRequest(
+        request_msg = gsuiteaddons.CreateDeploymentRequest(
             parent="parent_value",
             deployment_id="deployment_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_deployment_use_cached_wrapped_rpc():
@@ -1542,9 +1757,9 @@ def test_create_deployment_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_deployment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_deployment] = (
+            mock_rpc
+        )
         request = {}
         client.create_deployment(request)
 
@@ -1601,9 +1816,14 @@ async def test_create_deployment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_deployment_async(
-    transport: str = "grpc_asyncio", request_type=gsuiteaddons.CreateDeploymentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gsuiteaddons.CreateDeploymentRequest(),
+        {},
+    ],
+)
+async def test_create_deployment_async(request_type, transport: str = "grpc_asyncio"):
     client = GSuiteAddOnsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1611,7 +1831,7 @@ async def test_create_deployment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1638,11 +1858,6 @@ async def test_create_deployment_async(
     assert response.name == "name_value"
     assert response.oauth_scopes == ["oauth_scopes_value"]
     assert response.etag == "etag_value"
-
-
-@pytest.mark.asyncio
-async def test_create_deployment_async_from_dict():
-    await test_create_deployment_async(request_type=dict)
 
 
 def test_create_deployment_field_headers():
@@ -1819,8 +2034,8 @@ async def test_create_deployment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gsuiteaddons.ReplaceDeploymentRequest,
-        dict,
+        gsuiteaddons.ReplaceDeploymentRequest(),
+        {},
     ],
 )
 def test_replace_deployment(request_type, transport: str = "grpc"):
@@ -1831,7 +2046,7 @@ def test_replace_deployment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1881,7 +2096,8 @@ def test_replace_deployment_non_empty_request_with_auto_populated_field():
         client.replace_deployment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gsuiteaddons.ReplaceDeploymentRequest()
+        request_msg = gsuiteaddons.ReplaceDeploymentRequest()
+        assert args[0] == request_msg
 
 
 def test_replace_deployment_use_cached_wrapped_rpc():
@@ -1907,9 +2123,9 @@ def test_replace_deployment_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.replace_deployment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.replace_deployment] = (
+            mock_rpc
+        )
         request = {}
         client.replace_deployment(request)
 
@@ -1966,9 +2182,14 @@ async def test_replace_deployment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_replace_deployment_async(
-    transport: str = "grpc_asyncio", request_type=gsuiteaddons.ReplaceDeploymentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gsuiteaddons.ReplaceDeploymentRequest(),
+        {},
+    ],
+)
+async def test_replace_deployment_async(request_type, transport: str = "grpc_asyncio"):
     client = GSuiteAddOnsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1976,7 +2197,7 @@ async def test_replace_deployment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2003,11 +2224,6 @@ async def test_replace_deployment_async(
     assert response.name == "name_value"
     assert response.oauth_scopes == ["oauth_scopes_value"]
     assert response.etag == "etag_value"
-
-
-@pytest.mark.asyncio
-async def test_replace_deployment_async_from_dict():
-    await test_replace_deployment_async(request_type=dict)
 
 
 def test_replace_deployment_field_headers():
@@ -2164,8 +2380,8 @@ async def test_replace_deployment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gsuiteaddons.GetDeploymentRequest,
-        dict,
+        gsuiteaddons.GetDeploymentRequest(),
+        {},
     ],
 )
 def test_get_deployment(request_type, transport: str = "grpc"):
@@ -2176,7 +2392,7 @@ def test_get_deployment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_deployment), "__call__") as call:
@@ -2224,9 +2440,10 @@ def test_get_deployment_non_empty_request_with_auto_populated_field():
         client.get_deployment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gsuiteaddons.GetDeploymentRequest(
+        request_msg = gsuiteaddons.GetDeploymentRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_deployment_use_cached_wrapped_rpc():
@@ -2307,9 +2524,14 @@ async def test_get_deployment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_deployment_async(
-    transport: str = "grpc_asyncio", request_type=gsuiteaddons.GetDeploymentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gsuiteaddons.GetDeploymentRequest(),
+        {},
+    ],
+)
+async def test_get_deployment_async(request_type, transport: str = "grpc_asyncio"):
     client = GSuiteAddOnsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2317,7 +2539,7 @@ async def test_get_deployment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_deployment), "__call__") as call:
@@ -2342,11 +2564,6 @@ async def test_get_deployment_async(
     assert response.name == "name_value"
     assert response.oauth_scopes == ["oauth_scopes_value"]
     assert response.etag == "etag_value"
-
-
-@pytest.mark.asyncio
-async def test_get_deployment_async_from_dict():
-    await test_get_deployment_async(request_type=dict)
 
 
 def test_get_deployment_field_headers():
@@ -2495,8 +2712,8 @@ async def test_get_deployment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gsuiteaddons.ListDeploymentsRequest,
-        dict,
+        gsuiteaddons.ListDeploymentsRequest(),
+        {},
     ],
 )
 def test_list_deployments(request_type, transport: str = "grpc"):
@@ -2507,7 +2724,7 @@ def test_list_deployments(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_deployments), "__call__") as call:
@@ -2552,10 +2769,11 @@ def test_list_deployments_non_empty_request_with_auto_populated_field():
         client.list_deployments(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gsuiteaddons.ListDeploymentsRequest(
+        request_msg = gsuiteaddons.ListDeploymentsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_deployments_use_cached_wrapped_rpc():
@@ -2579,9 +2797,9 @@ def test_list_deployments_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_deployments
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_deployments] = (
+            mock_rpc
+        )
         request = {}
         client.list_deployments(request)
 
@@ -2638,9 +2856,14 @@ async def test_list_deployments_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_deployments_async(
-    transport: str = "grpc_asyncio", request_type=gsuiteaddons.ListDeploymentsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gsuiteaddons.ListDeploymentsRequest(),
+        {},
+    ],
+)
+async def test_list_deployments_async(request_type, transport: str = "grpc_asyncio"):
     client = GSuiteAddOnsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2648,7 +2871,7 @@ async def test_list_deployments_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_deployments), "__call__") as call:
@@ -2669,11 +2892,6 @@ async def test_list_deployments_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListDeploymentsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_deployments_async_from_dict():
-    await test_list_deployments_async(request_type=dict)
 
 
 def test_list_deployments_field_headers():
@@ -3003,11 +3221,7 @@ async def test_list_deployments_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_deployments(request={})
-        ).pages:
+        async for page_ in (await client.list_deployments(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -3016,8 +3230,8 @@ async def test_list_deployments_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gsuiteaddons.DeleteDeploymentRequest,
-        dict,
+        gsuiteaddons.DeleteDeploymentRequest(),
+        {},
     ],
 )
 def test_delete_deployment(request_type, transport: str = "grpc"):
@@ -3028,7 +3242,7 @@ def test_delete_deployment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3074,10 +3288,11 @@ def test_delete_deployment_non_empty_request_with_auto_populated_field():
         client.delete_deployment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gsuiteaddons.DeleteDeploymentRequest(
+        request_msg = gsuiteaddons.DeleteDeploymentRequest(
             name="name_value",
             etag="etag_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_deployment_use_cached_wrapped_rpc():
@@ -3101,9 +3316,9 @@ def test_delete_deployment_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_deployment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_deployment] = (
+            mock_rpc
+        )
         request = {}
         client.delete_deployment(request)
 
@@ -3160,9 +3375,14 @@ async def test_delete_deployment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_deployment_async(
-    transport: str = "grpc_asyncio", request_type=gsuiteaddons.DeleteDeploymentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gsuiteaddons.DeleteDeploymentRequest(),
+        {},
+    ],
+)
+async def test_delete_deployment_async(request_type, transport: str = "grpc_asyncio"):
     client = GSuiteAddOnsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3170,7 +3390,7 @@ async def test_delete_deployment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3188,11 +3408,6 @@ async def test_delete_deployment_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_deployment_async_from_dict():
-    await test_delete_deployment_async(request_type=dict)
 
 
 def test_delete_deployment_field_headers():
@@ -3345,8 +3560,8 @@ async def test_delete_deployment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gsuiteaddons.InstallDeploymentRequest,
-        dict,
+        gsuiteaddons.InstallDeploymentRequest(),
+        {},
     ],
 )
 def test_install_deployment(request_type, transport: str = "grpc"):
@@ -3357,7 +3572,7 @@ def test_install_deployment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3402,9 +3617,10 @@ def test_install_deployment_non_empty_request_with_auto_populated_field():
         client.install_deployment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gsuiteaddons.InstallDeploymentRequest(
+        request_msg = gsuiteaddons.InstallDeploymentRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_install_deployment_use_cached_wrapped_rpc():
@@ -3430,9 +3646,9 @@ def test_install_deployment_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.install_deployment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.install_deployment] = (
+            mock_rpc
+        )
         request = {}
         client.install_deployment(request)
 
@@ -3489,9 +3705,14 @@ async def test_install_deployment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_install_deployment_async(
-    transport: str = "grpc_asyncio", request_type=gsuiteaddons.InstallDeploymentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gsuiteaddons.InstallDeploymentRequest(),
+        {},
+    ],
+)
+async def test_install_deployment_async(request_type, transport: str = "grpc_asyncio"):
     client = GSuiteAddOnsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3499,7 +3720,7 @@ async def test_install_deployment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3517,11 +3738,6 @@ async def test_install_deployment_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_install_deployment_async_from_dict():
-    await test_install_deployment_async(request_type=dict)
 
 
 def test_install_deployment_field_headers():
@@ -3674,8 +3890,8 @@ async def test_install_deployment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gsuiteaddons.UninstallDeploymentRequest,
-        dict,
+        gsuiteaddons.UninstallDeploymentRequest(),
+        {},
     ],
 )
 def test_uninstall_deployment(request_type, transport: str = "grpc"):
@@ -3686,7 +3902,7 @@ def test_uninstall_deployment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3731,9 +3947,10 @@ def test_uninstall_deployment_non_empty_request_with_auto_populated_field():
         client.uninstall_deployment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gsuiteaddons.UninstallDeploymentRequest(
+        request_msg = gsuiteaddons.UninstallDeploymentRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_uninstall_deployment_use_cached_wrapped_rpc():
@@ -3759,9 +3976,9 @@ def test_uninstall_deployment_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.uninstall_deployment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.uninstall_deployment] = (
+            mock_rpc
+        )
         request = {}
         client.uninstall_deployment(request)
 
@@ -3818,9 +4035,15 @@ async def test_uninstall_deployment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gsuiteaddons.UninstallDeploymentRequest(),
+        {},
+    ],
+)
 async def test_uninstall_deployment_async(
-    transport: str = "grpc_asyncio",
-    request_type=gsuiteaddons.UninstallDeploymentRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = GSuiteAddOnsAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -3829,7 +4052,7 @@ async def test_uninstall_deployment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3847,11 +4070,6 @@ async def test_uninstall_deployment_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_uninstall_deployment_async_from_dict():
-    await test_uninstall_deployment_async(request_type=dict)
 
 
 def test_uninstall_deployment_field_headers():
@@ -4004,8 +4222,8 @@ async def test_uninstall_deployment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gsuiteaddons.GetInstallStatusRequest,
-        dict,
+        gsuiteaddons.GetInstallStatusRequest(),
+        {},
     ],
 )
 def test_get_install_status(request_type, transport: str = "grpc"):
@@ -4016,7 +4234,7 @@ def test_get_install_status(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4064,9 +4282,10 @@ def test_get_install_status_non_empty_request_with_auto_populated_field():
         client.get_install_status(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gsuiteaddons.GetInstallStatusRequest(
+        request_msg = gsuiteaddons.GetInstallStatusRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_install_status_use_cached_wrapped_rpc():
@@ -4092,9 +4311,9 @@ def test_get_install_status_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_install_status
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_install_status] = (
+            mock_rpc
+        )
         request = {}
         client.get_install_status(request)
 
@@ -4151,9 +4370,14 @@ async def test_get_install_status_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_install_status_async(
-    transport: str = "grpc_asyncio", request_type=gsuiteaddons.GetInstallStatusRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gsuiteaddons.GetInstallStatusRequest(),
+        {},
+    ],
+)
+async def test_get_install_status_async(request_type, transport: str = "grpc_asyncio"):
     client = GSuiteAddOnsAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4161,7 +4385,7 @@ async def test_get_install_status_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4184,11 +4408,6 @@ async def test_get_install_status_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, gsuiteaddons.InstallStatus)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_install_status_async_from_dict():
-    await test_get_install_status_async(request_type=dict)
 
 
 def test_get_install_status_field_headers():
@@ -4363,9 +4582,9 @@ def test_get_authorization_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_authorization
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_authorization] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_authorization(request)
@@ -4452,7 +4671,7 @@ def test_get_authorization_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_authorization_rest_unset_required_fields():
@@ -4541,9 +4760,9 @@ def test_create_deployment_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_deployment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_deployment] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_deployment(request)
@@ -4646,7 +4865,7 @@ def test_create_deployment_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_deployment_rest_unset_required_fields():
@@ -4750,9 +4969,9 @@ def test_replace_deployment_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.replace_deployment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.replace_deployment] = (
+            mock_rpc
+        )
 
         request = {}
         client.replace_deployment(request)
@@ -4835,7 +5054,7 @@ def test_replace_deployment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_replace_deployment_rest_unset_required_fields():
@@ -5014,7 +5233,7 @@ def test_get_deployment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_deployment_rest_unset_required_fields():
@@ -5103,9 +5322,9 @@ def test_list_deployments_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_deployments
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_deployments] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_deployments(request)
@@ -5199,7 +5418,7 @@ def test_list_deployments_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_deployments_rest_unset_required_fields():
@@ -5359,9 +5578,9 @@ def test_delete_deployment_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_deployment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_deployment] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_deployment(request)
@@ -5447,7 +5666,7 @@ def test_delete_deployment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_deployment_rest_unset_required_fields():
@@ -5536,9 +5755,9 @@ def test_install_deployment_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.install_deployment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.install_deployment] = (
+            mock_rpc
+        )
 
         request = {}
         client.install_deployment(request)
@@ -5623,7 +5842,7 @@ def test_install_deployment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_install_deployment_rest_unset_required_fields():
@@ -5713,9 +5932,9 @@ def test_uninstall_deployment_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.uninstall_deployment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.uninstall_deployment] = (
+            mock_rpc
+        )
 
         request = {}
         client.uninstall_deployment(request)
@@ -5800,7 +6019,7 @@ def test_uninstall_deployment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_uninstall_deployment_rest_unset_required_fields():
@@ -5890,9 +6109,9 @@ def test_get_install_status_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_install_status
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_install_status] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_install_status(request)
@@ -5979,7 +6198,7 @@ def test_get_install_status_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_install_status_rest_unset_required_fields():
@@ -6174,7 +6393,6 @@ def test_get_authorization_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.GetAuthorizationRequest()
-
         assert args[0] == request_msg
 
 
@@ -6197,7 +6415,6 @@ def test_create_deployment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.CreateDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6220,7 +6437,6 @@ def test_replace_deployment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.ReplaceDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6241,7 +6457,6 @@ def test_get_deployment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.GetDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6262,7 +6477,6 @@ def test_list_deployments_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.ListDeploymentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -6285,7 +6499,6 @@ def test_delete_deployment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.DeleteDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6308,7 +6521,6 @@ def test_install_deployment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.InstallDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6331,7 +6543,6 @@ def test_uninstall_deployment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.UninstallDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6354,7 +6565,6 @@ def test_get_install_status_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.GetInstallStatusRequest()
-
         assert args[0] == request_msg
 
 
@@ -6399,7 +6609,6 @@ async def test_get_authorization_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.GetAuthorizationRequest()
-
         assert args[0] == request_msg
 
 
@@ -6430,7 +6639,6 @@ async def test_create_deployment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.CreateDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6461,7 +6669,6 @@ async def test_replace_deployment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.ReplaceDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6490,7 +6697,6 @@ async def test_get_deployment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.GetDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6517,7 +6723,6 @@ async def test_list_deployments_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.ListDeploymentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -6542,7 +6747,6 @@ async def test_delete_deployment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.DeleteDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6567,7 +6771,6 @@ async def test_install_deployment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.InstallDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6592,7 +6795,6 @@ async def test_uninstall_deployment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.UninstallDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -6621,7 +6823,6 @@ async def test_get_install_status_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.GetInstallStatusRequest()
-
         assert args[0] == request_msg
 
 
@@ -6643,8 +6844,9 @@ def test_get_authorization_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6711,17 +6913,20 @@ def test_get_authorization_rest_interceptors(null_interceptor):
     )
     client = GSuiteAddOnsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "post_get_authorization"
-    ) as post, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "post_get_authorization_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "pre_get_authorization"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "post_get_authorization"
+        ) as post,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor,
+            "post_get_authorization_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "pre_get_authorization"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6774,8 +6979,9 @@ def test_create_deployment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7008,17 +7214,20 @@ def test_create_deployment_rest_interceptors(null_interceptor):
     )
     client = GSuiteAddOnsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "post_create_deployment"
-    ) as post, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "post_create_deployment_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "pre_create_deployment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "post_create_deployment"
+        ) as post,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor,
+            "post_create_deployment_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "pre_create_deployment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7071,8 +7280,9 @@ def test_replace_deployment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7305,17 +7515,20 @@ def test_replace_deployment_rest_interceptors(null_interceptor):
     )
     client = GSuiteAddOnsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "post_replace_deployment"
-    ) as post, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "post_replace_deployment_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "pre_replace_deployment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "post_replace_deployment"
+        ) as post,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor,
+            "post_replace_deployment_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "pre_replace_deployment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7368,8 +7581,9 @@ def test_get_deployment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7436,17 +7650,19 @@ def test_get_deployment_rest_interceptors(null_interceptor):
     )
     client = GSuiteAddOnsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "post_get_deployment"
-    ) as post, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "post_get_deployment_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "pre_get_deployment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "post_get_deployment"
+        ) as post,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "post_get_deployment_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "pre_get_deployment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7499,8 +7715,9 @@ def test_list_deployments_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7563,17 +7780,20 @@ def test_list_deployments_rest_interceptors(null_interceptor):
     )
     client = GSuiteAddOnsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "post_list_deployments"
-    ) as post, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "post_list_deployments_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "pre_list_deployments"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "post_list_deployments"
+        ) as post,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor,
+            "post_list_deployments_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "pre_list_deployments"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7631,8 +7851,9 @@ def test_delete_deployment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7689,13 +7910,13 @@ def test_delete_deployment_rest_interceptors(null_interceptor):
     )
     client = GSuiteAddOnsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "pre_delete_deployment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "pre_delete_deployment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = gsuiteaddons.DeleteDeploymentRequest.pb(
             gsuiteaddons.DeleteDeploymentRequest()
@@ -7740,8 +7961,9 @@ def test_install_deployment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7798,13 +8020,13 @@ def test_install_deployment_rest_interceptors(null_interceptor):
     )
     client = GSuiteAddOnsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "pre_install_deployment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "pre_install_deployment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = gsuiteaddons.InstallDeploymentRequest.pb(
             gsuiteaddons.InstallDeploymentRequest()
@@ -7849,8 +8071,9 @@ def test_uninstall_deployment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7907,13 +8130,13 @@ def test_uninstall_deployment_rest_interceptors(null_interceptor):
     )
     client = GSuiteAddOnsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "pre_uninstall_deployment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "pre_uninstall_deployment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = gsuiteaddons.UninstallDeploymentRequest.pb(
             gsuiteaddons.UninstallDeploymentRequest()
@@ -7958,8 +8181,9 @@ def test_get_install_status_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8022,17 +8246,20 @@ def test_get_install_status_rest_interceptors(null_interceptor):
     )
     client = GSuiteAddOnsClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "post_get_install_status"
-    ) as post, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "post_get_install_status_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.GSuiteAddOnsRestInterceptor, "pre_get_install_status"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "post_get_install_status"
+        ) as post,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor,
+            "post_get_install_status_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.GSuiteAddOnsRestInterceptor, "pre_get_install_status"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8099,7 +8326,6 @@ def test_get_authorization_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.GetAuthorizationRequest()
-
         assert args[0] == request_msg
 
 
@@ -8121,7 +8347,6 @@ def test_create_deployment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.CreateDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8143,7 +8368,6 @@ def test_replace_deployment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.ReplaceDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8163,7 +8387,6 @@ def test_get_deployment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.GetDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8183,7 +8406,6 @@ def test_list_deployments_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.ListDeploymentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -8205,7 +8427,6 @@ def test_delete_deployment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.DeleteDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8227,7 +8448,6 @@ def test_install_deployment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.InstallDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8249,7 +8469,6 @@ def test_uninstall_deployment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.UninstallDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8271,7 +8490,6 @@ def test_get_install_status_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gsuiteaddons.GetInstallStatusRequest()
-
         assert args[0] == request_msg
 
 
@@ -8336,11 +8554,14 @@ def test_g_suite_add_ons_base_transport():
 
 def test_g_suite_add_ons_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.gsuiteaddons_v1.services.g_suite_add_ons.transports.GSuiteAddOnsTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.gsuiteaddons_v1.services.g_suite_add_ons.transports.GSuiteAddOnsTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.GSuiteAddOnsTransport(
@@ -8357,9 +8578,12 @@ def test_g_suite_add_ons_base_transport_with_credentials_file():
 
 def test_g_suite_add_ons_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.gsuiteaddons_v1.services.g_suite_add_ons.transports.GSuiteAddOnsTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.gsuiteaddons_v1.services.g_suite_add_ons.transports.GSuiteAddOnsTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.GSuiteAddOnsTransport()
@@ -8431,11 +8655,12 @@ def test_g_suite_add_ons_transport_auth_gdch_credentials(transport_class):
 def test_g_suite_add_ons_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -8629,6 +8854,7 @@ def test_g_suite_add_ons_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [transports.GSuiteAddOnsGrpcTransport, transports.GSuiteAddOnsGrpcAsyncIOTransport],

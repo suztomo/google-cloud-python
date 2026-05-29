@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_consumer_group():
     client = managedkafka_v1.ManagedKafkaClient()
 
     # Initialize request argument(s)
-    request = managedkafka_v1.UpdateConsumerGroupRequest(
-    )
+    request = managedkafka_v1.UpdateConsumerGroupRequest()
 
     # Make the request
     response = client.update_consumer_group(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END managedkafka_v1_generated_ManagedKafka_UpdateConsumerGroup_sync]

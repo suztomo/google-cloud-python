@@ -2,7 +2,7 @@
 
 .. include:: multiprocessing.rst
 
-This package includes clients for multiple versions of Cloud Asset Inventory.
+This package includes clients for multiple versions of Cloud Asset.
 By default, you will get version ``asset_v1``.
 
 
@@ -29,14 +29,6 @@ API Reference
 
     asset_v1p2beta1/services_
     asset_v1p2beta1/types_
-
-API Reference
--------------
-.. toctree::
-    :maxdepth: 2
-
-    asset_v1p4beta1/services_
-    asset_v1p4beta1/types_
 
 API Reference
 -------------

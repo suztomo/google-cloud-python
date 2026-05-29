@@ -1,17 +1,15 @@
 {
-    "name": "routing",
-    "name_pretty": "Google Maps Routing",
-    "api_description": "Help your users find the ideal way to get from A to Z with comprehensive data and real-time traffic.",
-    "product_documentation": "https://mapsplatform.google.com/maps-products/#routes-section",
+    "api_description": "routes.googleapis.com API.",
+    "api_id": "routes.googleapis.com",
+    "api_shortname": "routes",
     "client_documentation": "https://googleapis.dev/python/routing/latest",
-    "issue_tracker": "https://github.com/googleapis/google-cloud-python/issues",
-    "release_level": "preview",
+    "default_version": "v2",
+    "distribution_name": "google-maps-routing",
     "language": "python",
     "library_type": "GAPIC_AUTO",
-    "repo": "googleapis/google-cloud-python",
-    "distribution_name": "google-maps-routing",
-    "api_id": "routing.googleapis.com",
-    "default_version": "v2",
-    "codeowner_team": "",
-    "api_shortname": "routing"
+    "name": "routing",
+    "name_pretty": "Routes",
+    "product_documentation": "https://mapsplatform.google.com/maps-products/#routes-section",
+    "release_level": "preview",
+    "repo": "googleapis/google-cloud-python"
 }

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,41 +23,146 @@ from .autonomous_database import (
     AutonomousDatabaseStandbySummary,
     DatabaseConnectionStringProfile,
     DBWorkload,
+    EncryptionKey,
+    EncryptionKeyHistoryEntry,
     GenerateType,
     OperationsInsightsState,
     ScheduledOperationDetails,
+    SourceConfig,
     State,
 )
-from .autonomous_database_character_set import AutonomousDatabaseCharacterSet
+from .autonomous_database_character_set import (
+    AutonomousDatabaseCharacterSet,
+)
 from .autonomous_db_backup import (
     AutonomousDatabaseBackup,
     AutonomousDatabaseBackupProperties,
 )
-from .autonomous_db_version import AutonomousDbVersion
-from .common import CustomerContact
-from .db_node import DbNode, DbNodeProperties
-from .db_server import DbServer, DbServerProperties
-from .db_system_shape import DbSystemShape
-from .entitlement import CloudAccountDetails, Entitlement
+from .autonomous_db_version import (
+    AutonomousDbVersion,
+)
+from .common import (
+    ComputeModel,
+    CustomerContact,
+    DataCollectionOptionsCommon,
+    IdentityConnector,
+)
+from .database import (
+    Database,
+    DatabaseProperties,
+    DbBackupConfig,
+    GetDatabaseRequest,
+    ListDatabasesRequest,
+    ListDatabasesResponse,
+)
+from .database_character_set import (
+    DatabaseCharacterSet,
+    ListDatabaseCharacterSetsRequest,
+    ListDatabaseCharacterSetsResponse,
+)
+from .db_node import (
+    DbNode,
+    DbNodeProperties,
+)
+from .db_server import (
+    DbServer,
+    DbServerProperties,
+)
+from .db_system import (
+    CreateDbSystemRequest,
+    DataCollectionOptionsDbSystem,
+    DbHome,
+    DbSystem,
+    DbSystemOptions,
+    DbSystemProperties,
+    DeleteDbSystemRequest,
+    GetDbSystemRequest,
+    ListDbSystemsRequest,
+    ListDbSystemsResponse,
+)
+from .db_system_initial_storage_size import (
+    DbSystemInitialStorageSize,
+    DbSystemInitialStorageSizeProperties,
+    ListDbSystemInitialStorageSizesRequest,
+    ListDbSystemInitialStorageSizesResponse,
+    StorageSizeDetails,
+)
+from .db_system_shape import (
+    DbSystemShape,
+)
+from .db_version import (
+    DbVersion,
+    DbVersionProperties,
+    ListDbVersionsRequest,
+    ListDbVersionsResponse,
+)
+from .entitlement import (
+    CloudAccountDetails,
+    Entitlement,
+)
 from .exadata_infra import (
     CloudExadataInfrastructure,
     CloudExadataInfrastructureProperties,
     MaintenanceWindow,
 )
-from .gi_version import GiVersion
-from .location_metadata import LocationMetadata
+from .exadb_vm_cluster import (
+    ExadbVmCluster,
+    ExadbVmClusterProperties,
+    ExadbVmClusterStorageDetails,
+)
+from .exascale_db_storage_vault import (
+    CreateExascaleDbStorageVaultRequest,
+    DeleteExascaleDbStorageVaultRequest,
+    ExascaleDbStorageDetails,
+    ExascaleDbStorageVault,
+    ExascaleDbStorageVaultProperties,
+    GetExascaleDbStorageVaultRequest,
+    ListExascaleDbStorageVaultsRequest,
+    ListExascaleDbStorageVaultsResponse,
+)
+from .gi_version import (
+    GiVersion,
+)
+from .location_metadata import (
+    LocationMetadata,
+)
+from .minor_version import (
+    ListMinorVersionsRequest,
+    ListMinorVersionsResponse,
+    MinorVersion,
+)
+from .odb_network import (
+    CreateOdbNetworkRequest,
+    DeleteOdbNetworkRequest,
+    GetOdbNetworkRequest,
+    ListOdbNetworksRequest,
+    ListOdbNetworksResponse,
+    OdbNetwork,
+)
+from .odb_subnet import (
+    CreateOdbSubnetRequest,
+    DeleteOdbSubnetRequest,
+    GetOdbSubnetRequest,
+    ListOdbSubnetsRequest,
+    ListOdbSubnetsResponse,
+    OdbSubnet,
+)
 from .oracledatabase import (
     CreateAutonomousDatabaseRequest,
     CreateCloudExadataInfrastructureRequest,
     CreateCloudVmClusterRequest,
+    CreateExadbVmClusterRequest,
     DeleteAutonomousDatabaseRequest,
     DeleteCloudExadataInfrastructureRequest,
     DeleteCloudVmClusterRequest,
+    DeleteExadbVmClusterRequest,
+    FailoverAutonomousDatabaseRequest,
     GenerateAutonomousDatabaseWalletRequest,
     GenerateAutonomousDatabaseWalletResponse,
     GetAutonomousDatabaseRequest,
     GetCloudExadataInfrastructureRequest,
     GetCloudVmClusterRequest,
+    GetExadbVmClusterRequest,
     ListAutonomousDatabaseBackupsRequest,
     ListAutonomousDatabaseBackupsResponse,
     ListAutonomousDatabaseCharacterSetsRequest,
@@ -78,15 +183,35 @@ from .oracledatabase import (
     ListDbSystemShapesResponse,
     ListEntitlementsRequest,
     ListEntitlementsResponse,
+    ListExadbVmClustersRequest,
+    ListExadbVmClustersResponse,
     ListGiVersionsRequest,
     ListGiVersionsResponse,
     OperationMetadata,
+    RemoveVirtualMachineExadbVmClusterRequest,
     RestartAutonomousDatabaseRequest,
     RestoreAutonomousDatabaseRequest,
     StartAutonomousDatabaseRequest,
     StopAutonomousDatabaseRequest,
+    SwitchoverAutonomousDatabaseRequest,
+    UpdateAutonomousDatabaseRequest,
+    UpdateExadbVmClusterRequest,
 )
-from .vm_cluster import CloudVmCluster, CloudVmClusterProperties, DataCollectionOptions
+from .pluggable_database import (
+    DatabaseManagementConfig,
+    GetPluggableDatabaseRequest,
+    ListPluggableDatabasesRequest,
+    ListPluggableDatabasesResponse,
+    PluggableDatabase,
+    PluggableDatabaseConnectionStrings,
+    PluggableDatabaseNodeLevelDetails,
+    PluggableDatabaseProperties,
+)
+from .vm_cluster import (
+    CloudVmCluster,
+    CloudVmClusterProperties,
+    DataCollectionOptions,
+)
 
 __all__ = (
     "AllConnectionStrings",
@@ -97,7 +222,10 @@ __all__ = (
     "AutonomousDatabaseProperties",
     "AutonomousDatabaseStandbySummary",
     "DatabaseConnectionStringProfile",
+    "EncryptionKey",
+    "EncryptionKeyHistoryEntry",
     "ScheduledOperationDetails",
+    "SourceConfig",
     "DBWorkload",
     "GenerateType",
     "OperationsInsightsState",
@@ -107,29 +235,90 @@ __all__ = (
     "AutonomousDatabaseBackupProperties",
     "AutonomousDbVersion",
     "CustomerContact",
+    "DataCollectionOptionsCommon",
+    "IdentityConnector",
+    "ComputeModel",
+    "Database",
+    "DatabaseProperties",
+    "DbBackupConfig",
+    "GetDatabaseRequest",
+    "ListDatabasesRequest",
+    "ListDatabasesResponse",
+    "DatabaseCharacterSet",
+    "ListDatabaseCharacterSetsRequest",
+    "ListDatabaseCharacterSetsResponse",
     "DbNode",
     "DbNodeProperties",
     "DbServer",
     "DbServerProperties",
+    "CreateDbSystemRequest",
+    "DataCollectionOptionsDbSystem",
+    "DbHome",
+    "DbSystem",
+    "DbSystemOptions",
+    "DbSystemProperties",
+    "DeleteDbSystemRequest",
+    "GetDbSystemRequest",
+    "ListDbSystemsRequest",
+    "ListDbSystemsResponse",
+    "DbSystemInitialStorageSize",
+    "DbSystemInitialStorageSizeProperties",
+    "ListDbSystemInitialStorageSizesRequest",
+    "ListDbSystemInitialStorageSizesResponse",
+    "StorageSizeDetails",
     "DbSystemShape",
+    "DbVersion",
+    "DbVersionProperties",
+    "ListDbVersionsRequest",
+    "ListDbVersionsResponse",
     "CloudAccountDetails",
     "Entitlement",
     "CloudExadataInfrastructure",
     "CloudExadataInfrastructureProperties",
     "MaintenanceWindow",
+    "ExadbVmCluster",
+    "ExadbVmClusterProperties",
+    "ExadbVmClusterStorageDetails",
+    "CreateExascaleDbStorageVaultRequest",
+    "DeleteExascaleDbStorageVaultRequest",
+    "ExascaleDbStorageDetails",
+    "ExascaleDbStorageVault",
+    "ExascaleDbStorageVaultProperties",
+    "GetExascaleDbStorageVaultRequest",
+    "ListExascaleDbStorageVaultsRequest",
+    "ListExascaleDbStorageVaultsResponse",
     "GiVersion",
     "LocationMetadata",
+    "ListMinorVersionsRequest",
+    "ListMinorVersionsResponse",
+    "MinorVersion",
+    "CreateOdbNetworkRequest",
+    "DeleteOdbNetworkRequest",
+    "GetOdbNetworkRequest",
+    "ListOdbNetworksRequest",
+    "ListOdbNetworksResponse",
+    "OdbNetwork",
+    "CreateOdbSubnetRequest",
+    "DeleteOdbSubnetRequest",
+    "GetOdbSubnetRequest",
+    "ListOdbSubnetsRequest",
+    "ListOdbSubnetsResponse",
+    "OdbSubnet",
     "CreateAutonomousDatabaseRequest",
     "CreateCloudExadataInfrastructureRequest",
     "CreateCloudVmClusterRequest",
+    "CreateExadbVmClusterRequest",
     "DeleteAutonomousDatabaseRequest",
     "DeleteCloudExadataInfrastructureRequest",
     "DeleteCloudVmClusterRequest",
+    "DeleteExadbVmClusterRequest",
+    "FailoverAutonomousDatabaseRequest",
     "GenerateAutonomousDatabaseWalletRequest",
     "GenerateAutonomousDatabaseWalletResponse",
     "GetAutonomousDatabaseRequest",
     "GetCloudExadataInfrastructureRequest",
     "GetCloudVmClusterRequest",
+    "GetExadbVmClusterRequest",
     "ListAutonomousDatabaseBackupsRequest",
     "ListAutonomousDatabaseBackupsResponse",
     "ListAutonomousDatabaseCharacterSetsRequest",
@@ -150,13 +339,27 @@ __all__ = (
     "ListDbSystemShapesResponse",
     "ListEntitlementsRequest",
     "ListEntitlementsResponse",
+    "ListExadbVmClustersRequest",
+    "ListExadbVmClustersResponse",
     "ListGiVersionsRequest",
     "ListGiVersionsResponse",
     "OperationMetadata",
+    "RemoveVirtualMachineExadbVmClusterRequest",
     "RestartAutonomousDatabaseRequest",
     "RestoreAutonomousDatabaseRequest",
     "StartAutonomousDatabaseRequest",
     "StopAutonomousDatabaseRequest",
+    "SwitchoverAutonomousDatabaseRequest",
+    "UpdateAutonomousDatabaseRequest",
+    "UpdateExadbVmClusterRequest",
+    "DatabaseManagementConfig",
+    "GetPluggableDatabaseRequest",
+    "ListPluggableDatabasesRequest",
+    "ListPluggableDatabasesResponse",
+    "PluggableDatabase",
+    "PluggableDatabaseConnectionStrings",
+    "PluggableDatabaseNodeLevelDetails",
+    "PluggableDatabaseProperties",
     "CloudVmCluster",
     "CloudVmClusterProperties",
     "DataCollectionOptions",

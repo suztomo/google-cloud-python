@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,21 +16,23 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers, operations_v1
 import google.auth  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf.json_format import MessageToJson
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 import google.protobuf.message
 import grpc  # type: ignore
 import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers, operations_v1
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.grpc import SslCredentials  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
+from google.longrunning import operations_pb2  # type: ignore
+from google.protobuf.json_format import MessageToJson
 
 from google.cloud.contact_center_insights_v1.types import (
     contact_center_insights,
@@ -61,7 +63,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -96,7 +98,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -158,9 +160,10 @@ class ContactCenterInsightsGrpcTransport(ContactCenterInsightsTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -191,6 +194,10 @@ class ContactCenterInsightsGrpcTransport(ContactCenterInsightsTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -294,9 +301,10 @@ class ContactCenterInsightsGrpcTransport(ContactCenterInsightsTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -647,12 +655,12 @@ class ContactCenterInsightsGrpcTransport(ContactCenterInsightsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "bulk_analyze_conversations" not in self._stubs:
-            self._stubs[
-                "bulk_analyze_conversations"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/BulkAnalyzeConversations",
-                request_serializer=contact_center_insights.BulkAnalyzeConversationsRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["bulk_analyze_conversations"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/BulkAnalyzeConversations",
+                    request_serializer=contact_center_insights.BulkAnalyzeConversationsRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["bulk_analyze_conversations"]
 
@@ -1127,12 +1135,12 @@ class ContactCenterInsightsGrpcTransport(ContactCenterInsightsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "calculate_issue_model_stats" not in self._stubs:
-            self._stubs[
-                "calculate_issue_model_stats"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/CalculateIssueModelStats",
-                request_serializer=contact_center_insights.CalculateIssueModelStatsRequest.serialize,
-                response_deserializer=contact_center_insights.CalculateIssueModelStatsResponse.deserialize,
+            self._stubs["calculate_issue_model_stats"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/CalculateIssueModelStats",
+                    request_serializer=contact_center_insights.CalculateIssueModelStatsRequest.serialize,
+                    response_deserializer=contact_center_insights.CalculateIssueModelStatsResponse.deserialize,
+                )
             )
         return self._stubs["calculate_issue_model_stats"]
 
@@ -1553,12 +1561,12 @@ class ContactCenterInsightsGrpcTransport(ContactCenterInsightsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "initialize_encryption_spec" not in self._stubs:
-            self._stubs[
-                "initialize_encryption_spec"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/InitializeEncryptionSpec",
-                request_serializer=contact_center_insights.InitializeEncryptionSpecRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["initialize_encryption_spec"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/InitializeEncryptionSpec",
+                    request_serializer=contact_center_insights.InitializeEncryptionSpecRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["initialize_encryption_spec"]
 
@@ -2021,12 +2029,12 @@ class ContactCenterInsightsGrpcTransport(ContactCenterInsightsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_qa_scorecard_revision" not in self._stubs:
-            self._stubs[
-                "create_qa_scorecard_revision"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/CreateQaScorecardRevision",
-                request_serializer=contact_center_insights.CreateQaScorecardRevisionRequest.serialize,
-                response_deserializer=resources.QaScorecardRevision.deserialize,
+            self._stubs["create_qa_scorecard_revision"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/CreateQaScorecardRevision",
+                    request_serializer=contact_center_insights.CreateQaScorecardRevisionRequest.serialize,
+                    response_deserializer=resources.QaScorecardRevision.deserialize,
+                )
             )
         return self._stubs["create_qa_scorecard_revision"]
 
@@ -2081,12 +2089,12 @@ class ContactCenterInsightsGrpcTransport(ContactCenterInsightsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "tune_qa_scorecard_revision" not in self._stubs:
-            self._stubs[
-                "tune_qa_scorecard_revision"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/TuneQaScorecardRevision",
-                request_serializer=contact_center_insights.TuneQaScorecardRevisionRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["tune_qa_scorecard_revision"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/TuneQaScorecardRevision",
+                    request_serializer=contact_center_insights.TuneQaScorecardRevisionRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["tune_qa_scorecard_revision"]
 
@@ -2112,12 +2120,12 @@ class ContactCenterInsightsGrpcTransport(ContactCenterInsightsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "deploy_qa_scorecard_revision" not in self._stubs:
-            self._stubs[
-                "deploy_qa_scorecard_revision"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/DeployQaScorecardRevision",
-                request_serializer=contact_center_insights.DeployQaScorecardRevisionRequest.serialize,
-                response_deserializer=resources.QaScorecardRevision.deserialize,
+            self._stubs["deploy_qa_scorecard_revision"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/DeployQaScorecardRevision",
+                    request_serializer=contact_center_insights.DeployQaScorecardRevisionRequest.serialize,
+                    response_deserializer=resources.QaScorecardRevision.deserialize,
+                )
             )
         return self._stubs["deploy_qa_scorecard_revision"]
 
@@ -2143,12 +2151,12 @@ class ContactCenterInsightsGrpcTransport(ContactCenterInsightsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "undeploy_qa_scorecard_revision" not in self._stubs:
-            self._stubs[
-                "undeploy_qa_scorecard_revision"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/UndeployQaScorecardRevision",
-                request_serializer=contact_center_insights.UndeployQaScorecardRevisionRequest.serialize,
-                response_deserializer=resources.QaScorecardRevision.deserialize,
+            self._stubs["undeploy_qa_scorecard_revision"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/UndeployQaScorecardRevision",
+                    request_serializer=contact_center_insights.UndeployQaScorecardRevisionRequest.serialize,
+                    response_deserializer=resources.QaScorecardRevision.deserialize,
+                )
             )
         return self._stubs["undeploy_qa_scorecard_revision"]
 
@@ -2173,12 +2181,12 @@ class ContactCenterInsightsGrpcTransport(ContactCenterInsightsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "delete_qa_scorecard_revision" not in self._stubs:
-            self._stubs[
-                "delete_qa_scorecard_revision"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/DeleteQaScorecardRevision",
-                request_serializer=contact_center_insights.DeleteQaScorecardRevisionRequest.serialize,
-                response_deserializer=empty_pb2.Empty.FromString,
+            self._stubs["delete_qa_scorecard_revision"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/DeleteQaScorecardRevision",
+                    request_serializer=contact_center_insights.DeleteQaScorecardRevisionRequest.serialize,
+                    response_deserializer=empty_pb2.Empty.FromString,
+                )
             )
         return self._stubs["delete_qa_scorecard_revision"]
 
@@ -2204,12 +2212,12 @@ class ContactCenterInsightsGrpcTransport(ContactCenterInsightsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_qa_scorecard_revisions" not in self._stubs:
-            self._stubs[
-                "list_qa_scorecard_revisions"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/ListQaScorecardRevisions",
-                request_serializer=contact_center_insights.ListQaScorecardRevisionsRequest.serialize,
-                response_deserializer=contact_center_insights.ListQaScorecardRevisionsResponse.deserialize,
+            self._stubs["list_qa_scorecard_revisions"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/ListQaScorecardRevisions",
+                    request_serializer=contact_center_insights.ListQaScorecardRevisionsRequest.serialize,
+                    response_deserializer=contact_center_insights.ListQaScorecardRevisionsResponse.deserialize,
+                )
             )
         return self._stubs["list_qa_scorecard_revisions"]
 
@@ -2405,12 +2413,12 @@ class ContactCenterInsightsGrpcTransport(ContactCenterInsightsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "bulk_upload_feedback_labels" not in self._stubs:
-            self._stubs[
-                "bulk_upload_feedback_labels"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/BulkUploadFeedbackLabels",
-                request_serializer=contact_center_insights.BulkUploadFeedbackLabelsRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["bulk_upload_feedback_labels"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/BulkUploadFeedbackLabels",
+                    request_serializer=contact_center_insights.BulkUploadFeedbackLabelsRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["bulk_upload_feedback_labels"]
 
@@ -2436,12 +2444,12 @@ class ContactCenterInsightsGrpcTransport(ContactCenterInsightsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "bulk_download_feedback_labels" not in self._stubs:
-            self._stubs[
-                "bulk_download_feedback_labels"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/BulkDownloadFeedbackLabels",
-                request_serializer=contact_center_insights.BulkDownloadFeedbackLabelsRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["bulk_download_feedback_labels"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.contactcenterinsights.v1.ContactCenterInsights/BulkDownloadFeedbackLabels",
+                    request_serializer=contact_center_insights.BulkDownloadFeedbackLabelsRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["bulk_download_feedback_labels"]
 

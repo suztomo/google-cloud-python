@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.maps.solar_v1 import gapic_version as package_version
 
@@ -44,10 +44,10 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api import httpbody_pb2  # type: ignore
-from google.protobuf import any_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
-from google.type import latlng_pb2  # type: ignore
+import google.api.httpbody_pb2 as httpbody_pb2  # type: ignore
+import google.protobuf.any_pb2 as any_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
 
 from google.maps.solar_v1.types import solar_service
 
@@ -105,7 +105,10 @@ class SolarAsyncClient:
         Returns:
             SolarAsyncClient: The constructed client.
         """
-        return SolarClient.from_service_account_info.__func__(SolarAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            SolarClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(SolarAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -121,7 +124,10 @@ class SolarAsyncClient:
         Returns:
             SolarAsyncClient: The constructed client.
         """
-        return SolarClient.from_service_account_file.__func__(SolarAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            SolarClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(SolarAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -171,7 +177,7 @@ class SolarAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -289,9 +295,9 @@ class SolarAsyncClient:
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> solar_service.BuildingInsights:
-        r"""Locates the closest building to a query point. Returns an error
-        with code ``NOT_FOUND`` if there are no buildings within
-        approximately 50m of the query point.
+        r"""Locates the building whose centroid is closest to a query point.
+        Returns an error with code ``NOT_FOUND`` if there are no
+        buildings within approximately 50m of the query point.
 
         .. code-block:: python
 

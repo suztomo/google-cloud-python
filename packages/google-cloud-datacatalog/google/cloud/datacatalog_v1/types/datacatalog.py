@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,19 +17,24 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
-from google.cloud.datacatalog_v1.types import gcs_fileset_spec as gcd_gcs_fileset_spec
-from google.cloud.datacatalog_v1.types import bigquery, common
+from google.cloud.datacatalog_v1.types import (
+    bigquery,
+    common,
+    dataplex_spec,
+    search,
+    table_spec,
+    timestamps,
+    usage,
+)
 from google.cloud.datacatalog_v1.types import data_source as gcd_data_source
-from google.cloud.datacatalog_v1.types import dataplex_spec
+from google.cloud.datacatalog_v1.types import gcs_fileset_spec as gcd_gcs_fileset_spec
 from google.cloud.datacatalog_v1.types import schema as gcd_schema
-from google.cloud.datacatalog_v1.types import search, table_spec
 from google.cloud.datacatalog_v1.types import tags as gcd_tags
-from google.cloud.datacatalog_v1.types import timestamps, usage
 
 __protobuf__ = proto.module(
     package="google.cloud.datacatalog.v1",
@@ -180,6 +185,7 @@ class EntryType(proto.Enum):
             Feature Group resource in Vertex AI Feature
             Store.
     """
+
     ENTRY_TYPE_UNSPECIFIED = 0
     TABLE = 2
     MODEL = 5
@@ -216,6 +222,7 @@ class TagTemplateMigration(proto.Enum):
             Migration of Tag Templates from Data Catalog
             to Dataplex is disabled.
     """
+
     TAG_TEMPLATE_MIGRATION_UNSPECIFIED = 0
     TAG_TEMPLATE_MIGRATION_ENABLED = 1
     TAG_TEMPLATE_MIGRATION_DISABLED = 2
@@ -233,6 +240,7 @@ class CatalogUIExperience(proto.Enum):
         CATALOG_UI_EXPERIENCE_DISABLED (2):
             The UI is Data Catalog.
     """
+
     CATALOG_UI_EXPERIENCE_UNSPECIFIED = 0
     CATALOG_UI_EXPERIENCE_ENABLED = 1
     CATALOG_UI_EXPERIENCE_DISABLED = 2
@@ -262,9 +270,9 @@ class SearchCatalogRequest(proto.Message):
             A query string can be a simple ``xyz`` or qualified by
             predicates:
 
-            -  ``name:x``
-            -  ``column:y``
-            -  ``description:z``
+            - ``name:x``
+            - ``column:y``
+            - ``description:z``
         page_size (int):
             Upper bound on the number of results you can
             get in a single response.
@@ -286,10 +294,10 @@ class SearchCatalogRequest(proto.Message):
 
             Currently supported case-sensitive values are:
 
-            -  ``relevance`` that can only be descending
-            -  ``last_modified_timestamp [asc|desc]`` with descending
-               (``desc``) as default
-            -  ``default`` that can only be descending
+            - ``relevance`` that can only be descending
+            - ``last_modified_timestamp [asc|desc]`` with descending
+              (``desc``) as default
+            - ``default`` that can only be descending
 
             Search queries don't guarantee full recall. Results that
             match your query might not be returned, even in subsequent
@@ -472,8 +480,9 @@ class CreateEntryGroupRequest(proto.Message):
             Required. The ID of the entry group to create.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and must start with a letter or underscore.
-            The maximum size is 64 bytes when encoded in UTF-8.
+            underscores (\_), and must start with a letter or
+            underscore. The maximum size is 64 bytes when encoded in
+            UTF-8.
         entry_group (google.cloud.datacatalog_v1.types.EntryGroup):
             The entry group to create. Defaults to empty.
     """
@@ -645,7 +654,7 @@ class CreateEntryRequest(proto.Message):
             Required. The ID of the entry to create.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            and underscores (_). The maximum size is 64 bytes when
+            and underscores (\_). The maximum size is 64 bytes when
             encoded in UTF-8.
         entry (google.cloud.datacatalog_v1.types.Entry):
             Required. The entry to create.
@@ -685,25 +694,25 @@ class UpdateEntryRequest(proto.Message):
 
             For entries with type ``DATA_STREAM``:
 
-            -  ``schema``
+            - ``schema``
 
             For entries with type ``FILESET``:
 
-            -  ``schema``
-            -  ``display_name``
-            -  ``description``
-            -  ``gcs_fileset_spec``
-            -  ``gcs_fileset_spec.file_patterns``
+            - ``schema``
+            - ``display_name``
+            - ``description``
+            - ``gcs_fileset_spec``
+            - ``gcs_fileset_spec.file_patterns``
 
             For entries with ``user_specified_type``:
 
-            -  ``schema``
-            -  ``display_name``
-            -  ``description``
-            -  ``user_specified_type``
-            -  ``user_specified_system``
-            -  ``linked_resource``
-            -  ``source_system_timestamps``
+            - ``schema``
+            - ``display_name``
+            - ``description``
+            - ``user_specified_type``
+            - ``user_specified_system``
+            - ``linked_resource``
+            - ``source_system_timestamps``
     """
 
     entry: "Entry" = proto.Field(
@@ -768,8 +777,8 @@ class LookupEntryRequest(proto.Message):
 
             Full names are case-sensitive. For example:
 
-            -  ``//bigquery.googleapis.com/projects/{PROJECT_ID}/datasets/{DATASET_ID}/tables/{TABLE_ID}``
-            -  ``//pubsub.googleapis.com/projects/{PROJECT_ID}/topics/{TOPIC_ID}``
+            - ``//bigquery.googleapis.com/projects/{PROJECT_ID}/datasets/{DATASET_ID}/tables/{TABLE_ID}``
+            - ``//pubsub.googleapis.com/projects/{PROJECT_ID}/topics/{TOPIC_ID}``
 
             This field is a member of `oneof`_ ``target_name``.
         sql_resource (str):
@@ -777,11 +786,11 @@ class LookupEntryRequest(proto.Message):
 
             Examples:
 
-            -  ``pubsub.topic.{PROJECT_ID}.{TOPIC_ID}``
-            -  ``pubsub.topic.{PROJECT_ID}.``\ \`\ ``{TOPIC.ID.SEPARATED.WITH.DOTS}``\ \`
-            -  ``bigquery.table.{PROJECT_ID}.{DATASET_ID}.{TABLE_ID}``
-            -  ``bigquery.dataset.{PROJECT_ID}.{DATASET_ID}``
-            -  ``datacatalog.entry.{PROJECT_ID}.{LOCATION_ID}.{ENTRY_GROUP_ID}.{ENTRY_ID}``
+            - ``pubsub.topic.{PROJECT_ID}.{TOPIC_ID}``
+            - ``pubsub.topic.{PROJECT_ID}.``\ \`\ ``{TOPIC.ID.SEPARATED.WITH.DOTS}``\ \`
+            - ``bigquery.table.{PROJECT_ID}.{DATASET_ID}.{TABLE_ID}``
+            - ``bigquery.dataset.{PROJECT_ID}.{DATASET_ID}``
+            - ``datacatalog.entry.{PROJECT_ID}.{LOCATION_ID}.{ENTRY_GROUP_ID}.{ENTRY_ID}``
 
             Identifiers (``*_ID``) should comply with the [Lexical
             structure in GoogleSQL]
@@ -795,13 +804,13 @@ class LookupEntryRequest(proto.Message):
 
             FQNs take two forms:
 
-            -  For non-regionalized resources:
+            - For non-regionalized resources:
 
-               ``{SYSTEM}:{PROJECT}.{PATH_TO_RESOURCE_SEPARATED_WITH_DOTS}``
+              ``{SYSTEM}:{PROJECT}.{PATH_TO_RESOURCE_SEPARATED_WITH_DOTS}``
 
-            -  For regionalized resources:
+            - For regionalized resources:
 
-               ``{SYSTEM}:{PROJECT}.{LOCATION_ID}.{PATH_TO_RESOURCE_SEPARATED_WITH_DOTS}``
+              ``{SYSTEM}:{PROJECT}.{LOCATION_ID}.{PATH_TO_RESOURCE_SEPARATED_WITH_DOTS}``
 
             Example for a DPMS table:
 
@@ -888,7 +897,7 @@ class Entry(proto.Message):
             optional and defaults to an empty string.
 
             The resource string must contain only letters (a-z, A-Z),
-            numbers (0-9), underscores (_), periods (.), colons (:),
+            numbers (0-9), underscores (\_), periods (.), colons (:),
             slashes (/), dashes (-), and hashes (#). The maximum size is
             200 bytes when encoded in UTF-8.
         fully_qualified_name (str):
@@ -915,11 +924,11 @@ class Entry(proto.Message):
             The ``user_specified_type`` string has the following
             limitations:
 
-            -  Is case insensitive.
-            -  Must begin with a letter or underscore.
-            -  Can only contain letters, numbers, and underscores.
-            -  Must be at least 1 character and at most 64 characters
-               long.
+            - Is case insensitive.
+            - Must begin with a letter or underscore.
+            - Can only contain letters, numbers, and underscores.
+            - Must be at least 1 character and at most 64 characters
+              long.
 
             This field is a member of `oneof`_ ``entry_type``.
         integrated_system (google.cloud.datacatalog_v1.types.IntegratedSystem):
@@ -935,11 +944,11 @@ class Entry(proto.Message):
             The ``user_specified_system`` string has the following
             limitations:
 
-            -  Is case insensitive.
-            -  Must begin with a letter or underscore.
-            -  Can only contain letters, numbers, and underscores.
-            -  Must be at least 1 character and at most 64 characters
-               long.
+            - Is case insensitive.
+            - Must begin with a letter or underscore.
+            - Can only contain letters, numbers, and underscores.
+            - Must be at least 1 character and at most 64 characters
+              long.
 
             This field is a member of `oneof`_ ``system``.
         sql_database_system_spec (google.cloud.datacatalog_v1.types.SqlDatabaseSystemSpec):
@@ -1253,6 +1262,7 @@ class DatabaseTableSpec(proto.Message):
             EXTERNAL (2):
                 External table.
         """
+
         TABLE_TYPE_UNSPECIFIED = 0
         NATIVE = 1
         EXTERNAL = 2
@@ -1292,6 +1302,7 @@ class DatabaseTableSpec(proto.Message):
                 MATERIALIZED_VIEW (2):
                     Materialized view.
             """
+
             VIEW_TYPE_UNSPECIFIED = 0
             STANDARD_VIEW = 1
             MATERIALIZED_VIEW = 2
@@ -1379,8 +1390,8 @@ class RoutineSpec(proto.Message):
             depends on the source system. For BigQuery routines,
             possible values are:
 
-            -  ``SQL``
-            -  ``JAVASCRIPT``
+            - ``SQL``
+            - ``JAVASCRIPT``
         routine_arguments (MutableSequence[google.cloud.datacatalog_v1.types.RoutineSpec.Argument]):
             Arguments of the routine.
         return_type (str):
@@ -1405,6 +1416,7 @@ class RoutineSpec(proto.Message):
             PROCEDURE (2):
                 Stored procedure.
         """
+
         ROUTINE_TYPE_UNSPECIFIED = 0
         SCALAR_FUNCTION = 1
         PROCEDURE = 2
@@ -1437,6 +1449,7 @@ class RoutineSpec(proto.Message):
                 INOUT (3):
                     The argument is both an input and an output.
             """
+
             MODE_UNSPECIFIED = 0
             IN = 1
             OUT = 2
@@ -1650,12 +1663,12 @@ class CloudBigtableInstanceSpec(proto.Message):
             number=4,
         )
 
-    cloud_bigtable_cluster_specs: MutableSequence[
-        CloudBigtableClusterSpec
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=CloudBigtableClusterSpec,
+    cloud_bigtable_cluster_specs: MutableSequence[CloudBigtableClusterSpec] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=CloudBigtableClusterSpec,
+        )
     )
 
 
@@ -1721,6 +1734,7 @@ class VertexModelSourceInfo(proto.Message):
             MARKETPLACE (7):
                 The Model is saved or tuned from Marketplace.
         """
+
         MODEL_SOURCE_TYPE_UNSPECIFIED = 0
         AUTOML = 1
         CUSTOM = 2
@@ -1837,6 +1851,7 @@ class VertexDatasetSpec(proto.Message):
                 Text prompt dataset which supports Large
                 Language Models.
         """
+
         DATA_TYPE_UNSPECIFIED = 0
         TABLE = 1
         IMAGE = 2
@@ -1906,6 +1921,7 @@ class FeatureOnlineStoreSpec(proto.Message):
                 Underlying is optimized online server
                 (Lightning).
         """
+
         STORAGE_TYPE_UNSPECIFIED = 0
         BIGTABLE = 1
         OPTIMIZED = 2
@@ -2067,7 +2083,7 @@ class CreateTagTemplateRequest(proto.Message):
             Required. The ID of the tag template to create.
 
             The ID must contain only lowercase letters (a-z), numbers
-            (0-9), or underscores (_), and must start with a letter or
+            (0-9), or underscores (\_), and must start with a letter or
             underscore. The maximum size is 64 bytes when encoded in
             UTF-8.
         tag_template (google.cloud.datacatalog_v1.types.TagTemplate):
@@ -2251,7 +2267,7 @@ class CreateTagTemplateFieldRequest(proto.Message):
             *not* allowed.
 
             Field IDs can contain letters (both uppercase and
-            lowercase), numbers (0-9), underscores (_) and dashes (-).
+            lowercase), numbers (0-9), underscores (\_) and dashes (-).
             Field IDs must be at least 1 character long and at most 128
             characters long. Field IDs must also be unique within their
             template.
@@ -2288,9 +2304,9 @@ class UpdateTagTemplateFieldRequest(proto.Message):
             individual field of a tag template. The following fields are
             modifiable:
 
-            -  ``display_name``
-            -  ``type.enum_type``
-            -  ``is_required``
+            - ``display_name``
+            - ``type.enum_type``
+            - ``is_required``
 
             If this parameter is absent or empty, all modifiable fields
             are overwritten. If such fields are non-required and omitted
@@ -2548,6 +2564,7 @@ class ReconcileTagsMetadata(proto.Message):
             RECONCILIATION_DONE (3):
                 The reconciliation has been finished.
         """
+
         RECONCILIATION_STATE_UNSPECIFIED = 0
         RECONCILIATION_QUEUED = 1
         RECONCILIATION_IN_PROGRESS = 2
@@ -2788,6 +2805,7 @@ class ImportEntriesMetadata(proto.Message):
                 The import of entries has been abandoned in
                 favor of a newer request.
         """
+
         IMPORT_STATE_UNSPECIFIED = 0
         IMPORT_QUEUED = 1
         IMPORT_IN_PROGRESS = 2

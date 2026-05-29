@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,12 @@ from .ad_tag_details import (
     ResponseMetadata,
     VodAdTagDetail,
 )
-from .cdn_keys import AkamaiCdnKey, CdnKey, GoogleCdnKey, MediaCdnKey
+from .cdn_keys import (
+    AkamaiCdnKey,
+    CdnKey,
+    GoogleCdnKey,
+    MediaCdnKey,
+)
 from .companions import (
     Companion,
     CompanionAds,
@@ -28,9 +33,19 @@ from .companions import (
     IframeAdResource,
     StaticAdResource,
 )
-from .events import Event, ProgressEvent
-from .fetch_options import FetchOptions
-from .live_configs import AdTracking, GamLiveConfig, LiveConfig, PrefetchConfig
+from .events import (
+    Event,
+    ProgressEvent,
+)
+from .fetch_options import (
+    FetchOptions,
+)
+from .live_configs import (
+    AdTracking,
+    GamLiveConfig,
+    LiveConfig,
+    PrefetchConfig,
+)
 from .sessions import (
     Interstitials,
     LiveSession,
@@ -41,8 +56,13 @@ from .sessions import (
     VodSessionAdBreak,
     VodSessionContent,
 )
-from .slates import Slate
-from .stitch_details import AdStitchDetail, VodStitchDetail
+from .slates import (
+    Slate,
+)
+from .stitch_details import (
+    AdStitchDetail,
+    VodStitchDetail,
+)
 from .video_stitcher_service import (
     CreateCdnKeyRequest,
     CreateLiveConfigRequest,
@@ -83,7 +103,10 @@ from .video_stitcher_service import (
     UpdateSlateRequest,
     UpdateVodConfigRequest,
 )
-from .vod_configs import GamVodConfig, VodConfig
+from .vod_configs import (
+    GamVodConfig,
+    VodConfig,
+)
 
 __all__ = (
     "AdRequest",

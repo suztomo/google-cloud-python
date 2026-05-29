@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,9 @@ from .backtest_result import (
     ListBacktestResultsResponse,
     UpdateBacktestResultRequest,
 )
-from .bigquery_destination import BigQueryDestination
+from .bigquery_destination import (
+    BigQueryDestination,
+)
 from .dataset import (
     CreateDatasetRequest,
     Dataset,
@@ -64,7 +66,9 @@ from .instance import (
     ListInstancesResponse,
     UpdateInstanceRequest,
 )
-from .line_of_business import LineOfBusiness
+from .line_of_business import (
+    LineOfBusiness,
+)
 from .model import (
     CreateModelRequest,
     DeleteModelRequest,
@@ -87,7 +91,9 @@ from .prediction_result import (
     PredictionResult,
     UpdatePredictionResultRequest,
 )
-from .service import OperationMetadata
+from .service import (
+    OperationMetadata,
+)
 
 __all__ = (
     "BacktestResult",

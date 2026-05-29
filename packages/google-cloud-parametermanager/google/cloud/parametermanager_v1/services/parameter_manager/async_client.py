@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.parametermanager_v1 import gapic_version as package_version
 
@@ -44,10 +44,10 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
+import google.iam.v1.resource_policy_member_pb2 as resource_policy_member_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import resource_policy_member_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.parametermanager_v1.services.parameter_manager import pagers
 from google.cloud.parametermanager_v1.types import service
@@ -78,6 +78,8 @@ class ParameterManagerAsyncClient:
     _DEFAULT_ENDPOINT_TEMPLATE = ParameterManagerClient._DEFAULT_ENDPOINT_TEMPLATE
     _DEFAULT_UNIVERSE = ParameterManagerClient._DEFAULT_UNIVERSE
 
+    crypto_key_path = staticmethod(ParameterManagerClient.crypto_key_path)
+    parse_crypto_key_path = staticmethod(ParameterManagerClient.parse_crypto_key_path)
     parameter_path = staticmethod(ParameterManagerClient.parameter_path)
     parse_parameter_path = staticmethod(ParameterManagerClient.parse_parameter_path)
     parameter_version_path = staticmethod(ParameterManagerClient.parameter_version_path)
@@ -122,7 +124,10 @@ class ParameterManagerAsyncClient:
         Returns:
             ParameterManagerAsyncClient: The constructed client.
         """
-        return ParameterManagerClient.from_service_account_info.__func__(ParameterManagerAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ParameterManagerClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ParameterManagerAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -138,7 +143,10 @@ class ParameterManagerAsyncClient:
         Returns:
             ParameterManagerAsyncClient: The constructed client.
         """
-        return ParameterManagerClient.from_service_account_file.__func__(ParameterManagerAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ParameterManagerClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(ParameterManagerAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -188,7 +196,7 @@ class ParameterManagerAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -1600,7 +1608,7 @@ class ParameterManagerAsyncClient:
 
     async def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1626,8 +1634,12 @@ class ParameterManagerAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1636,7 +1648,7 @@ class ParameterManagerAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1644,7 +1656,7 @@ class ParameterManagerAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1655,7 +1667,7 @@ class ParameterManagerAsyncClient:
 
     async def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1681,8 +1693,12 @@ class ParameterManagerAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1691,7 +1707,7 @@ class ParameterManagerAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1699,7 +1715,7 @@ class ParameterManagerAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from .assessment_task import (
+    AssessmentFeatureHandle,
+    AssessmentTaskDetails,
+)
 from .migration_entities import (
     MigrationSubtask,
     MigrationTask,
@@ -20,8 +24,17 @@ from .migration_entities import (
     MigrationWorkflow,
     TranslationTaskResult,
 )
-from .migration_error_details import ErrorDetail, ErrorLocation, ResourceErrorDetail
-from .migration_metrics import Point, TimeInterval, TimeSeries, TypedValue
+from .migration_error_details import (
+    ErrorDetail,
+    ErrorLocation,
+    ResourceErrorDetail,
+)
+from .migration_metrics import (
+    Point,
+    TimeInterval,
+    TimeSeries,
+    TypedValue,
+)
 from .migration_service import (
     CreateMigrationWorkflowRequest,
     DeleteMigrationWorkflowRequest,
@@ -64,13 +77,21 @@ from .translation_details import (
     SourceEnvironment,
     SourceSpec,
     SourceTargetMapping,
+    SuggestionConfig,
+    SuggestionStep,
     TargetSpec,
     TranslationDetails,
 )
-from .translation_suggestion import TranslationReportRecord
-from .translation_usability import GcsReportLogMessage
+from .translation_suggestion import (
+    TranslationReportRecord,
+)
+from .translation_usability import (
+    GcsReportLogMessage,
+)
 
 __all__ = (
+    "AssessmentFeatureHandle",
+    "AssessmentTaskDetails",
     "MigrationSubtask",
     "MigrationTask",
     "MigrationTaskResult",
@@ -120,6 +141,8 @@ __all__ = (
     "SourceEnvironment",
     "SourceSpec",
     "SourceTargetMapping",
+    "SuggestionConfig",
+    "SuggestionStep",
     "TargetSpec",
     "TranslationDetails",
     "TranslationReportRecord",

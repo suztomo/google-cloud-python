@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_google_ads_link():
     client = admin_v1beta.AnalyticsAdminServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = admin_v1beta.UpdateGoogleAdsLinkRequest(
-    )
+    request = admin_v1beta.UpdateGoogleAdsLinkRequest()
 
     # Make the request
     response = await client.update_google_ads_link(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END analyticsadmin_v1beta_generated_AnalyticsAdminService_UpdateGoogleAdsLink_async]

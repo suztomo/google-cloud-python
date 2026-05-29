@@ -1,5 +1,88 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-channel/#history
+
+## [1.27.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-channel-v1.26.0...google-cloud-channel-v1.27.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.26.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-channel-v1.25.0...google-cloud-channel-v1.26.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.25.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-channel-v1.24.0...google-cloud-channel-v1.25.0) (2025-12-04)
+
+
+### Documentation
+
+* A comment for field `owned` in message `.google.cloud.channel.v1.CloudIdentityCustomerAccount` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for field `customer_attestation_state` in message `.google.cloud.channel.v1.Customer` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for field `event_type` in message `.google.cloud.channel.v1.CustomerEvent` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for method `RegisterSubscriber` in service `CloudChannelService` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for field `account` in message `.google.cloud.channel.v1.RegisterSubscriberRequest` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for message `ChangeParametersRequest` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for field `account` in message `.google.cloud.channel.v1.ListSubscribersRequest` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for field `offers` in message `.google.cloud.channel.v1.ListOffersResponse` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for field `page_token` in message `.google.cloud.channel.v1.ListSkuGroupBillableSkusRequest` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for method `UnregisterSubscriber` in service `CloudChannelService` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for field `entitlement_granularity` in message `.google.cloud.channel.v1.RepricingConfig` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for field `account` in message `.google.cloud.channel.v1.UnregisterSubscriberRequest` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for field `event_type` in message `.google.cloud.channel.v1.EntitlementEvent` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for field `page_token` in message `.google.cloud.channel.v1.ListSkuGroupsRequest` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for field `next_page_token` in message `.google.cloud.channel.v1.ListSkuGroupsResponse` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for field `next_page_token` in message `.google.cloud.channel.v1.ListSkuGroupBillableSkusResponse` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for enum `CustomerAttestationState` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* A comment for method `ListSubscribers` in service `CloudChannelService` is changed ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+
+
+### Bug Fixes
+
+* Changed field behavior for an existing field `entitlement_granularity` in message `.google.cloud.channel.v1.RepricingConfig` ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+
+## [1.24.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-channel-v1.23.0...google-cloud-channel-v1.24.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [1.23.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-channel-v1.22.2...google-cloud-channel-v1.23.0) (2025-06-19)
+
+
+### Features
+
+* A new enum `CustomerAttestationState` is added ([92713ab](https://github.com/googleapis/google-cloud-python/commit/92713ab86a4dbbd7112176f7985b5fd3e82d1ca9))
+* A new field `customer_attestation_state` is added to message `.google.cloud.channel.v1.Customer` ([92713ab](https://github.com/googleapis/google-cloud-python/commit/92713ab86a4dbbd7112176f7985b5fd3e82d1ca9))
+
+## [1.22.2](https://github.com/googleapis/google-cloud-python/compare/google-cloud-channel-v1.22.1...google-cloud-channel-v1.22.2) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([8697120](https://github.com/googleapis/google-cloud-python/commit/869712032803cb31d93f3b16abc2abdb14f733a4))
+
 ## [1.22.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-channel-v1.22.0...google-cloud-channel-v1.22.1) (2025-03-15)
 
 

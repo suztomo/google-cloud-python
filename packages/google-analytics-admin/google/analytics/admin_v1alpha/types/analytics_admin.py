@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,16 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
+from google.analytics.admin_v1alpha.types import (
+    access_report,
+    event_create_and_edit,
+    resources,
+)
+from google.analytics.admin_v1alpha.types import audience as gaa_audience
 from google.analytics.admin_v1alpha.types import channel_group as gaa_channel_group
 from google.analytics.admin_v1alpha.types import (
     expanded_data_set as gaa_expanded_data_set,
@@ -28,10 +34,6 @@ from google.analytics.admin_v1alpha.types import (
 from google.analytics.admin_v1alpha.types import (
     subproperty_event_filter as gaa_subproperty_event_filter,
 )
-from google.analytics.admin_v1alpha.types import access_report
-from google.analytics.admin_v1alpha.types import audience as gaa_audience
-from google.analytics.admin_v1alpha.types import event_create_and_edit
-from google.analytics.admin_v1alpha.types import resources
 
 __protobuf__ = proto.module(
     package="google.analytics.admin.v1alpha",
@@ -173,10 +175,6 @@ __protobuf__ = proto.module(
         "GetChannelGroupRequest",
         "ListChannelGroupsRequest",
         "ListChannelGroupsResponse",
-        "SetAutomatedGa4ConfigurationOptOutRequest",
-        "SetAutomatedGa4ConfigurationOptOutResponse",
-        "FetchAutomatedGa4ConfigurationOptOutRequest",
-        "FetchAutomatedGa4ConfigurationOptOutResponse",
         "CreateBigQueryLinkRequest",
         "GetBigQueryLinkRequest",
         "ListBigQueryLinksRequest",
@@ -187,18 +185,11 @@ __protobuf__ = proto.module(
         "UpdateEnhancedMeasurementSettingsRequest",
         "GetDataRedactionSettingsRequest",
         "UpdateDataRedactionSettingsRequest",
-        "CreateConnectedSiteTagRequest",
-        "CreateConnectedSiteTagResponse",
-        "DeleteConnectedSiteTagRequest",
-        "ListConnectedSiteTagsRequest",
-        "ListConnectedSiteTagsResponse",
         "CreateAdSenseLinkRequest",
         "GetAdSenseLinkRequest",
         "DeleteAdSenseLinkRequest",
         "ListAdSenseLinksRequest",
         "ListAdSenseLinksResponse",
-        "FetchConnectedGa4PropertyRequest",
-        "FetchConnectedGa4PropertyResponse",
         "CreateEventCreateRuleRequest",
         "UpdateEventCreateRuleRequest",
         "DeleteEventCreateRuleRequest",
@@ -235,6 +226,12 @@ __protobuf__ = proto.module(
         "DeleteReportingDataAnnotationRequest",
         "SubmitUserDeletionRequest",
         "SubmitUserDeletionResponse",
+        "GetSubpropertySyncConfigRequest",
+        "ListSubpropertySyncConfigsRequest",
+        "ListSubpropertySyncConfigsResponse",
+        "UpdateSubpropertySyncConfigRequest",
+        "GetReportingIdentitySettingsRequest",
+        "GetUserProvidedDataSettingsRequest",
     },
 )
 
@@ -436,19 +433,19 @@ class RunAccessReportResponse(proto.Message):
             with account-level requests.
     """
 
-    dimension_headers: MutableSequence[
-        access_report.AccessDimensionHeader
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=access_report.AccessDimensionHeader,
+    dimension_headers: MutableSequence[access_report.AccessDimensionHeader] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=access_report.AccessDimensionHeader,
+        )
     )
-    metric_headers: MutableSequence[
-        access_report.AccessMetricHeader
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message=access_report.AccessMetricHeader,
+    metric_headers: MutableSequence[access_report.AccessMetricHeader] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=access_report.AccessMetricHeader,
+        )
     )
     rows: MutableSequence[access_report.AccessRow] = proto.RepeatedField(
         proto.MESSAGE,
@@ -487,18 +484,18 @@ class ListAccountsRequest(proto.Message):
 
     Attributes:
         page_size (int):
-            The maximum number of resources to return.
-            The service may return fewer than this value,
-            even if there are additional pages. If
+            Optional. The maximum number of resources to
+            return. The service may return fewer than this
+            value, even if there are additional pages. If
             unspecified, at most 50 resources will be
             returned. The maximum value is 200; (higher
             values will be coerced to the maximum)
         page_token (str):
-            A page token, received from a previous ``ListAccounts``
-            call. Provide this to retrieve the subsequent page. When
-            paginating, all other parameters provided to
-            ``ListAccounts`` must match the call that provided the page
-            token.
+            Optional. A page token, received from a previous
+            ``ListAccounts`` call. Provide this to retrieve the
+            subsequent page. When paginating, all other parameters
+            provided to ``ListAccounts`` must match the call that
+            provided the page token.
         show_deleted (bool):
             Whether to include soft-deleted (ie:
             "trashed") Accounts in the results. Accounts can
@@ -574,7 +571,7 @@ class UpdateAccountRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (for example, "field_to_update"). Omitted
             fields will not be updated. To replace the entire entity,
-            use one path with the string "*" to match all fields.
+            use one path with the string "\*" to match all fields.
     """
 
     account: resources.Account = proto.Field(
@@ -664,18 +661,18 @@ class ListPropertiesRequest(proto.Message):
                | firebase_project:project-id | The firebase project with id: project-id. |
                | firebase_project:123        | The firebase project with number: 123.    |
         page_size (int):
-            The maximum number of resources to return.
-            The service may return fewer than this value,
-            even if there are additional pages. If
+            Optional. The maximum number of resources to
+            return. The service may return fewer than this
+            value, even if there are additional pages. If
             unspecified, at most 50 resources will be
             returned. The maximum value is 200; (higher
             values will be coerced to the maximum)
         page_token (str):
-            A page token, received from a previous ``ListProperties``
-            call. Provide this to retrieve the subsequent page. When
-            paginating, all other parameters provided to
-            ``ListProperties`` must match the call that provided the
-            page token.
+            Optional. A page token, received from a previous
+            ``ListProperties`` call. Provide this to retrieve the
+            subsequent page. When paginating, all other parameters
+            provided to ``ListProperties`` must match the call that
+            provided the page token.
         show_deleted (bool):
             Whether to include soft-deleted (ie:
             "trashed") Properties in the results. Properties
@@ -740,7 +737,7 @@ class UpdatePropertyRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     property: resources.Property = proto.Field(
@@ -836,18 +833,18 @@ class ListFirebaseLinksRequest(proto.Message):
 
             Example: ``properties/1234``
         page_size (int):
-            The maximum number of resources to return.
-            The service may return fewer than this value,
-            even if there are additional pages. If
+            Optional. The maximum number of resources to
+            return. The service may return fewer than this
+            value, even if there are additional pages. If
             unspecified, at most 50 resources will be
             returned. The maximum value is 200; (higher
             values will be coerced to the maximum)
         page_token (str):
-            A page token, received from a previous ``ListFirebaseLinks``
-            call. Provide this to retrieve the subsequent page. When
-            paginating, all other parameters provided to
-            ``ListFirebaseLinks`` must match the call that provided the
-            page token.
+            Optional. A page token, received from a previous
+            ``ListFirebaseLinks`` call. Provide this to retrieve the
+            subsequent page. When paginating, all other parameters
+            provided to ``ListFirebaseLinks`` must match the call that
+            provided the page token.
     """
 
     parent: str = proto.Field(
@@ -942,7 +939,7 @@ class UpdateGoogleAdsLinkRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     google_ads_link: resources.GoogleAdsLink = proto.Field(
@@ -979,12 +976,12 @@ class ListGoogleAdsLinksRequest(proto.Message):
         parent (str):
             Required. Example format: properties/1234
         page_size (int):
-            The maximum number of resources to return.
-            If unspecified, at most 50 resources will be
-            returned. The maximum value is 200 (higher
-            values will be coerced to the maximum).
+            Optional. The maximum number of resources to
+            return. If unspecified, at most 50 resources
+            will be returned. The maximum value is 200
+            (higher values will be coerced to the maximum).
         page_token (str):
-            A page token, received from a previous
+            Optional. A page token, received from a previous
             ``ListGoogleAdsLinks`` call. Provide this to retrieve the
             subsequent page.
 
@@ -1056,15 +1053,15 @@ class ListAccountSummariesRequest(proto.Message):
 
     Attributes:
         page_size (int):
-            The maximum number of AccountSummary
-            resources to return. The service may return
-            fewer than this value, even if there are
-            additional pages. If unspecified, at most 50
+            Optional. The maximum number of
+            AccountSummary resources to return. The service
+            may return fewer than this value, even if there
+            are additional pages. If unspecified, at most 50
             resources will be returned. The maximum value is
             200; (higher values will be coerced to the
             maximum)
         page_token (str):
-            A page token, received from a previous
+            Optional. A page token, received from a previous
             ``ListAccountSummaries`` call. Provide this to retrieve the
             subsequent page. When paginating, all other parameters
             provided to ``ListAccountSummaries`` must match the call
@@ -1204,12 +1201,12 @@ class SearchChangeHistoryEventsRequest(proto.Message):
         proto.STRING,
         number=2,
     )
-    resource_type: MutableSequence[
-        resources.ChangeHistoryResourceType
-    ] = proto.RepeatedField(
-        proto.ENUM,
-        number=3,
-        enum=resources.ChangeHistoryResourceType,
+    resource_type: MutableSequence[resources.ChangeHistoryResourceType] = (
+        proto.RepeatedField(
+            proto.ENUM,
+            number=3,
+            enum=resources.ChangeHistoryResourceType,
+        )
     )
     action: MutableSequence[resources.ActionType] = proto.RepeatedField(
         proto.ENUM,
@@ -1256,12 +1253,12 @@ class SearchChangeHistoryEventsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    change_history_events: MutableSequence[
-        resources.ChangeHistoryEvent
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=resources.ChangeHistoryEvent,
+    change_history_events: MutableSequence[resources.ChangeHistoryEvent] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=resources.ChangeHistoryEvent,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1361,12 +1358,12 @@ class ListMeasurementProtocolSecretsRequest(proto.Message):
 
             properties/{property}/dataStreams/{dataStream}/measurementProtocolSecrets
         page_size (int):
-            The maximum number of resources to return.
-            If unspecified, at most 10 resources will be
-            returned. The maximum value is 10. Higher values
-            will be coerced to the maximum.
+            Optional. The maximum number of resources to
+            return. If unspecified, at most 10 resources
+            will be returned. The maximum value is 10.
+            Higher values will be coerced to the maximum.
         page_token (str):
-            A page token, received from a previous
+            Optional. A page token, received from a previous
             ``ListMeasurementProtocolSecrets`` call. Provide this to
             retrieve the subsequent page. When paginating, all other
             parameters provided to ``ListMeasurementProtocolSecrets``
@@ -1513,14 +1510,14 @@ class ListSKAdNetworkConversionValueSchemasRequest(proto.Message):
             Format: properties/{property_id}/dataStreams/{dataStream}
             Example: properties/1234/dataStreams/5678
         page_size (int):
-            The maximum number of resources to return.
-            The service may return fewer than this value,
-            even if there are additional pages. If
+            Optional. The maximum number of resources to
+            return. The service may return fewer than this
+            value, even if there are additional pages. If
             unspecified, at most 50 resources will be
             returned. The maximum value is 200; (higher
             values will be coerced to the maximum)
         page_token (str):
-            A page token, received from a previous
+            Optional. A page token, received from a previous
             ``ListSKAdNetworkConversionValueSchemas`` call. Provide this
             to retrieve the subsequent page. When paginating, all other
             parameters provided to
@@ -1602,7 +1599,7 @@ class UpdateGoogleSignalsSettingsRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     google_signals_settings: resources.GoogleSignalsSettings = proto.Field(
@@ -1651,7 +1648,7 @@ class UpdateConversionEventRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     conversion_event: resources.ConversionEvent = proto.Field(
@@ -1708,12 +1705,12 @@ class ListConversionEventsRequest(proto.Message):
             Required. The resource name of the parent
             property. Example: 'properties/123'
         page_size (int):
-            The maximum number of resources to return.
-            If unspecified, at most 50 resources will be
-            returned. The maximum value is 200; (higher
-            values will be coerced to the maximum)
+            Optional. The maximum number of resources to
+            return. If unspecified, at most 50 resources
+            will be returned. The maximum value is 200;
+            (higher values will be coerced to the maximum)
         page_token (str):
-            A page token, received from a previous
+            Optional. A page token, received from a previous
             ``ListConversionEvents`` call. Provide this to retrieve the
             subsequent page. When paginating, all other parameters
             provided to ``ListConversionEvents`` must match the call
@@ -1795,7 +1792,7 @@ class UpdateKeyEventRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     key_event: resources.KeyEvent = proto.Field(
@@ -1850,16 +1847,16 @@ class ListKeyEventsRequest(proto.Message):
             Required. The resource name of the parent
             property. Example: 'properties/123'
         page_size (int):
-            The maximum number of resources to return.
-            If unspecified, at most 50 resources will be
-            returned. The maximum value is 200; (higher
-            values will be coerced to the maximum)
+            Optional. The maximum number of resources to
+            return. If unspecified, at most 50 resources
+            will be returned. The maximum value is 200;
+            (higher values will be coerced to the maximum)
         page_token (str):
-            A page token, received from a previous ``ListKeyEvents``
-            call. Provide this to retrieve the subsequent page. When
-            paginating, all other parameters provided to
-            ``ListKeyEvents`` must match the call that provided the page
-            token.
+            Optional. A page token, received from a previous
+            ``ListKeyEvents`` call. Provide this to retrieve the
+            subsequent page. When paginating, all other parameters
+            provided to ``ListKeyEvents`` must match the call that
+            provided the page token.
     """
 
     parent: str = proto.Field(
@@ -2034,7 +2031,7 @@ class UpdateDisplayVideo360AdvertiserLinkRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             Required. The list of fields to be updated. Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     display_video_360_advertiser_link: resources.DisplayVideo360AdvertiserLink = (
@@ -2299,12 +2296,12 @@ class ListSearchAds360LinksResponse(proto.Message):
     def raw_page(self):
         return self
 
-    search_ads_360_links: MutableSequence[
-        resources.SearchAds360Link
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=resources.SearchAds360Link,
+    search_ads_360_links: MutableSequence[resources.SearchAds360Link] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=resources.SearchAds360Link,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -2358,7 +2355,7 @@ class UpdateSearchAds360LinkRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             Required. The list of fields to be updated. Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     search_ads_360_link: resources.SearchAds360Link = proto.Field(
@@ -2403,7 +2400,7 @@ class UpdateCustomDimensionRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             Required. The list of fields to be updated. Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     custom_dimension: resources.CustomDimension = proto.Field(
@@ -2425,12 +2422,12 @@ class ListCustomDimensionsRequest(proto.Message):
         parent (str):
             Required. Example format: properties/1234
         page_size (int):
-            The maximum number of resources to return.
-            If unspecified, at most 50 resources will be
-            returned. The maximum value is 200 (higher
-            values will be coerced to the maximum).
+            Optional. The maximum number of resources to
+            return. If unspecified, at most 50 resources
+            will be returned. The maximum value is 200
+            (higher values will be coerced to the maximum).
         page_token (str):
-            A page token, received from a previous
+            Optional. A page token, received from a previous
             ``ListCustomDimensions`` call. Provide this to retrieve the
             subsequent page.
 
@@ -2542,7 +2539,7 @@ class UpdateCustomMetricRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             Required. The list of fields to be updated. Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     custom_metric: resources.CustomMetric = proto.Field(
@@ -2663,7 +2660,7 @@ class CreateCalculatedMetricRequest(proto.Message):
             resource name.
 
             This value should be 1-80 characters and valid characters
-            are `[a-zA-Z0-9_]`, no spaces allowed. calculated_metric_id
+            are /[a-zA-Z0-9\_]/, no spaces allowed. calculated_metric_id
             must be unique between all calculated metrics under a
             property. The calculated_metric_id is used when referencing
             this calculated metric from external APIs, for example,
@@ -2696,7 +2693,7 @@ class UpdateCalculatedMetricRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             Required. The list of fields to be updated. Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     calculated_metric: resources.CalculatedMetric = proto.Field(
@@ -2779,12 +2776,12 @@ class ListCalculatedMetricsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    calculated_metrics: MutableSequence[
-        resources.CalculatedMetric
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=resources.CalculatedMetric,
+    calculated_metrics: MutableSequence[resources.CalculatedMetric] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=resources.CalculatedMetric,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -2837,7 +2834,7 @@ class UpdateDataRetentionSettingsRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     data_retention_settings: resources.DataRetentionSettings = proto.Field(
@@ -2898,7 +2895,7 @@ class UpdateDataStreamRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             Required. The list of fields to be updated. Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     data_stream: resources.DataStream = proto.Field(
@@ -3097,7 +3094,7 @@ class UpdateAudienceRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     audience: gaa_audience.Audience = proto.Field(
@@ -3154,7 +3151,7 @@ class UpdateAttributionSettingsRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     attribution_settings: resources.AttributionSettings = proto.Field(
@@ -3512,7 +3509,7 @@ class UpdateExpandedDataSetRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     expanded_data_set: gaa_expanded_data_set.ExpandedDataSet = proto.Field(
@@ -3610,12 +3607,12 @@ class ListExpandedDataSetsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    expanded_data_sets: MutableSequence[
-        gaa_expanded_data_set.ExpandedDataSet
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=gaa_expanded_data_set.ExpandedDataSet,
+    expanded_data_sets: MutableSequence[gaa_expanded_data_set.ExpandedDataSet] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=gaa_expanded_data_set.ExpandedDataSet,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -3657,7 +3654,7 @@ class UpdateChannelGroupRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     channel_group: gaa_channel_group.ChannelGroup = proto.Field(
@@ -3756,84 +3753,16 @@ class ListChannelGroupsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    channel_groups: MutableSequence[
-        gaa_channel_group.ChannelGroup
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=gaa_channel_group.ChannelGroup,
+    channel_groups: MutableSequence[gaa_channel_group.ChannelGroup] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=gaa_channel_group.ChannelGroup,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
         number=2,
-    )
-
-
-class SetAutomatedGa4ConfigurationOptOutRequest(proto.Message):
-    r"""Request for setting the opt out status for the automated GA4
-    setup process.
-
-    Attributes:
-        property (str):
-            Required. The UA property to set the opt out
-            status. Note this request uses the internal
-            property ID, not the tracking ID of the form
-            UA-XXXXXX-YY. Format:
-            properties/{internalWebPropertyId}
-            Example: properties/1234
-        opt_out (bool):
-            The status to set.
-    """
-
-    property: str = proto.Field(
-        proto.STRING,
-        number=1,
-    )
-    opt_out: bool = proto.Field(
-        proto.BOOL,
-        number=2,
-    )
-
-
-class SetAutomatedGa4ConfigurationOptOutResponse(proto.Message):
-    r"""Response message for setting the opt out status for the
-    automated GA4 setup process.
-
-    """
-
-
-class FetchAutomatedGa4ConfigurationOptOutRequest(proto.Message):
-    r"""Request for fetching the opt out status for the automated GA4
-    setup process.
-
-    Attributes:
-        property (str):
-            Required. The UA property to get the opt out
-            status. Note this request uses the internal
-            property ID, not the tracking ID of the form
-            UA-XXXXXX-YY. Format:
-            properties/{internalWebPropertyId}
-            Example: properties/1234
-    """
-
-    property: str = proto.Field(
-        proto.STRING,
-        number=1,
-    )
-
-
-class FetchAutomatedGa4ConfigurationOptOutResponse(proto.Message):
-    r"""Response message for fetching the opt out status for the
-    automated GA4 setup process.
-
-    Attributes:
-        opt_out (bool):
-            The opt out status for the UA property.
-    """
-
-    opt_out: bool = proto.Field(
-        proto.BOOL,
-        number=1,
     )
 
 
@@ -3949,7 +3878,7 @@ class UpdateBigQueryLinkRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     bigquery_link: resources.BigQueryLink = proto.Field(
@@ -4008,7 +3937,7 @@ class UpdateEnhancedMeasurementSettingsRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     enhanced_measurement_settings: resources.EnhancedMeasurementSettings = proto.Field(
@@ -4051,7 +3980,7 @@ class UpdateDataRedactionSettingsRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     data_redaction_settings: resources.DataRedactionSettings = proto.Field(
@@ -4063,98 +3992,6 @@ class UpdateDataRedactionSettingsRequest(proto.Message):
         proto.MESSAGE,
         number=2,
         message=field_mask_pb2.FieldMask,
-    )
-
-
-class CreateConnectedSiteTagRequest(proto.Message):
-    r"""Request message for CreateConnectedSiteTag RPC.
-
-    Attributes:
-        property (str):
-            The Universal Analytics property to create
-            connected site tags for. This API does not
-            support GA4 properties. Format:
-            properties/{universalAnalyticsPropertyId}
-            Example: properties/1234
-        connected_site_tag (google.analytics.admin_v1alpha.types.ConnectedSiteTag):
-            Required. The tag to add to the Universal
-            Analytics property
-    """
-
-    property: str = proto.Field(
-        proto.STRING,
-        number=1,
-    )
-    connected_site_tag: resources.ConnectedSiteTag = proto.Field(
-        proto.MESSAGE,
-        number=2,
-        message=resources.ConnectedSiteTag,
-    )
-
-
-class CreateConnectedSiteTagResponse(proto.Message):
-    r"""Response message for CreateConnectedSiteTag RPC."""
-
-
-class DeleteConnectedSiteTagRequest(proto.Message):
-    r"""Request message for DeleteConnectedSiteTag RPC.
-
-    Attributes:
-        property (str):
-            The Universal Analytics property to delete
-            connected site tags for. This API does not
-            support GA4 properties. Format:
-            properties/{universalAnalyticsPropertyId}
-            Example: properties/1234
-        tag_id (str):
-            Tag ID to forward events to. Also known as
-            the Measurement ID, or the "G-ID"  (For example:
-            G-12345).
-    """
-
-    property: str = proto.Field(
-        proto.STRING,
-        number=1,
-    )
-    tag_id: str = proto.Field(
-        proto.STRING,
-        number=2,
-    )
-
-
-class ListConnectedSiteTagsRequest(proto.Message):
-    r"""Request message for ListConnectedSiteTags RPC.
-
-    Attributes:
-        property (str):
-            The Universal Analytics property to fetch connected site
-            tags for. This does not work on GA4 properties. A maximum of
-            20 connected site tags will be returned. Example Format:
-            ``properties/1234``
-    """
-
-    property: str = proto.Field(
-        proto.STRING,
-        number=1,
-    )
-
-
-class ListConnectedSiteTagsResponse(proto.Message):
-    r"""Response message for ListConnectedSiteTags RPC.
-
-    Attributes:
-        connected_site_tags (MutableSequence[google.analytics.admin_v1alpha.types.ConnectedSiteTag]):
-            The site tags for the Universal Analytics
-            property. A maximum of 20 connected site tags
-            will be returned.
-    """
-
-    connected_site_tags: MutableSequence[
-        resources.ConnectedSiteTag
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=resources.ConnectedSiteTag,
     )
 
 
@@ -4278,42 +4115,6 @@ class ListAdSenseLinksResponse(proto.Message):
     )
 
 
-class FetchConnectedGa4PropertyRequest(proto.Message):
-    r"""Request for looking up GA4 property connected to a UA
-    property.
-
-    Attributes:
-        property (str):
-            Required. The UA property for which to look up the connected
-            GA4 property. Note this request uses the internal property
-            ID, not the tracking ID of the form UA-XXXXXX-YY. Format:
-            properties/{internal_web_property_id} Example:
-            properties/1234
-    """
-
-    property: str = proto.Field(
-        proto.STRING,
-        number=1,
-    )
-
-
-class FetchConnectedGa4PropertyResponse(proto.Message):
-    r"""Response for looking up GA4 property connected to a UA
-    property.
-
-    Attributes:
-        property (str):
-            The GA4 property connected to the UA property. An empty
-            string is returned when there is no connected GA4 property.
-            Format: properties/{property_id} Example: properties/1234
-    """
-
-    property: str = proto.Field(
-        proto.STRING,
-        number=1,
-    )
-
-
 class CreateEventCreateRuleRequest(proto.Message):
     r"""Request message for CreateEventCreateRule RPC.
 
@@ -4348,7 +4149,7 @@ class UpdateEventCreateRuleRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     event_create_rule: event_create_and_edit.EventCreateRule = proto.Field(
@@ -4448,12 +4249,12 @@ class ListEventCreateRulesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    event_create_rules: MutableSequence[
-        event_create_and_edit.EventCreateRule
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=event_create_and_edit.EventCreateRule,
+    event_create_rules: MutableSequence[event_create_and_edit.EventCreateRule] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=event_create_and_edit.EventCreateRule,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -4495,7 +4296,7 @@ class UpdateEventEditRuleRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     event_edit_rule: event_create_and_edit.EventEditRule = proto.Field(
@@ -4594,12 +4395,12 @@ class ListEventEditRulesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    event_edit_rules: MutableSequence[
-        event_create_and_edit.EventEditRule
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=event_create_and_edit.EventEditRule,
+    event_edit_rules: MutableSequence[event_create_and_edit.EventEditRule] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=event_create_and_edit.EventEditRule,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -4809,6 +4610,10 @@ class ProvisionSubpropertyRequest(proto.Message):
         subproperty_event_filter (google.analytics.admin_v1alpha.types.SubpropertyEventFilter):
             Optional. The subproperty event filter to
             create on an ordinary property.
+        custom_dimension_and_metric_synchronization_mode (google.analytics.admin_v1alpha.types.SubpropertySyncConfig.SynchronizationMode):
+            Optional. The subproperty feature
+            synchronization mode for Custom Dimensions and
+            Metrics
     """
 
     subproperty: resources.Property = proto.Field(
@@ -4822,6 +4627,11 @@ class ProvisionSubpropertyRequest(proto.Message):
             number=3,
             message=gaa_subproperty_event_filter.SubpropertyEventFilter,
         )
+    )
+    custom_dimension_and_metric_synchronization_mode: resources.SubpropertySyncConfig.SynchronizationMode = proto.Field(
+        proto.ENUM,
+        number=4,
+        enum=resources.SubpropertySyncConfig.SynchronizationMode,
     )
 
 
@@ -4968,7 +4778,7 @@ class UpdateSubpropertyEventFilterRequest(proto.Message):
             Required. The list of fields to update. Field names must be
             in snake case (for example, "field_to_update"). Omitted
             fields will not be updated. To replace the entire entity,
-            use one path with the string "*" to match all fields.
+            use one path with the string "\*" to match all fields.
     """
 
     subproperty_event_filter: gaa_subproperty_event_filter.SubpropertyEventFilter = (
@@ -5056,44 +4866,44 @@ class ListReportingDataAnnotationsRequest(proto.Message):
 
             Supported fields are:
 
-            -  'name'
-            -  ``title``
-            -  ``description``
-            -  ``annotation_date``
-            -  ``annotation_date_range``
-            -  ``color``
+            - 'name'
+            - ``title``
+            - ``description``
+            - ``annotation_date``
+            - ``annotation_date_range``
+            - ``color``
 
             Additionally, this API provides the following helper
             functions:
 
-            -  annotation_duration() : the duration that this annotation
-               marks,
-               `durations <https://github.com/protocolbuffers/protobuf/blob/main/src/google/protobuf/duration.proto>`__.
-               expect a numeric representation of seconds followed by an
-               ``s`` suffix.
-            -  is_annotation_in_range(start_date, end_date) : if the
-               annotation is in the range specified by the
-               ``start_date`` and ``end_date``. The dates are in
-               ISO-8601 format, for example ``2031-06-28``.
+            - annotation_duration() : the duration that this annotation
+              marks,
+              `durations <https://github.com/protocolbuffers/protobuf/blob/main/src/google/protobuf/duration.proto>`__.
+              expect a numeric representation of seconds followed by an
+              ``s`` suffix.
+            - is_annotation_in_range(start_date, end_date) : if the
+              annotation is in the range specified by the ``start_date``
+              and ``end_date``. The dates are in ISO-8601 format, for
+              example ``2031-06-28``.
 
             Supported operations:
 
-            -  ``=`` : equals
-            -  ``!=`` : not equals
-            -  ``<`` : less than
-            -  ``>`` : greater than
-            -  ``<=`` : less than or equals
-            -  ``>=`` : greater than or equals
-            -  ``:`` : has operator
-            -  ``=~`` : `regular
-               expression <https://github.com/google/re2/wiki/Syntax>`__
-               match
-            -  ``!~`` : `regular
-               expression <https://github.com/google/re2/wiki/Syntax>`__
-               does not match
-            -  ``NOT`` : Logical not
-            -  ``AND`` : Logical and
-            -  ``OR`` : Logical or
+            - ``=`` : equals
+            - ``!=`` : not equals
+            - ``<`` : less than
+            - ``>`` : greater than
+            - ``<=`` : less than or equals
+            - ``>=`` : greater than or equals
+            - ``:`` : has operator
+            - ``=~`` : `regular
+              expression <https://github.com/google/re2/wiki/Syntax>`__
+              match
+            - ``!~`` : `regular
+              expression <https://github.com/google/re2/wiki/Syntax>`__
+              does not match
+            - ``NOT`` : Logical not
+            - ``AND`` : Logical and
+            - ``OR`` : Logical or
 
             Examples:
 
@@ -5150,12 +4960,12 @@ class ListReportingDataAnnotationsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    reporting_data_annotations: MutableSequence[
-        resources.ReportingDataAnnotation
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=resources.ReportingDataAnnotation,
+    reporting_data_annotations: MutableSequence[resources.ReportingDataAnnotation] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=resources.ReportingDataAnnotation,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -5174,7 +4984,7 @@ class UpdateReportingDataAnnotationRequest(proto.Message):
             Optional. The list of fields to update. Field names must be
             in snake case (for example, "field_to_update"). Omitted
             fields will not be updated. To replace the entire entity,
-            use one path with the string "*" to match all fields.
+            use one path with the string "\*" to match all fields.
     """
 
     reporting_data_annotation: resources.ReportingDataAnnotation = proto.Field(
@@ -5233,8 +5043,21 @@ class SubmitUserDeletionRequest(proto.Message):
 
             This field is a member of `oneof`_ ``user``.
         user_provided_data (str):
-            The un-hashed, unencrypted, `user-provided
+            `User-provided
             data <https://support.google.com/analytics/answer/14077171>`__.
+            May contain either one email address or one phone number.
+
+            Email addresses should be normalized as such:
+
+            - lowercase
+            - remove periods before @ for gmail.com/googlemail.com
+              addresses
+            - remove all spaces
+
+            Phone numbers should be normalized as such:
+
+            - remove all non digit characters
+            - add + prefix
 
             This field is a member of `oneof`_ ``user``.
         name (str):
@@ -5283,6 +5106,148 @@ class SubmitUserDeletionResponse(proto.Message):
         proto.MESSAGE,
         number=1,
         message=timestamp_pb2.Timestamp,
+    )
+
+
+class GetSubpropertySyncConfigRequest(proto.Message):
+    r"""Request message for GetSubpropertySyncConfig RPC.
+
+    Attributes:
+        name (str):
+            Required. Resource name of the SubpropertySyncConfig to
+            lookup. Format:
+            properties/{ordinary_property_id}/subpropertySyncConfigs/{subproperty_id}
+            Example: properties/1234/subpropertySyncConfigs/5678
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class ListSubpropertySyncConfigsRequest(proto.Message):
+    r"""Request message for ListSubpropertySyncConfigs RPC.
+
+    Attributes:
+        parent (str):
+            Required. Resource name of the property. Format:
+            properties/property_id Example: properties/123
+        page_size (int):
+            Optional. The maximum number of resources to
+            return. The service may return fewer than this
+            value, even if there are additional pages. If
+            unspecified, at most 50 resources will be
+            returned. The maximum value is 200; (higher
+            values will be coerced to the maximum)
+        page_token (str):
+            Optional. A page token, received from a previous
+            ``ListSubpropertySyncConfig`` call. Provide this to retrieve
+            the subsequent page. When paginating, all other parameters
+            provided to ``ListSubpropertySyncConfig`` must match the
+            call that provided the page token.
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    page_size: int = proto.Field(
+        proto.INT32,
+        number=2,
+    )
+    page_token: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+
+
+class ListSubpropertySyncConfigsResponse(proto.Message):
+    r"""Response message for ListSubpropertySyncConfigs RPC.
+
+    Attributes:
+        subproperty_sync_configs (MutableSequence[google.analytics.admin_v1alpha.types.SubpropertySyncConfig]):
+            List of ``SubpropertySyncConfig`` resources.
+        next_page_token (str):
+            A token, which can be sent as ``page_token`` to retrieve the
+            next page. If this field is omitted, there are no subsequent
+            pages.
+    """
+
+    @property
+    def raw_page(self):
+        return self
+
+    subproperty_sync_configs: MutableSequence[resources.SubpropertySyncConfig] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=resources.SubpropertySyncConfig,
+        )
+    )
+    next_page_token: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+
+
+class UpdateSubpropertySyncConfigRequest(proto.Message):
+    r"""Request message for UpdateSubpropertySyncConfig RPC.
+
+    Attributes:
+        subproperty_sync_config (google.analytics.admin_v1alpha.types.SubpropertySyncConfig):
+            Required. The ``SubpropertySyncConfig`` to update.
+        update_mask (google.protobuf.field_mask_pb2.FieldMask):
+            Optional. The list of fields to update. Field names must be
+            in snake case (for example, "field_to_update"). Omitted
+            fields will not be updated. To replace the entire entity,
+            use one path with the string "\*" to match all fields.
+    """
+
+    subproperty_sync_config: resources.SubpropertySyncConfig = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        message=resources.SubpropertySyncConfig,
+    )
+    update_mask: field_mask_pb2.FieldMask = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message=field_mask_pb2.FieldMask,
+    )
+
+
+class GetReportingIdentitySettingsRequest(proto.Message):
+    r"""Request message for GetReportingIdentitySettings RPC.
+
+    Attributes:
+        name (str):
+            Required. The name of the settings to lookup.
+            Format:
+
+            properties/{property}/reportingIdentitySettings
+            Example:
+            "properties/1000/reportingIdentitySettings".
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class GetUserProvidedDataSettingsRequest(proto.Message):
+    r"""Request message for GetUserProvidedDataSettings RPC
+
+    Attributes:
+        name (str):
+            Required. The name of the user provided data
+            settings to retrieve. Format:
+            properties/{property}/userProvidedDataSettings
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
     )
 
 

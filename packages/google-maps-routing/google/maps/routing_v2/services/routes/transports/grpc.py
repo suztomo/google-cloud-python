@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +16,17 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers
 import google.auth  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.protobuf.json_format import MessageToJson
 import google.protobuf.message
 import grpc  # type: ignore
 import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.grpc import SslCredentials  # type: ignore
+from google.protobuf.json_format import MessageToJson
 
 from google.maps.routing_v2.types import routes_service
 
@@ -54,7 +54,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -89,7 +89,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -150,9 +150,10 @@ class RoutesGrpcTransport(RoutesTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -183,6 +184,10 @@ class RoutesGrpcTransport(RoutesTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -285,9 +290,10 @@ class RoutesGrpcTransport(RoutesTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -342,28 +348,28 @@ class RoutesGrpcTransport(RoutesTransport):
 
         For example, in this method:
 
-        -  Field mask of all available fields (for manual inspection):
-           ``X-Goog-FieldMask: *``
-        -  Field mask of Route-level duration, distance, and polyline
-           (an example production setup):
-           ``X-Goog-FieldMask: routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline``
+        - Field mask of all available fields (for manual inspection):
+          ``X-Goog-FieldMask: *``
+        - Field mask of Route-level duration, distance, and polyline (an
+          example production setup):
+          ``X-Goog-FieldMask: routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline``
 
         Google discourage the use of the wildcard (``*``) response field
         mask, or specifying the field mask at the top level
         (``routes``), because:
 
-        -  Selecting only the fields that you need helps our server save
-           computation cycles, allowing us to return the result to you
-           with a lower latency.
-        -  Selecting only the fields that you need in your production
-           job ensures stable latency performance. We might add more
-           response fields in the future, and those new fields might
-           require extra computation time. If you select all fields, or
-           if you select all fields at the top level, then you might
-           experience performance degradation because any new field we
-           add will be automatically included in the response.
-        -  Selecting only the fields that you need results in a smaller
-           response size, and thus higher network throughput.
+        - Selecting only the fields that you need helps our server save
+          computation cycles, allowing us to return the result to you
+          with a lower latency.
+        - Selecting only the fields that you need in your production job
+          ensures stable latency performance. We might add more response
+          fields in the future, and those new fields might require extra
+          computation time. If you select all fields, or if you select
+          all fields at the top level, then you might experience
+          performance degradation because any new field we add will be
+          automatically included in the response.
+        - Selecting only the fields that you need results in a smaller
+          response size, and thus higher network throughput.
 
         Returns:
             Callable[[~.ComputeRoutesRequest],
@@ -407,28 +413,28 @@ class RoutesGrpcTransport(RoutesTransport):
 
         For example, in this method:
 
-        -  Field mask of all available fields (for manual inspection):
-           ``X-Goog-FieldMask: *``
-        -  Field mask of route durations, distances, element status,
-           condition, and element indices (an example production setup):
-           ``X-Goog-FieldMask: originIndex,destinationIndex,status,condition,distanceMeters,duration``
+        - Field mask of all available fields (for manual inspection):
+          ``X-Goog-FieldMask: *``
+        - Field mask of route durations, distances, element status,
+          condition, and element indices (an example production setup):
+          ``X-Goog-FieldMask: originIndex,destinationIndex,status,condition,distanceMeters,duration``
 
         It is critical that you include ``status`` in your field mask as
         otherwise all messages will appear to be OK. Google discourages
         the use of the wildcard (``*``) response field mask, because:
 
-        -  Selecting only the fields that you need helps our server save
-           computation cycles, allowing us to return the result to you
-           with a lower latency.
-        -  Selecting only the fields that you need in your production
-           job ensures stable latency performance. We might add more
-           response fields in the future, and those new fields might
-           require extra computation time. If you select all fields, or
-           if you select all fields at the top level, then you might
-           experience performance degradation because any new field we
-           add will be automatically included in the response.
-        -  Selecting only the fields that you need results in a smaller
-           response size, and thus higher network throughput.
+        - Selecting only the fields that you need helps our server save
+          computation cycles, allowing us to return the result to you
+          with a lower latency.
+        - Selecting only the fields that you need in your production job
+          ensures stable latency performance. We might add more response
+          fields in the future, and those new fields might require extra
+          computation time. If you select all fields, or if you select
+          all fields at the top level, then you might experience
+          performance degradation because any new field we add will be
+          automatically included in the response.
+        - Selecting only the fields that you need results in a smaller
+          response size, and thus higher network throughput.
 
         Returns:
             Callable[[~.ComputeRouteMatrixRequest],

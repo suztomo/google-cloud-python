@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.netapp_v1 import gapic_version as package_version
 
@@ -44,33 +44,41 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.netapp_v1.services.net_app import pagers
+from google.cloud.netapp_v1.types import (
+    active_directory,
+    backup,
+    backup_policy,
+    backup_vault,
+    cloud_netapp_service,
+    common,
+    host_group,
+    kms,
+    ontap,
+    quota_rule,
+    replication,
+    snapshot,
+    storage_pool,
+    volume,
+)
 from google.cloud.netapp_v1.types import active_directory as gcn_active_directory
-from google.cloud.netapp_v1.types import active_directory
-from google.cloud.netapp_v1.types import backup
 from google.cloud.netapp_v1.types import backup as gcn_backup
-from google.cloud.netapp_v1.types import backup_policy
 from google.cloud.netapp_v1.types import backup_policy as gcn_backup_policy
-from google.cloud.netapp_v1.types import backup_vault
 from google.cloud.netapp_v1.types import backup_vault as gcn_backup_vault
-from google.cloud.netapp_v1.types import cloud_netapp_service, common, kms
-from google.cloud.netapp_v1.types import quota_rule
+from google.cloud.netapp_v1.types import host_group as gcn_host_group
 from google.cloud.netapp_v1.types import quota_rule as gcn_quota_rule
-from google.cloud.netapp_v1.types import replication
 from google.cloud.netapp_v1.types import replication as gcn_replication
-from google.cloud.netapp_v1.types import snapshot
 from google.cloud.netapp_v1.types import snapshot as gcn_snapshot
-from google.cloud.netapp_v1.types import storage_pool
 from google.cloud.netapp_v1.types import storage_pool as gcn_storage_pool
-from google.cloud.netapp_v1.types import volume
 from google.cloud.netapp_v1.types import volume as gcn_volume
 
 from .client import NetAppClient
@@ -107,6 +115,8 @@ class NetAppAsyncClient:
     parse_backup_policy_path = staticmethod(NetAppClient.parse_backup_policy_path)
     backup_vault_path = staticmethod(NetAppClient.backup_vault_path)
     parse_backup_vault_path = staticmethod(NetAppClient.parse_backup_vault_path)
+    host_group_path = staticmethod(NetAppClient.host_group_path)
+    parse_host_group_path = staticmethod(NetAppClient.parse_host_group_path)
     kms_config_path = staticmethod(NetAppClient.kms_config_path)
     parse_kms_config_path = staticmethod(NetAppClient.parse_kms_config_path)
     network_path = staticmethod(NetAppClient.network_path)
@@ -149,7 +159,10 @@ class NetAppAsyncClient:
         Returns:
             NetAppAsyncClient: The constructed client.
         """
-        return NetAppClient.from_service_account_info.__func__(NetAppAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            NetAppClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(NetAppAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -165,7 +178,10 @@ class NetAppAsyncClient:
         Returns:
             NetAppAsyncClient: The constructed client.
         """
-        return NetAppClient.from_service_account_file.__func__(NetAppAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            NetAppClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(NetAppAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -215,7 +231,7 @@ class NetAppAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -491,11 +507,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_storage_pool(request=request)
+                operation = await client.create_storage_pool(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -762,11 +778,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_storage_pool(request=request)
+                operation = await client.update_storage_pool(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -903,11 +919,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_storage_pool(request=request)
+                operation = await client.delete_storage_pool(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1037,11 +1053,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.validate_directory_service(request=request)
+                operation = await client.validate_directory_service(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1149,11 +1165,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.switch_active_replica_zone(request=request)
+                operation = await client.switch_active_replica_zone(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1488,7 +1504,7 @@ class NetAppAsyncClient:
                 volume.share_name = "share_name_value"
                 volume.storage_pool = "storage_pool_value"
                 volume.capacity_gib = 1247
-                volume.protocols = ['SMB']
+                volume.protocols = ['ISCSI']
 
                 request = netapp_v1.CreateVolumeRequest(
                     parent="parent_value",
@@ -1497,11 +1513,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_volume(request=request)
+                operation = await client.create_volume(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1640,18 +1656,18 @@ class NetAppAsyncClient:
                 volume.share_name = "share_name_value"
                 volume.storage_pool = "storage_pool_value"
                 volume.capacity_gib = 1247
-                volume.protocols = ['SMB']
+                volume.protocols = ['ISCSI']
 
                 request = netapp_v1.UpdateVolumeRequest(
                     volume=volume,
                 )
 
                 # Make the request
-                operation = client.update_volume(request=request)
+                operation = await client.update_volume(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1785,11 +1801,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_volume(request=request)
+                operation = await client.delete_volume(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1917,11 +1933,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.revert_volume(request=request)
+                operation = await client.revert_volume(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1957,6 +1973,114 @@ class NetAppAsyncClient:
         # and friendly error handling.
         rpc = self._client._transport._wrapped_methods[
             self._client._transport.revert_volume
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            volume.Volume,
+            metadata_type=cloud_netapp_service.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def establish_volume_peering(
+        self,
+        request: Optional[Union[volume.EstablishVolumePeeringRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Establish volume peering. This is used to establish
+        cluster and svm peerings between the GCNV and OnPrem
+        clusters.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import netapp_v1
+
+            async def sample_establish_volume_peering():
+                # Create a client
+                client = netapp_v1.NetAppAsyncClient()
+
+                # Initialize request argument(s)
+                request = netapp_v1.EstablishVolumePeeringRequest(
+                    name="name_value",
+                    peer_cluster_name="peer_cluster_name_value",
+                    peer_svm_name="peer_svm_name_value",
+                    peer_volume_name="peer_volume_name_value",
+                )
+
+                # Make the request
+                operation = await client.establish_volume_peering(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.netapp_v1.types.EstablishVolumePeeringRequest, dict]]):
+                The request object. EstablishVolumePeeringRequest
+                establishes cluster and svm peerings
+                between the source and destination
+                clusters.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.netapp_v1.types.Volume` Volume
+                provides a filesystem that you can mount.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, volume.EstablishVolumePeeringRequest):
+            request = volume.EstablishVolumePeeringRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.establish_volume_peering
         ]
 
         # Certain fields should be provided within the metadata header;
@@ -2259,11 +2383,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_snapshot(request=request)
+                operation = await client.create_snapshot(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2406,11 +2530,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_snapshot(request=request)
+                operation = await client.delete_snapshot(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2539,11 +2663,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_snapshot(request=request)
+                operation = await client.update_snapshot(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2932,11 +3056,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_active_directory(request=request)
+                operation = await client.create_active_directory(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3090,11 +3214,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_active_directory(request=request)
+                operation = await client.update_active_directory(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3233,11 +3357,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_active_directory(request=request)
+                operation = await client.delete_active_directory(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3498,11 +3622,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_kms_config(request=request)
+                operation = await client.create_kms_config(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3549,7 +3673,7 @@ class NetAppAsyncClient:
 
                 The result type for the operation will be
                 :class:`google.cloud.netapp_v1.types.KmsConfig`
-                KmsConfig is the customer managed encryption key(CMEK)
+                KmsConfig is the customer-managed encryption key(CMEK)
                 configuration.
 
         """
@@ -3671,7 +3795,7 @@ class NetAppAsyncClient:
 
         Returns:
             google.cloud.netapp_v1.types.KmsConfig:
-                KmsConfig is the customer managed
+                KmsConfig is the customer-managed
                 encryption key(CMEK) configuration.
 
         """
@@ -3760,11 +3884,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_kms_config(request=request)
+                operation = await client.update_kms_config(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3803,7 +3927,7 @@ class NetAppAsyncClient:
 
                 The result type for the operation will be
                 :class:`google.cloud.netapp_v1.types.KmsConfig`
-                KmsConfig is the customer managed encryption key(CMEK)
+                KmsConfig is the customer-managed encryption key(CMEK)
                 configuration.
 
         """
@@ -3900,11 +4024,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.encrypt_volumes(request=request)
+                operation = await client.encrypt_volumes(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3927,7 +4051,7 @@ class NetAppAsyncClient:
 
                 The result type for the operation will be
                 :class:`google.cloud.netapp_v1.types.KmsConfig`
-                KmsConfig is the customer managed encryption key(CMEK)
+                KmsConfig is the customer-managed encryption key(CMEK)
                 configuration.
 
         """
@@ -4091,11 +4215,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_kms_config(request=request)
+                operation = await client.delete_kms_config(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4470,11 +4594,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_replication(request=request)
+                operation = await client.create_replication(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4617,11 +4741,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_replication(request=request)
+                operation = await client.delete_replication(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4755,11 +4879,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_replication(request=request)
+                operation = await client.update_replication(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4891,11 +5015,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.stop_replication(request=request)
+                operation = await client.stop_replication(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4992,11 +5116,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.resume_replication(request=request)
+                operation = await client.resume_replication(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -5096,11 +5220,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.reverse_replication_direction(request=request)
+                operation = await client.reverse_replication_direction(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -5202,11 +5326,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.establish_peering(request=request)
+                operation = await client.establish_peering(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -5305,11 +5429,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.sync_replication(request=request)
+                operation = await client.sync_replication(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -5412,11 +5536,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_backup_vault(request=request)
+                operation = await client.create_backup_vault(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -5798,11 +5922,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_backup_vault(request=request)
+                operation = await client.update_backup_vault(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -5941,11 +6065,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_backup_vault(request=request)
+                operation = await client.delete_backup_vault(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -6081,11 +6205,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_backup(request=request)
+                operation = await client.create_backup(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -6472,11 +6596,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_backup(request=request)
+                operation = await client.delete_backup(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -6604,11 +6728,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_backup(request=request)
+                operation = await client.update_backup(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -6748,11 +6872,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_backup_policy(request=request)
+                operation = await client.create_backup_policy(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -7134,11 +7258,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_backup_policy(request=request)
+                operation = await client.update_backup_policy(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -7276,11 +7400,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_backup_policy(request=request)
+                operation = await client.delete_backup_policy(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -7654,11 +7778,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_quota_rule(request=request)
+                operation = await client.create_quota_rule(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -7808,11 +7932,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_quota_rule(request=request)
+                operation = await client.update_quota_rule(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -7949,11 +8073,11 @@ class NetAppAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_quota_rule(request=request)
+                operation = await client.delete_quota_rule(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -8048,9 +8172,1130 @@ class NetAppAsyncClient:
         # Done; return the response.
         return response
 
+    async def restore_backup_files(
+        self,
+        request: Optional[Union[volume.RestoreBackupFilesRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Restore files from a backup to a volume.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import netapp_v1
+
+            async def sample_restore_backup_files():
+                # Create a client
+                client = netapp_v1.NetAppAsyncClient()
+
+                # Initialize request argument(s)
+                request = netapp_v1.RestoreBackupFilesRequest(
+                    name="name_value",
+                    backup="backup_value",
+                    file_list=['file_list_value1', 'file_list_value2'],
+                )
+
+                # Make the request
+                operation = await client.restore_backup_files(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.netapp_v1.types.RestoreBackupFilesRequest, dict]]):
+                The request object. RestoreBackupFilesRequest restores
+                files from a backup to a volume.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.netapp_v1.types.RestoreBackupFilesResponse`
+                RestoreBackupFilesResponse is the result of
+                RestoreBackupFilesRequest.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, volume.RestoreBackupFilesRequest):
+            request = volume.RestoreBackupFilesRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.restore_backup_files
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            volume.RestoreBackupFilesResponse,
+            metadata_type=cloud_netapp_service.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def list_host_groups(
+        self,
+        request: Optional[Union[host_group.ListHostGroupsRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListHostGroupsAsyncPager:
+        r"""Returns a list of host groups in a ``location``. Use ``-`` as
+        location to list host groups across all locations.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import netapp_v1
+
+            async def sample_list_host_groups():
+                # Create a client
+                client = netapp_v1.NetAppAsyncClient()
+
+                # Initialize request argument(s)
+                request = netapp_v1.ListHostGroupsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_host_groups(request=request)
+
+                # Handle the response
+                async for response in page_result:
+                    print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.netapp_v1.types.ListHostGroupsRequest, dict]]):
+                The request object. ListHostGroupsRequest for listing
+                host groups.
+            parent (:class:`str`):
+                Required. Parent value for
+                ListHostGroupsRequest
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.netapp_v1.services.net_app.pagers.ListHostGroupsAsyncPager:
+                ListHostGroupsResponse is the
+                response to a ListHostGroupsRequest.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, host_group.ListHostGroupsRequest):
+            request = host_group.ListHostGroupsRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.list_host_groups
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__aiter__` convenience method.
+        response = pagers.ListHostGroupsAsyncPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def get_host_group(
+        self,
+        request: Optional[Union[host_group.GetHostGroupRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> host_group.HostGroup:
+        r"""Returns details of the specified host group.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import netapp_v1
+
+            async def sample_get_host_group():
+                # Create a client
+                client = netapp_v1.NetAppAsyncClient()
+
+                # Initialize request argument(s)
+                request = netapp_v1.GetHostGroupRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = await client.get_host_group(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.netapp_v1.types.GetHostGroupRequest, dict]]):
+                The request object. GetHostGroupRequest for getting a
+                host group.
+            name (:class:`str`):
+                Required. The resource name of the host group. Format:
+                ``projects/{project_number}/locations/{location_id}/hostGroups/{host_group_id}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.netapp_v1.types.HostGroup:
+                Host group is a collection of hosts
+                that can be used for accessing a Block
+                Volume.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, host_group.GetHostGroupRequest):
+            request = host_group.GetHostGroupRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.get_host_group
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def create_host_group(
+        self,
+        request: Optional[Union[gcn_host_group.CreateHostGroupRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        host_group: Optional[gcn_host_group.HostGroup] = None,
+        host_group_id: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Creates a new host group.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import netapp_v1
+
+            async def sample_create_host_group():
+                # Create a client
+                client = netapp_v1.NetAppAsyncClient()
+
+                # Initialize request argument(s)
+                host_group = netapp_v1.HostGroup()
+                host_group.type_ = "ISCSI_INITIATOR"
+                host_group.hosts = ['hosts_value1', 'hosts_value2']
+                host_group.os_type = "ESXI"
+
+                request = netapp_v1.CreateHostGroupRequest(
+                    parent="parent_value",
+                    host_group=host_group,
+                    host_group_id="host_group_id_value",
+                )
+
+                # Make the request
+                operation = await client.create_host_group(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.netapp_v1.types.CreateHostGroupRequest, dict]]):
+                The request object. CreateHostGroupRequest for creating a
+                host group.
+            parent (:class:`str`):
+                Required. Parent value for
+                CreateHostGroupRequest
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            host_group (:class:`google.cloud.netapp_v1.types.HostGroup`):
+                Required. Fields of the host group to
+                create.
+
+                This corresponds to the ``host_group`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            host_group_id (:class:`str`):
+                Required. ID of the host group to
+                create. Must be unique within the parent
+                resource. Must contain only letters,
+                numbers, and hyphen, with the first
+                character a letter or underscore, the
+                last a letter or underscore or a number,
+                and a 63 character maximum.
+
+                This corresponds to the ``host_group_id`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.netapp_v1.types.HostGroup` Host group is a collection of hosts that can be used for accessing a Block
+                   Volume.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, host_group, host_group_id]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, gcn_host_group.CreateHostGroupRequest):
+            request = gcn_host_group.CreateHostGroupRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+        if host_group is not None:
+            request.host_group = host_group
+        if host_group_id is not None:
+            request.host_group_id = host_group_id
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.create_host_group
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            gcn_host_group.HostGroup,
+            metadata_type=cloud_netapp_service.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def update_host_group(
+        self,
+        request: Optional[Union[gcn_host_group.UpdateHostGroupRequest, dict]] = None,
+        *,
+        host_group: Optional[gcn_host_group.HostGroup] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Updates an existing host group.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import netapp_v1
+
+            async def sample_update_host_group():
+                # Create a client
+                client = netapp_v1.NetAppAsyncClient()
+
+                # Initialize request argument(s)
+                host_group = netapp_v1.HostGroup()
+                host_group.type_ = "ISCSI_INITIATOR"
+                host_group.hosts = ['hosts_value1', 'hosts_value2']
+                host_group.os_type = "ESXI"
+
+                request = netapp_v1.UpdateHostGroupRequest(
+                    host_group=host_group,
+                )
+
+                # Make the request
+                operation = await client.update_host_group(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.netapp_v1.types.UpdateHostGroupRequest, dict]]):
+                The request object. UpdateHostGroupRequest for updating a
+                host group.
+            host_group (:class:`google.cloud.netapp_v1.types.HostGroup`):
+                Required. The host group to update. The host group's
+                ``name`` field is used to identify the host group.
+                Format:
+                ``projects/{project_number}/locations/{location_id}/hostGroups/{host_group_id}``.
+
+                This corresponds to the ``host_group`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (:class:`google.protobuf.field_mask_pb2.FieldMask`):
+                Optional. The list of fields to
+                update.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.netapp_v1.types.HostGroup` Host group is a collection of hosts that can be used for accessing a Block
+                   Volume.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [host_group, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, gcn_host_group.UpdateHostGroupRequest):
+            request = gcn_host_group.UpdateHostGroupRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if host_group is not None:
+            request.host_group = host_group
+        if update_mask is not None:
+            request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.update_host_group
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("host_group.name", request.host_group.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            gcn_host_group.HostGroup,
+            metadata_type=cloud_netapp_service.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def delete_host_group(
+        self,
+        request: Optional[Union[host_group.DeleteHostGroupRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Deletes a host group.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import netapp_v1
+
+            async def sample_delete_host_group():
+                # Create a client
+                client = netapp_v1.NetAppAsyncClient()
+
+                # Initialize request argument(s)
+                request = netapp_v1.DeleteHostGroupRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = await client.delete_host_group(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.netapp_v1.types.DeleteHostGroupRequest, dict]]):
+                The request object. DeleteHostGroupRequest for deleting a
+                single host group.
+            name (:class:`str`):
+                Required. The resource name of the host group. Format:
+                ``projects/{project_number}/locations/{location_id}/hostGroups/{host_group_id}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, host_group.DeleteHostGroupRequest):
+            request = host_group.DeleteHostGroupRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.delete_host_group
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=cloud_netapp_service.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def execute_ontap_post(
+        self,
+        request: Optional[Union[ontap.ExecuteOntapPostRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> ontap.ExecuteOntapPostResponse:
+        r"""``ExecuteOntapPost`` dispatches the ONTAP ``POST`` request to
+        the ``StoragePool`` cluster.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import netapp_v1
+
+            async def sample_execute_ontap_post():
+                # Create a client
+                client = netapp_v1.NetAppAsyncClient()
+
+                # Initialize request argument(s)
+                request = netapp_v1.ExecuteOntapPostRequest(
+                    ontap_path="ontap_path_value",
+                )
+
+                # Make the request
+                response = await client.execute_ontap_post(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.netapp_v1.types.ExecuteOntapPostRequest, dict]]):
+                The request object. Request message for ``ExecuteOntapPost`` API.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.netapp_v1.types.ExecuteOntapPostResponse:
+                Response message for ExecuteOntapPost API.
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, ontap.ExecuteOntapPostRequest):
+            request = ontap.ExecuteOntapPostRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.execute_ontap_post
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("ontap_path", request.ontap_path),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def execute_ontap_get(
+        self,
+        request: Optional[Union[ontap.ExecuteOntapGetRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> ontap.ExecuteOntapGetResponse:
+        r"""``ExecuteOntapGet`` dispatches the ONTAP ``GET`` request to the
+        ``StoragePool`` cluster.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import netapp_v1
+
+            async def sample_execute_ontap_get():
+                # Create a client
+                client = netapp_v1.NetAppAsyncClient()
+
+                # Initialize request argument(s)
+                request = netapp_v1.ExecuteOntapGetRequest(
+                    ontap_path="ontap_path_value",
+                )
+
+                # Make the request
+                response = await client.execute_ontap_get(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.netapp_v1.types.ExecuteOntapGetRequest, dict]]):
+                The request object. Request message for ``ExecuteOntapGet`` API.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.netapp_v1.types.ExecuteOntapGetResponse:
+                Response message for ExecuteOntapGet API.
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, ontap.ExecuteOntapGetRequest):
+            request = ontap.ExecuteOntapGetRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.execute_ontap_get
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("ontap_path", request.ontap_path),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def execute_ontap_delete(
+        self,
+        request: Optional[Union[ontap.ExecuteOntapDeleteRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> ontap.ExecuteOntapDeleteResponse:
+        r"""``ExecuteOntapDelete`` dispatches the ONTAP ``DELETE`` request
+        to the ``StoragePool`` cluster.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import netapp_v1
+
+            async def sample_execute_ontap_delete():
+                # Create a client
+                client = netapp_v1.NetAppAsyncClient()
+
+                # Initialize request argument(s)
+                request = netapp_v1.ExecuteOntapDeleteRequest(
+                    ontap_path="ontap_path_value",
+                )
+
+                # Make the request
+                response = await client.execute_ontap_delete(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.netapp_v1.types.ExecuteOntapDeleteRequest, dict]]):
+                The request object. Request message for ``ExecuteOntapDelete`` API.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.netapp_v1.types.ExecuteOntapDeleteResponse:
+                Response message for ExecuteOntapDelete API.
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, ontap.ExecuteOntapDeleteRequest):
+            request = ontap.ExecuteOntapDeleteRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.execute_ontap_delete
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("ontap_path", request.ontap_path),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def execute_ontap_patch(
+        self,
+        request: Optional[Union[ontap.ExecuteOntapPatchRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> ontap.ExecuteOntapPatchResponse:
+        r"""``ExecuteOntapPatch`` dispatches the ONTAP ``PATCH`` request to
+        the ``StoragePool`` cluster.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import netapp_v1
+
+            async def sample_execute_ontap_patch():
+                # Create a client
+                client = netapp_v1.NetAppAsyncClient()
+
+                # Initialize request argument(s)
+                request = netapp_v1.ExecuteOntapPatchRequest(
+                    ontap_path="ontap_path_value",
+                )
+
+                # Make the request
+                response = await client.execute_ontap_patch(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.netapp_v1.types.ExecuteOntapPatchRequest, dict]]):
+                The request object. Request message for ``ExecuteOntapPatch`` API.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.netapp_v1.types.ExecuteOntapPatchResponse:
+                Response message for ExecuteOntapPatch API.
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, ontap.ExecuteOntapPatchRequest):
+            request = ontap.ExecuteOntapPatchRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.execute_ontap_patch
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("ontap_path", request.ontap_path),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
     async def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -8076,8 +9321,12 @@ class NetAppAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -8086,7 +9335,7 @@ class NetAppAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -8094,7 +9343,7 @@ class NetAppAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -8105,7 +9354,7 @@ class NetAppAsyncClient:
 
     async def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -8131,8 +9380,12 @@ class NetAppAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -8141,7 +9394,7 @@ class NetAppAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -8149,7 +9402,7 @@ class NetAppAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -8160,7 +9413,7 @@ class NetAppAsyncClient:
 
     async def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -8190,8 +9443,12 @@ class NetAppAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -8200,7 +9457,7 @@ class NetAppAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -8208,7 +9465,7 @@ class NetAppAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -8216,7 +9473,7 @@ class NetAppAsyncClient:
 
     async def cancel_operation(
         self,
-        request: Optional[operations_pb2.CancelOperationRequest] = None,
+        request: Optional[Union[operations_pb2.CancelOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -8245,8 +9502,12 @@ class NetAppAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.CancelOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.CancelOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.CancelOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -8255,7 +9516,7 @@ class NetAppAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -8263,7 +9524,7 @@ class NetAppAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -8271,7 +9532,7 @@ class NetAppAsyncClient:
 
     async def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -8297,8 +9558,12 @@ class NetAppAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -8307,7 +9572,7 @@ class NetAppAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -8315,7 +9580,7 @@ class NetAppAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -8326,7 +9591,7 @@ class NetAppAsyncClient:
 
     async def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -8352,8 +9617,12 @@ class NetAppAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -8362,7 +9631,7 @@ class NetAppAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -8370,7 +9639,7 @@ class NetAppAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

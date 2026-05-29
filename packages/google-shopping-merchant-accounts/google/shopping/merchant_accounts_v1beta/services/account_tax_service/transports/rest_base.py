@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 from google.api_core import gapic_v1, path_template
 from google.protobuf import json_format
 
+from google.shopping.merchant_accounts_v1beta.types import account_tax
 from google.shopping.merchant_accounts_v1beta.types import (
     account_tax as gsma_account_tax,
 )
-from google.shopping.merchant_accounts_v1beta.types import account_tax
 
 from .base import DEFAULT_CLIENT_INFO, AccountTaxServiceTransport
 

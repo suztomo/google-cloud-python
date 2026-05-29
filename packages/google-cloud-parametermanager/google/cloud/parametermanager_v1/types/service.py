@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.iam.v1 import resource_policy_member_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.iam.v1.resource_policy_member_pb2 as resource_policy_member_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -64,6 +64,7 @@ class ParameterFormat(proto.Enum):
         JSON (3):
             JSON format.
     """
+
     PARAMETER_FORMAT_UNSPECIFIED = 0
     UNFORMATTED = 1
     YAML = 2
@@ -84,6 +85,7 @@ class View(proto.Enum):
             Include metadata & other relevant payload
             data as well. This is the default view.
     """
+
     VIEW_UNSPECIFIED = 0
     BASIC = 1
     FULL = 2

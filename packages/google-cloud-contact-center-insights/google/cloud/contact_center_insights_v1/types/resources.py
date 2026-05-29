@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -103,6 +103,7 @@ class DatasetValidationWarning(proto.Enum):
             All the labels in the dataset come from a
             single answer choice.
     """
+
     DATASET_VALIDATION_WARNING_UNSPECIFIED = 0
     TOO_MANY_INVALID_FEEDBACK_LABELS = 1
     INSUFFICIENT_FEEDBACK_LABELS = 2
@@ -217,6 +218,7 @@ class Conversation(proto.Message):
                 The format for conversations that took place
                 over chat.
         """
+
         MEDIUM_UNSPECIFIED = 0
         PHONE_CALL = 1
         CHAT = 2
@@ -312,12 +314,12 @@ class Conversation(proto.Message):
             proto.STRING,
             number=3,
         )
-        agent_info: MutableSequence[
-            "Conversation.QualityMetadata.AgentInfo"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=4,
-            message="Conversation.QualityMetadata.AgentInfo",
+        agent_info: MutableSequence["Conversation.QualityMetadata.AgentInfo"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=4,
+                message="Conversation.QualityMetadata.AgentInfo",
+            )
         )
 
     class Transcript(proto.Message):
@@ -797,12 +799,12 @@ class AnalysisResult(proto.Message):
             number=8,
             message="IssueModelResult",
         )
-        qa_scorecard_results: MutableSequence[
-            "QaScorecardResult"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=10,
-            message="QaScorecardResult",
+        qa_scorecard_results: MutableSequence["QaScorecardResult"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=10,
+                message="QaScorecardResult",
+            )
         )
 
     call_analysis_metadata: CallAnalysisMetadata = proto.Field(
@@ -1185,37 +1187,37 @@ class Entity(proto.Message):
                 local convention), plus whichever additional elements appear
                 in the text:
 
-                -  ``number`` - The actual number, broken down into sections
-                   according to local convention.
-                -  ``national_prefix`` - Country code, if detected.
-                -  ``area_code`` - Region or area code, if detected.
-                -  ``extension`` - Phone extension (to be dialed after
-                   connection), if detected.
+                - ``number`` - The actual number, broken down into sections
+                  according to local convention.
+                - ``national_prefix`` - Country code, if detected.
+                - ``area_code`` - Region or area code, if detected.
+                - ``extension`` - Phone extension (to be dialed after
+                  connection), if detected.
             ADDRESS (10):
                 Address.
 
                 The metadata identifies the street number and locality plus
                 whichever additional elements appear in the text:
 
-                -  ``street_number`` - Street number.
-                -  ``locality`` - City or town.
-                -  ``street_name`` - Street/route name, if detected.
-                -  ``postal_code`` - Postal code, if detected.
-                -  ``country`` - Country, if detected.
-                -  ``broad_region`` - Administrative area, such as the
-                   state, if detected.
-                -  ``narrow_region`` - Smaller administrative area, such as
-                   county, if detected.
-                -  ``sublocality`` - Used in Asian addresses to demark a
-                   district within a city, if detected.
+                - ``street_number`` - Street number.
+                - ``locality`` - City or town.
+                - ``street_name`` - Street/route name, if detected.
+                - ``postal_code`` - Postal code, if detected.
+                - ``country`` - Country, if detected.
+                - ``broad_region`` - Administrative area, such as the state,
+                  if detected.
+                - ``narrow_region`` - Smaller administrative area, such as
+                  county, if detected.
+                - ``sublocality`` - Used in Asian addresses to demark a
+                  district within a city, if detected.
             DATE (11):
                 Date.
 
                 The metadata identifies the components of the date:
 
-                -  ``year`` - Four digit year, if detected.
-                -  ``month`` - Two digit month number, if detected.
-                -  ``day`` - Two digit day number, if detected.
+                - ``year`` - Four digit year, if detected.
+                - ``month`` - Two digit month number, if detected.
+                - ``day`` - Two digit day number, if detected.
             NUMBER (12):
                 Number.
 
@@ -1225,6 +1227,7 @@ class Entity(proto.Message):
 
                 The metadata identifies the ``value`` and ``currency``.
         """
+
         TYPE_UNSPECIFIED = 0
         PERSON = 1
         LOCATION = 2
@@ -1363,6 +1366,7 @@ class EntityMentionData(proto.Message):
             COMMON (2):
                 Common noun (or noun compound).
         """
+
         MENTION_TYPE_UNSPECIFIED = 0
         PROPER = 1
         COMMON = 2
@@ -1491,6 +1495,7 @@ class IssueModel(proto.Message):
             DELETING (5):
                 Model is being deleted.
         """
+
         STATE_UNSPECIFIED = 0
         UNDEPLOYED = 1
         DEPLOYING = 2
@@ -1509,6 +1514,7 @@ class IssueModel(proto.Message):
             TYPE_V2 (2):
                 Type V2.
         """
+
         MODEL_TYPE_UNSPECIFIED = 0
         TYPE_V1 = 1
         TYPE_V2 = 2
@@ -1759,6 +1765,7 @@ class PhraseMatcher(proto.Message):
                 If any of the phrase match rule groups are
                 met, there is a match.
         """
+
         PHRASE_MATCHER_TYPE_UNSPECIFIED = 0
         ALL_OF = 1
         ANY_OF = 2
@@ -1793,12 +1800,12 @@ class PhraseMatcher(proto.Message):
         proto.BOOL,
         number=7,
     )
-    phrase_match_rule_groups: MutableSequence[
-        "PhraseMatchRuleGroup"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=8,
-        message="PhraseMatchRuleGroup",
+    phrase_match_rule_groups: MutableSequence["PhraseMatchRuleGroup"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=8,
+            message="PhraseMatchRuleGroup",
+        )
     )
     activation_update_time: timestamp_pb2.Timestamp = proto.Field(
         proto.MESSAGE,
@@ -1843,6 +1850,7 @@ class PhraseMatchRuleGroup(proto.Message):
                 If any of the phrase match rules are met,
                 there is a match.
         """
+
         PHRASE_MATCH_RULE_GROUP_TYPE_UNSPECIFIED = 0
         ALL_OF = 1
         ANY_OF = 2
@@ -1964,20 +1972,20 @@ class Settings(proto.Message):
 
             Keys are notification triggers. Supported keys are:
 
-            -  "all-triggers": Notify each time any of the supported
-               triggers occurs.
-            -  "create-analysis": Notify each time an analysis is
-               created.
-            -  "create-conversation": Notify each time a conversation is
-               created.
-            -  "export-insights-data": Notify each time an export is
-               complete.
-            -  "ingest-conversations": Notify each time an
-               IngestConversations LRO is complete.
-            -  "update-conversation": Notify each time a conversation is
-               updated via UpdateConversation.
-            -  "upload-conversation": Notify when an UploadConversation
-               LRO is complete.
+            - "all-triggers": Notify each time any of the supported
+              triggers occurs.
+            - "create-analysis": Notify each time an analysis is
+              created.
+            - "create-conversation": Notify each time a conversation is
+              created.
+            - "export-insights-data": Notify each time an export is
+              complete.
+            - "ingest-conversations": Notify each time an
+              IngestConversations LRO is complete.
+            - "update-conversation": Notify each time a conversation is
+              updated via UpdateConversation.
+            - "upload-conversation": Notify when an UploadConversation
+              LRO is complete.
 
             Values are Pub/Sub topics. The format of each Pub/Sub topic
             is: projects/{project}/topics/{topic}
@@ -2319,6 +2327,7 @@ class RuntimeAnnotation(proto.Message):
                     suggestions, e.g. from a preceding
                     SuggestKnowledgeAssist response.
             """
+
             QUERY_SOURCE_UNSPECIFIED = 0
             AGENT_QUERY = 1
             SUGGESTED_QUERY = 2
@@ -2435,6 +2444,7 @@ class AnswerFeedback(proto.Message):
             FULLY_CORRECT (3):
                 Answer is fully correct.
         """
+
         CORRECTNESS_LEVEL_UNSPECIFIED = 0
         NOT_CORRECT = 1
         PARTIALLY_CORRECT = 2
@@ -2764,6 +2774,7 @@ class ConversationParticipant(proto.Message):
                 Participant is either a human or automated
                 agent.
         """
+
         ROLE_UNSPECIFIED = 0
         HUMAN_AGENT = 1
         AUTOMATED_AGENT = 2
@@ -2922,6 +2933,7 @@ class AnnotatorSelector(proto.Message):
                 BASELINE_MODEL_V2_0 (2):
                     The CCAI baseline model, V2.0.
             """
+
             SUMMARIZATION_MODEL_UNSPECIFIED = 0
             BASELINE_MODEL = 1
             BASELINE_MODEL_V2_0 = 2
@@ -3180,12 +3192,12 @@ class QaQuestion(proto.Message):
             proto.INT64,
             number=1,
         )
-        dataset_validation_warnings: MutableSequence[
-            "DatasetValidationWarning"
-        ] = proto.RepeatedField(
-            proto.ENUM,
-            number=2,
-            enum="DatasetValidationWarning",
+        dataset_validation_warnings: MutableSequence["DatasetValidationWarning"] = (
+            proto.RepeatedField(
+                proto.ENUM,
+                number=2,
+                enum="DatasetValidationWarning",
+            )
         )
         tuning_error: str = proto.Field(
             proto.STRING,
@@ -3338,6 +3350,7 @@ class QaScorecardRevision(proto.Message):
                 Scorecard model training was explicitly
                 cancelled by the user.
         """
+
         STATE_UNSPECIFIED = 0
         EDITABLE = 12
         TRAINING = 2
@@ -3511,6 +3524,7 @@ class QaAnswer(proto.Message):
                     Answer was created by a human via manual
                     edit.
             """
+
             SOURCE_TYPE_UNSPECIFIED = 0
             SYSTEM_GENERATED = 1
             MANUAL_EDIT = 2
@@ -3688,6 +3702,7 @@ class QaScorecardResult(proto.Message):
                     answers, and includes any manual edits if they
                     exist.
             """
+
             SOURCE_TYPE_UNSPECIFIED = 0
             SYSTEM_GENERATED_ONLY = 1
             INCLUDES_MANUAL_EDITS = 2
@@ -3712,12 +3727,12 @@ class QaScorecardResult(proto.Message):
             number=4,
             optional=True,
         )
-        qa_tag_results: MutableSequence[
-            "QaScorecardResult.QaTagResult"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=5,
-            message="QaScorecardResult.QaTagResult",
+        qa_tag_results: MutableSequence["QaScorecardResult.QaTagResult"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=5,
+                message="QaScorecardResult.QaTagResult",
+            )
         )
 
     name: str = proto.Field(

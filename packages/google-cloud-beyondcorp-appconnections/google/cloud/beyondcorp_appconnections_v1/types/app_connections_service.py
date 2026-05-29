@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -149,10 +149,10 @@ class CreateAppConnectionRequest(proto.Message):
         app_connection_id (str):
             Optional. User-settable AppConnection resource ID.
 
-            -  Must start with a letter.
-            -  Must contain between 4-63 characters from
-               ``/[a-z][0-9]-/``.
-            -  Must end with a number or a letter.
+            - Must start with a letter.
+            - Must contain between 4-63 characters from
+              ``/[a-z][0-9]-/``.
+            - Must end with a number or a letter.
         app_connection (google.cloud.beyondcorp_appconnections_v1.types.AppConnection):
             Required. A BeyondCorp AppConnection
             resource.
@@ -215,10 +215,10 @@ class UpdateAppConnectionRequest(proto.Message):
             paths field may only include these fields from
             [BeyondCorp.AppConnection]:
 
-            -  ``labels``
-            -  ``display_name``
-            -  ``application_endpoint``
-            -  ``connectors``
+            - ``labels``
+            - ``display_name``
+            - ``application_endpoint``
+            - ``connectors``
         app_connection (google.cloud.beyondcorp_appconnections_v1.types.AppConnection):
             Required. AppConnection message with updated fields. Only
             supported fields specified in update_mask are updated.
@@ -477,6 +477,7 @@ class AppConnection(proto.Message):
                 TCP Proxy based BeyondCorp AppConnection. API
                 will default to this if unset.
         """
+
         TYPE_UNSPECIFIED = 0
         TCP_PROXY = 1
 
@@ -500,6 +501,7 @@ class AppConnection(proto.Message):
                 the future. This happens when CCFE sends
                 ProjectState = OFF.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         CREATED = 2
@@ -558,6 +560,7 @@ class AppConnection(proto.Message):
                     Gateway hosted in a GCP regional managed
                     instance group.
             """
+
             TYPE_UNSPECIFIED = 0
             GCP_REGIONAL_MIG = 1
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -53,6 +53,7 @@ class Hash(proto.Message):
             MD5 (2):
                 MD5 hash.
         """
+
         HASH_TYPE_UNSPECIFIED = 0
         SHA256 = 1
         MD5 = 2
@@ -134,16 +135,16 @@ class ListFilesRequest(proto.Message):
             Filter rules are case insensitive. The fields eligible for
             filtering are:
 
-            -  ``name``
-            -  ``owner``
+            - ``name``
+            - ``owner``
 
             An example of using a filter:
 
-            -  ``name="projects/p1/locations/us-central1/repositories/repo1/files/a/b/*"``
-               --> Files with an ID starting with "a/b/".
-            -  ``owner="projects/p1/locations/us-central1/repositories/repo1/packages/pkg1/versions/1.0"``
-               --> Files owned by the version ``1.0`` in package
-               ``pkg1``.
+            - ``name="projects/p1/locations/us-central1/repositories/repo1/files/a/b/*"``
+              --> Files with an ID starting with "a/b/".
+            - ``owner="projects/p1/locations/us-central1/repositories/repo1/packages/pkg1/versions/1.0"``
+              --> Files owned by the version ``1.0`` in package
+              ``pkg1``.
         page_size (int):
             The maximum number of files to return.
         page_token (str):

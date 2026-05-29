@@ -4,6 +4,94 @@
 
 [1]: https://pypi.org/project/google-cloud-dialogflow/#history
 
+## [2.47.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-v2.46.0...google-cloud-dialogflow-v2.47.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [2.46.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-v2.45.0...google-cloud-dialogflow-v2.46.0) (2026-02-12)
+
+
+### Features
+
+* added a new field StreamingAnalyzeContentRequest.output_multiple_utterances ([a6b40b3154a526d35267abafde4c64aa86bcc27c](https://github.com/googleapis/google-cloud-python/commit/a6b40b3154a526d35267abafde4c64aa86bcc27c))
+
+## [2.45.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-v2.44.0...google-cloud-dialogflow-v2.45.0) (2026-01-08)
+
+
+### Features
+
+* updated v2beta1 dialogflow client libraries ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+* updated v2 dialogflow client libraries ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [2.44.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-v2.43.0...google-cloud-dialogflow-v2.44.0) (2025-12-04)
+
+
+### Documentation
+
+* Add further clarification for when the event Type CONVERSATION_FINISHED is fired ([03e69912a61695deefca6ffaae1add8119f026e4](https://github.com/googleapis/google-cloud-python/commit/03e69912a61695deefca6ffaae1add8119f026e4))
+* Update evaluator version from output only to optional. ([03e69912a61695deefca6ffaae1add8119f026e4](https://github.com/googleapis/google-cloud-python/commit/03e69912a61695deefca6ffaae1add8119f026e4))
+
+
+### Features
+
+* add agentDesktopSource field to the Participant object ([03e69912a61695deefca6ffaae1add8119f026e4](https://github.com/googleapis/google-cloud-python/commit/03e69912a61695deefca6ffaae1add8119f026e4))
+
+## [2.43.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-v2.42.0...google-cloud-dialogflow-v2.43.0) (2025-10-28)
+
+
+### Documentation
+
+* minor formatting  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+* Updated comments for the `SuggestionInput` message, documenting how it is used with tools  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+* update documentation for transcription language code configuration  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+
+
+### Features
+
+* Improved generator quota management  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+* Added tool support for AI Coach feature  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+* Expose debug info field in ConversationProfile  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+* Expose skip_empty_event_based_suggestion in ConversationProfile  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+* Added support for Build Your Own Assist feature  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+* Added support for AI Coach feature  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+* Context references added to conversation for dynamic data ingestion  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+* A new field &#39;security_settings&#39; is added to GenerateStatelessSuggestionRequest  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+* Added Vertex extension tool support to v2/v2beta1  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+* add a turn complete signal to BidiStreamingAnalyzeContent  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+* Expose flexible safety filter change, rai_settings in ConversationProfile  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+* add Agent Assist Generator Evaluation feature  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+
+## [2.42.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-v2.41.2...google-cloud-dialogflow-v2.42.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [2.41.2](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-v2.41.1...google-cloud-dialogflow-v2.41.2) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([3d5bc37](https://github.com/googleapis/google-cloud-python/commit/3d5bc3782da6b37742ae83802de8a8b6db96fe29))
+
 ## [2.41.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-v2.41.0...google-cloud-dialogflow-v2.41.1) (2025-03-15)
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,17 +39,17 @@ async def sample_update_cdn_key():
     client = stitcher_v1.VideoStitcherServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = stitcher_v1.UpdateCdnKeyRequest(
-    )
+    request = stitcher_v1.UpdateCdnKeyRequest()
 
     # Make the request
-    operation = client.update_cdn_key(request=request)
+    operation = await client.update_cdn_key(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END videostitcher_v1_generated_VideoStitcherService_UpdateCdnKey_async]

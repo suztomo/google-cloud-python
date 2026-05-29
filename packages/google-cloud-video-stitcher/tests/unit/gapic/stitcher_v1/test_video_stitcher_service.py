@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,24 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
-from google.api_core import api_core_version
 import grpc
+import pytest
+from google.api_core import api_core_version
+from google.protobuf import json_format
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
+from requests import PreparedRequest, Request, Response
+from requests.sessions import Session
 
 try:
     from google.auth.aio import credentials as ga_credentials_async
@@ -39,7 +38,13 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -48,18 +53,12 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
 
 from google.cloud.video.stitcher_v1.services.video_stitcher_service import (
     VideoStitcherServiceAsyncClient,
@@ -129,12 +128,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert VideoStitcherServiceClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -156,6 +171,10 @@ def test__get_default_mtls_endpoint():
     assert (
         VideoStitcherServiceClient._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
+    )
+    assert (
+        VideoStitcherServiceClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -183,12 +202,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            VideoStitcherServiceClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                VideoStitcherServiceClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert VideoStitcherServiceClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert VideoStitcherServiceClient._read_environment_variables() == (
@@ -225,6 +251,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert VideoStitcherServiceClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert VideoStitcherServiceClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert VideoStitcherServiceClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert VideoStitcherServiceClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert VideoStitcherServiceClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert VideoStitcherServiceClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert VideoStitcherServiceClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert VideoStitcherServiceClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert VideoStitcherServiceClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                VideoStitcherServiceClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert VideoStitcherServiceClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert VideoStitcherServiceClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -409,6 +534,7 @@ def test__add_cred_info_for_auth_errors_no_get_cred_info(error_code):
     [
         (VideoStitcherServiceClient, "grpc"),
         (VideoStitcherServiceAsyncClient, "grpc_asyncio"),
+        (VideoStitcherServiceClient, "rest"),
     ],
 )
 def test_video_stitcher_service_client_from_service_account_info(
@@ -424,7 +550,11 @@ def test_video_stitcher_service_client_from_service_account_info(
         assert client.transport._credentials == creds
         assert isinstance(client, client_class)
 
-        assert client.transport._host == ("videostitcher.googleapis.com:443")
+        assert client.transport._host == (
+            "videostitcher.googleapis.com:443"
+            if transport_name in ["grpc", "grpc_asyncio"]
+            else "https://videostitcher.googleapis.com"
+        )
 
 
 @pytest.mark.parametrize(
@@ -432,6 +562,7 @@ def test_video_stitcher_service_client_from_service_account_info(
     [
         (transports.VideoStitcherServiceGrpcTransport, "grpc"),
         (transports.VideoStitcherServiceGrpcAsyncIOTransport, "grpc_asyncio"),
+        (transports.VideoStitcherServiceRestTransport, "rest"),
     ],
 )
 def test_video_stitcher_service_client_service_account_always_use_jwt(
@@ -457,6 +588,7 @@ def test_video_stitcher_service_client_service_account_always_use_jwt(
     [
         (VideoStitcherServiceClient, "grpc"),
         (VideoStitcherServiceAsyncClient, "grpc_asyncio"),
+        (VideoStitcherServiceClient, "rest"),
     ],
 )
 def test_video_stitcher_service_client_from_service_account_file(
@@ -479,13 +611,18 @@ def test_video_stitcher_service_client_from_service_account_file(
         assert client.transport._credentials == creds
         assert isinstance(client, client_class)
 
-        assert client.transport._host == ("videostitcher.googleapis.com:443")
+        assert client.transport._host == (
+            "videostitcher.googleapis.com:443"
+            if transport_name in ["grpc", "grpc_asyncio"]
+            else "https://videostitcher.googleapis.com"
+        )
 
 
 def test_video_stitcher_service_client_get_transport_class():
     transport = VideoStitcherServiceClient.get_transport_class()
     available_transports = [
         transports.VideoStitcherServiceGrpcTransport,
+        transports.VideoStitcherServiceRestTransport,
     ]
     assert transport in available_transports
 
@@ -505,6 +642,11 @@ def test_video_stitcher_service_client_get_transport_class():
             VideoStitcherServiceAsyncClient,
             transports.VideoStitcherServiceGrpcAsyncIOTransport,
             "grpc_asyncio",
+        ),
+        (
+            VideoStitcherServiceClient,
+            transports.VideoStitcherServiceRestTransport,
+            "rest",
         ),
     ],
 )
@@ -597,17 +739,6 @@ def test_video_stitcher_service_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -673,6 +804,18 @@ def test_video_stitcher_service_client_client_options(
             VideoStitcherServiceAsyncClient,
             transports.VideoStitcherServiceGrpcAsyncIOTransport,
             "grpc_asyncio",
+            "false",
+        ),
+        (
+            VideoStitcherServiceClient,
+            transports.VideoStitcherServiceRestTransport,
+            "rest",
+            "true",
+        ),
+        (
+            VideoStitcherServiceClient,
+            transports.VideoStitcherServiceRestTransport,
+            "rest",
             "false",
         ),
     ],
@@ -831,6 +974,117 @@ def test_video_stitcher_service_client_get_mtls_endpoint_and_cert_source(client_
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -863,10 +1117,9 @@ def test_video_stitcher_service_client_get_mtls_endpoint_and_cert_source(client_
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -879,18 +1132,6 @@ def test_video_stitcher_service_client_get_mtls_endpoint_and_cert_source(client_
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -993,6 +1234,11 @@ def test_video_stitcher_service_client_client_api_endpoint(client_class):
             transports.VideoStitcherServiceGrpcAsyncIOTransport,
             "grpc_asyncio",
         ),
+        (
+            VideoStitcherServiceClient,
+            transports.VideoStitcherServiceRestTransport,
+            "rest",
+        ),
     ],
 )
 def test_video_stitcher_service_client_client_options_scopes(
@@ -1034,6 +1280,12 @@ def test_video_stitcher_service_client_client_options_scopes(
             transports.VideoStitcherServiceGrpcAsyncIOTransport,
             "grpc_asyncio",
             grpc_helpers_async,
+        ),
+        (
+            VideoStitcherServiceClient,
+            transports.VideoStitcherServiceRestTransport,
+            "rest",
+            None,
         ),
     ],
 )
@@ -1123,13 +1375,13 @@ def test_video_stitcher_service_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1154,8 +1406,8 @@ def test_video_stitcher_service_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.CreateCdnKeyRequest,
-        dict,
+        video_stitcher_service.CreateCdnKeyRequest(),
+        {},
     ],
 )
 def test_create_cdn_key(request_type, transport: str = "grpc"):
@@ -1166,7 +1418,7 @@ def test_create_cdn_key(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_cdn_key), "__call__") as call:
@@ -1208,10 +1460,11 @@ def test_create_cdn_key_non_empty_request_with_auto_populated_field():
         client.create_cdn_key(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.CreateCdnKeyRequest(
+        request_msg = video_stitcher_service.CreateCdnKeyRequest(
             parent="parent_value",
             cdn_key_id="cdn_key_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_cdn_key_use_cached_wrapped_rpc():
@@ -1302,10 +1555,14 @@ async def test_create_cdn_key_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_cdn_key_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.CreateCdnKeyRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.CreateCdnKeyRequest(),
+        {},
+    ],
+)
+async def test_create_cdn_key_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1313,7 +1570,7 @@ async def test_create_cdn_key_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_cdn_key), "__call__") as call:
@@ -1331,11 +1588,6 @@ async def test_create_cdn_key_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_cdn_key_async_from_dict():
-    await test_create_cdn_key_async(request_type=dict)
 
 
 def test_create_cdn_key_field_headers():
@@ -1516,8 +1768,8 @@ async def test_create_cdn_key_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.ListCdnKeysRequest,
-        dict,
+        video_stitcher_service.ListCdnKeysRequest(),
+        {},
     ],
 )
 def test_list_cdn_keys(request_type, transport: str = "grpc"):
@@ -1528,7 +1780,7 @@ def test_list_cdn_keys(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_cdn_keys), "__call__") as call:
@@ -1577,12 +1829,13 @@ def test_list_cdn_keys_non_empty_request_with_auto_populated_field():
         client.list_cdn_keys(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.ListCdnKeysRequest(
+        request_msg = video_stitcher_service.ListCdnKeysRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_cdn_keys_use_cached_wrapped_rpc():
@@ -1663,10 +1916,14 @@ async def test_list_cdn_keys_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_cdn_keys_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.ListCdnKeysRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.ListCdnKeysRequest(),
+        {},
+    ],
+)
+async def test_list_cdn_keys_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1674,7 +1931,7 @@ async def test_list_cdn_keys_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_cdn_keys), "__call__") as call:
@@ -1697,11 +1954,6 @@ async def test_list_cdn_keys_async(
     assert isinstance(response, pagers.ListCdnKeysAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_cdn_keys_async_from_dict():
-    await test_list_cdn_keys_async(request_type=dict)
 
 
 def test_list_cdn_keys_field_headers():
@@ -2031,11 +2283,7 @@ async def test_list_cdn_keys_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_cdn_keys(request={})
-        ).pages:
+        async for page_ in (await client.list_cdn_keys(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -2044,8 +2292,8 @@ async def test_list_cdn_keys_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.GetCdnKeyRequest,
-        dict,
+        video_stitcher_service.GetCdnKeyRequest(),
+        {},
     ],
 )
 def test_get_cdn_key(request_type, transport: str = "grpc"):
@@ -2056,7 +2304,7 @@ def test_get_cdn_key(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_cdn_key), "__call__") as call:
@@ -2102,9 +2350,10 @@ def test_get_cdn_key_non_empty_request_with_auto_populated_field():
         client.get_cdn_key(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.GetCdnKeyRequest(
+        request_msg = video_stitcher_service.GetCdnKeyRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_cdn_key_use_cached_wrapped_rpc():
@@ -2185,10 +2434,14 @@ async def test_get_cdn_key_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_cdn_key_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.GetCdnKeyRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetCdnKeyRequest(),
+        {},
+    ],
+)
+async def test_get_cdn_key_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2196,7 +2449,7 @@ async def test_get_cdn_key_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_cdn_key), "__call__") as call:
@@ -2219,11 +2472,6 @@ async def test_get_cdn_key_async(
     assert isinstance(response, cdn_keys.CdnKey)
     assert response.name == "name_value"
     assert response.hostname == "hostname_value"
-
-
-@pytest.mark.asyncio
-async def test_get_cdn_key_async_from_dict():
-    await test_get_cdn_key_async(request_type=dict)
 
 
 def test_get_cdn_key_field_headers():
@@ -2368,8 +2616,8 @@ async def test_get_cdn_key_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.DeleteCdnKeyRequest,
-        dict,
+        video_stitcher_service.DeleteCdnKeyRequest(),
+        {},
     ],
 )
 def test_delete_cdn_key(request_type, transport: str = "grpc"):
@@ -2380,7 +2628,7 @@ def test_delete_cdn_key(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_cdn_key), "__call__") as call:
@@ -2421,9 +2669,10 @@ def test_delete_cdn_key_non_empty_request_with_auto_populated_field():
         client.delete_cdn_key(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.DeleteCdnKeyRequest(
+        request_msg = video_stitcher_service.DeleteCdnKeyRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_cdn_key_use_cached_wrapped_rpc():
@@ -2514,10 +2763,14 @@ async def test_delete_cdn_key_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_cdn_key_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.DeleteCdnKeyRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.DeleteCdnKeyRequest(),
+        {},
+    ],
+)
+async def test_delete_cdn_key_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2525,7 +2778,7 @@ async def test_delete_cdn_key_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_cdn_key), "__call__") as call:
@@ -2543,11 +2796,6 @@ async def test_delete_cdn_key_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_cdn_key_async_from_dict():
-    await test_delete_cdn_key_async(request_type=dict)
 
 
 def test_delete_cdn_key_field_headers():
@@ -2696,8 +2944,8 @@ async def test_delete_cdn_key_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.UpdateCdnKeyRequest,
-        dict,
+        video_stitcher_service.UpdateCdnKeyRequest(),
+        {},
     ],
 )
 def test_update_cdn_key(request_type, transport: str = "grpc"):
@@ -2708,7 +2956,7 @@ def test_update_cdn_key(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_cdn_key), "__call__") as call:
@@ -2747,7 +2995,8 @@ def test_update_cdn_key_non_empty_request_with_auto_populated_field():
         client.update_cdn_key(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.UpdateCdnKeyRequest()
+        request_msg = video_stitcher_service.UpdateCdnKeyRequest()
+        assert args[0] == request_msg
 
 
 def test_update_cdn_key_use_cached_wrapped_rpc():
@@ -2838,10 +3087,14 @@ async def test_update_cdn_key_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_cdn_key_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.UpdateCdnKeyRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.UpdateCdnKeyRequest(),
+        {},
+    ],
+)
+async def test_update_cdn_key_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2849,7 +3102,7 @@ async def test_update_cdn_key_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_cdn_key), "__call__") as call:
@@ -2867,11 +3120,6 @@ async def test_update_cdn_key_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_cdn_key_async_from_dict():
-    await test_update_cdn_key_async(request_type=dict)
 
 
 def test_update_cdn_key_field_headers():
@@ -3042,8 +3290,8 @@ async def test_update_cdn_key_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.CreateVodSessionRequest,
-        dict,
+        video_stitcher_service.CreateVodSessionRequest(),
+        {},
     ],
 )
 def test_create_vod_session(request_type, transport: str = "grpc"):
@@ -3054,7 +3302,7 @@ def test_create_vod_session(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3114,9 +3362,10 @@ def test_create_vod_session_non_empty_request_with_auto_populated_field():
         client.create_vod_session(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.CreateVodSessionRequest(
+        request_msg = video_stitcher_service.CreateVodSessionRequest(
             parent="parent_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_vod_session_use_cached_wrapped_rpc():
@@ -3142,9 +3391,9 @@ def test_create_vod_session_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_vod_session
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_vod_session] = (
+            mock_rpc
+        )
         request = {}
         client.create_vod_session(request)
 
@@ -3201,10 +3450,14 @@ async def test_create_vod_session_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_vod_session_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.CreateVodSessionRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.CreateVodSessionRequest(),
+        {},
+    ],
+)
+async def test_create_vod_session_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3212,7 +3465,7 @@ async def test_create_vod_session_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3247,11 +3500,6 @@ async def test_create_vod_session_async(
     assert response.asset_id == "asset_id_value"
     assert response.ad_tracking == live_configs.AdTracking.CLIENT
     assert response.vod_config == "vod_config_value"
-
-
-@pytest.mark.asyncio
-async def test_create_vod_session_async_from_dict():
-    await test_create_vod_session_async(request_type=dict)
 
 
 def test_create_vod_session_field_headers():
@@ -3414,8 +3662,8 @@ async def test_create_vod_session_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.GetVodSessionRequest,
-        dict,
+        video_stitcher_service.GetVodSessionRequest(),
+        {},
     ],
 )
 def test_get_vod_session(request_type, transport: str = "grpc"):
@@ -3426,7 +3674,7 @@ def test_get_vod_session(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_vod_session), "__call__") as call:
@@ -3482,9 +3730,10 @@ def test_get_vod_session_non_empty_request_with_auto_populated_field():
         client.get_vod_session(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.GetVodSessionRequest(
+        request_msg = video_stitcher_service.GetVodSessionRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_vod_session_use_cached_wrapped_rpc():
@@ -3565,10 +3814,14 @@ async def test_get_vod_session_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_vod_session_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.GetVodSessionRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetVodSessionRequest(),
+        {},
+    ],
+)
+async def test_get_vod_session_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3576,7 +3829,7 @@ async def test_get_vod_session_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_vod_session), "__call__") as call:
@@ -3609,11 +3862,6 @@ async def test_get_vod_session_async(
     assert response.asset_id == "asset_id_value"
     assert response.ad_tracking == live_configs.AdTracking.CLIENT
     assert response.vod_config == "vod_config_value"
-
-
-@pytest.mark.asyncio
-async def test_get_vod_session_async_from_dict():
-    await test_get_vod_session_async(request_type=dict)
 
 
 def test_get_vod_session_field_headers():
@@ -3758,8 +4006,8 @@ async def test_get_vod_session_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.ListVodStitchDetailsRequest,
-        dict,
+        video_stitcher_service.ListVodStitchDetailsRequest(),
+        {},
     ],
 )
 def test_list_vod_stitch_details(request_type, transport: str = "grpc"):
@@ -3770,7 +4018,7 @@ def test_list_vod_stitch_details(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3819,10 +4067,11 @@ def test_list_vod_stitch_details_non_empty_request_with_auto_populated_field():
         client.list_vod_stitch_details(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.ListVodStitchDetailsRequest(
+        request_msg = video_stitcher_service.ListVodStitchDetailsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_vod_stitch_details_use_cached_wrapped_rpc():
@@ -3908,9 +4157,15 @@ async def test_list_vod_stitch_details_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.ListVodStitchDetailsRequest(),
+        {},
+    ],
+)
 async def test_list_vod_stitch_details_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.ListVodStitchDetailsRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -3919,7 +4174,7 @@ async def test_list_vod_stitch_details_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3942,11 +4197,6 @@ async def test_list_vod_stitch_details_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListVodStitchDetailsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_vod_stitch_details_async_from_dict():
-    await test_list_vod_stitch_details_async(request_type=dict)
 
 
 def test_list_vod_stitch_details_field_headers():
@@ -4292,11 +4542,7 @@ async def test_list_vod_stitch_details_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_vod_stitch_details(request={})
-        ).pages:
+        async for page_ in (await client.list_vod_stitch_details(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -4305,8 +4551,8 @@ async def test_list_vod_stitch_details_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.GetVodStitchDetailRequest,
-        dict,
+        video_stitcher_service.GetVodStitchDetailRequest(),
+        {},
     ],
 )
 def test_get_vod_stitch_detail(request_type, transport: str = "grpc"):
@@ -4317,7 +4563,7 @@ def test_get_vod_stitch_detail(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4365,9 +4611,10 @@ def test_get_vod_stitch_detail_non_empty_request_with_auto_populated_field():
         client.get_vod_stitch_detail(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.GetVodStitchDetailRequest(
+        request_msg = video_stitcher_service.GetVodStitchDetailRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_vod_stitch_detail_use_cached_wrapped_rpc():
@@ -4394,9 +4641,9 @@ def test_get_vod_stitch_detail_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_vod_stitch_detail
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_vod_stitch_detail] = (
+            mock_rpc
+        )
         request = {}
         client.get_vod_stitch_detail(request)
 
@@ -4453,9 +4700,15 @@ async def test_get_vod_stitch_detail_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetVodStitchDetailRequest(),
+        {},
+    ],
+)
 async def test_get_vod_stitch_detail_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.GetVodStitchDetailRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -4464,7 +4717,7 @@ async def test_get_vod_stitch_detail_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4487,11 +4740,6 @@ async def test_get_vod_stitch_detail_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, stitch_details.VodStitchDetail)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_vod_stitch_detail_async_from_dict():
-    await test_get_vod_stitch_detail_async(request_type=dict)
 
 
 def test_get_vod_stitch_detail_field_headers():
@@ -4648,8 +4896,8 @@ async def test_get_vod_stitch_detail_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.ListVodAdTagDetailsRequest,
-        dict,
+        video_stitcher_service.ListVodAdTagDetailsRequest(),
+        {},
     ],
 )
 def test_list_vod_ad_tag_details(request_type, transport: str = "grpc"):
@@ -4660,7 +4908,7 @@ def test_list_vod_ad_tag_details(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4709,10 +4957,11 @@ def test_list_vod_ad_tag_details_non_empty_request_with_auto_populated_field():
         client.list_vod_ad_tag_details(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.ListVodAdTagDetailsRequest(
+        request_msg = video_stitcher_service.ListVodAdTagDetailsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_vod_ad_tag_details_use_cached_wrapped_rpc():
@@ -4798,9 +5047,15 @@ async def test_list_vod_ad_tag_details_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.ListVodAdTagDetailsRequest(),
+        {},
+    ],
+)
 async def test_list_vod_ad_tag_details_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.ListVodAdTagDetailsRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -4809,7 +5064,7 @@ async def test_list_vod_ad_tag_details_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4832,11 +5087,6 @@ async def test_list_vod_ad_tag_details_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListVodAdTagDetailsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_vod_ad_tag_details_async_from_dict():
-    await test_list_vod_ad_tag_details_async(request_type=dict)
 
 
 def test_list_vod_ad_tag_details_field_headers():
@@ -5182,11 +5432,7 @@ async def test_list_vod_ad_tag_details_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_vod_ad_tag_details(request={})
-        ).pages:
+        async for page_ in (await client.list_vod_ad_tag_details(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -5195,8 +5441,8 @@ async def test_list_vod_ad_tag_details_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.GetVodAdTagDetailRequest,
-        dict,
+        video_stitcher_service.GetVodAdTagDetailRequest(),
+        {},
     ],
 )
 def test_get_vod_ad_tag_detail(request_type, transport: str = "grpc"):
@@ -5207,7 +5453,7 @@ def test_get_vod_ad_tag_detail(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5255,9 +5501,10 @@ def test_get_vod_ad_tag_detail_non_empty_request_with_auto_populated_field():
         client.get_vod_ad_tag_detail(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.GetVodAdTagDetailRequest(
+        request_msg = video_stitcher_service.GetVodAdTagDetailRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_vod_ad_tag_detail_use_cached_wrapped_rpc():
@@ -5284,9 +5531,9 @@ def test_get_vod_ad_tag_detail_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_vod_ad_tag_detail
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_vod_ad_tag_detail] = (
+            mock_rpc
+        )
         request = {}
         client.get_vod_ad_tag_detail(request)
 
@@ -5343,9 +5590,15 @@ async def test_get_vod_ad_tag_detail_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetVodAdTagDetailRequest(),
+        {},
+    ],
+)
 async def test_get_vod_ad_tag_detail_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.GetVodAdTagDetailRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -5354,7 +5607,7 @@ async def test_get_vod_ad_tag_detail_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5377,11 +5630,6 @@ async def test_get_vod_ad_tag_detail_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, ad_tag_details.VodAdTagDetail)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_vod_ad_tag_detail_async_from_dict():
-    await test_get_vod_ad_tag_detail_async(request_type=dict)
 
 
 def test_get_vod_ad_tag_detail_field_headers():
@@ -5538,8 +5786,8 @@ async def test_get_vod_ad_tag_detail_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.ListLiveAdTagDetailsRequest,
-        dict,
+        video_stitcher_service.ListLiveAdTagDetailsRequest(),
+        {},
     ],
 )
 def test_list_live_ad_tag_details(request_type, transport: str = "grpc"):
@@ -5550,7 +5798,7 @@ def test_list_live_ad_tag_details(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5599,10 +5847,11 @@ def test_list_live_ad_tag_details_non_empty_request_with_auto_populated_field():
         client.list_live_ad_tag_details(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.ListLiveAdTagDetailsRequest(
+        request_msg = video_stitcher_service.ListLiveAdTagDetailsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_live_ad_tag_details_use_cached_wrapped_rpc():
@@ -5688,9 +5937,15 @@ async def test_list_live_ad_tag_details_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.ListLiveAdTagDetailsRequest(),
+        {},
+    ],
+)
 async def test_list_live_ad_tag_details_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.ListLiveAdTagDetailsRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -5699,7 +5954,7 @@ async def test_list_live_ad_tag_details_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5722,11 +5977,6 @@ async def test_list_live_ad_tag_details_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListLiveAdTagDetailsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_live_ad_tag_details_async_from_dict():
-    await test_list_live_ad_tag_details_async(request_type=dict)
 
 
 def test_list_live_ad_tag_details_field_headers():
@@ -6074,11 +6324,7 @@ async def test_list_live_ad_tag_details_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_live_ad_tag_details(request={})
-        ).pages:
+        async for page_ in (await client.list_live_ad_tag_details(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -6087,8 +6333,8 @@ async def test_list_live_ad_tag_details_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.GetLiveAdTagDetailRequest,
-        dict,
+        video_stitcher_service.GetLiveAdTagDetailRequest(),
+        {},
     ],
 )
 def test_get_live_ad_tag_detail(request_type, transport: str = "grpc"):
@@ -6099,7 +6345,7 @@ def test_get_live_ad_tag_detail(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6147,9 +6393,10 @@ def test_get_live_ad_tag_detail_non_empty_request_with_auto_populated_field():
         client.get_live_ad_tag_detail(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.GetLiveAdTagDetailRequest(
+        request_msg = video_stitcher_service.GetLiveAdTagDetailRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_live_ad_tag_detail_use_cached_wrapped_rpc():
@@ -6176,9 +6423,9 @@ def test_get_live_ad_tag_detail_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_live_ad_tag_detail
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_live_ad_tag_detail] = (
+            mock_rpc
+        )
         request = {}
         client.get_live_ad_tag_detail(request)
 
@@ -6235,9 +6482,15 @@ async def test_get_live_ad_tag_detail_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetLiveAdTagDetailRequest(),
+        {},
+    ],
+)
 async def test_get_live_ad_tag_detail_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.GetLiveAdTagDetailRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -6246,7 +6499,7 @@ async def test_get_live_ad_tag_detail_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6269,11 +6522,6 @@ async def test_get_live_ad_tag_detail_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, ad_tag_details.LiveAdTagDetail)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_live_ad_tag_detail_async_from_dict():
-    await test_get_live_ad_tag_detail_async(request_type=dict)
 
 
 def test_get_live_ad_tag_detail_field_headers():
@@ -6430,8 +6678,8 @@ async def test_get_live_ad_tag_detail_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.CreateSlateRequest,
-        dict,
+        video_stitcher_service.CreateSlateRequest(),
+        {},
     ],
 )
 def test_create_slate(request_type, transport: str = "grpc"):
@@ -6442,7 +6690,7 @@ def test_create_slate(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_slate), "__call__") as call:
@@ -6485,11 +6733,12 @@ def test_create_slate_non_empty_request_with_auto_populated_field():
         client.create_slate(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.CreateSlateRequest(
+        request_msg = video_stitcher_service.CreateSlateRequest(
             parent="parent_value",
             slate_id="slate_id_value",
             request_id="request_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_slate_use_cached_wrapped_rpc():
@@ -6580,10 +6829,14 @@ async def test_create_slate_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_slate_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.CreateSlateRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.CreateSlateRequest(),
+        {},
+    ],
+)
+async def test_create_slate_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -6591,7 +6844,7 @@ async def test_create_slate_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_slate), "__call__") as call:
@@ -6609,11 +6862,6 @@ async def test_create_slate_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_slate_async_from_dict():
-    await test_create_slate_async(request_type=dict)
 
 
 def test_create_slate_field_headers():
@@ -6782,8 +7030,8 @@ async def test_create_slate_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.ListSlatesRequest,
-        dict,
+        video_stitcher_service.ListSlatesRequest(),
+        {},
     ],
 )
 def test_list_slates(request_type, transport: str = "grpc"):
@@ -6794,7 +7042,7 @@ def test_list_slates(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_slates), "__call__") as call:
@@ -6843,12 +7091,13 @@ def test_list_slates_non_empty_request_with_auto_populated_field():
         client.list_slates(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.ListSlatesRequest(
+        request_msg = video_stitcher_service.ListSlatesRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_slates_use_cached_wrapped_rpc():
@@ -6929,10 +7178,14 @@ async def test_list_slates_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_slates_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.ListSlatesRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.ListSlatesRequest(),
+        {},
+    ],
+)
+async def test_list_slates_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -6940,7 +7193,7 @@ async def test_list_slates_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_slates), "__call__") as call:
@@ -6963,11 +7216,6 @@ async def test_list_slates_async(
     assert isinstance(response, pagers.ListSlatesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_slates_async_from_dict():
-    await test_list_slates_async(request_type=dict)
 
 
 def test_list_slates_field_headers():
@@ -7297,11 +7545,7 @@ async def test_list_slates_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_slates(request={})
-        ).pages:
+        async for page_ in (await client.list_slates(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -7310,8 +7554,8 @@ async def test_list_slates_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.GetSlateRequest,
-        dict,
+        video_stitcher_service.GetSlateRequest(),
+        {},
     ],
 )
 def test_get_slate(request_type, transport: str = "grpc"):
@@ -7322,7 +7566,7 @@ def test_get_slate(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_slate), "__call__") as call:
@@ -7368,9 +7612,10 @@ def test_get_slate_non_empty_request_with_auto_populated_field():
         client.get_slate(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.GetSlateRequest(
+        request_msg = video_stitcher_service.GetSlateRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_slate_use_cached_wrapped_rpc():
@@ -7449,9 +7694,14 @@ async def test_get_slate_async_use_cached_wrapped_rpc(transport: str = "grpc_asy
 
 
 @pytest.mark.asyncio
-async def test_get_slate_async(
-    transport: str = "grpc_asyncio", request_type=video_stitcher_service.GetSlateRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetSlateRequest(),
+        {},
+    ],
+)
+async def test_get_slate_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -7459,7 +7709,7 @@ async def test_get_slate_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_slate), "__call__") as call:
@@ -7482,11 +7732,6 @@ async def test_get_slate_async(
     assert isinstance(response, slates.Slate)
     assert response.name == "name_value"
     assert response.uri == "uri_value"
-
-
-@pytest.mark.asyncio
-async def test_get_slate_async_from_dict():
-    await test_get_slate_async(request_type=dict)
 
 
 def test_get_slate_field_headers():
@@ -7631,8 +7876,8 @@ async def test_get_slate_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.UpdateSlateRequest,
-        dict,
+        video_stitcher_service.UpdateSlateRequest(),
+        {},
     ],
 )
 def test_update_slate(request_type, transport: str = "grpc"):
@@ -7643,7 +7888,7 @@ def test_update_slate(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_slate), "__call__") as call:
@@ -7682,7 +7927,8 @@ def test_update_slate_non_empty_request_with_auto_populated_field():
         client.update_slate(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.UpdateSlateRequest()
+        request_msg = video_stitcher_service.UpdateSlateRequest()
+        assert args[0] == request_msg
 
 
 def test_update_slate_use_cached_wrapped_rpc():
@@ -7773,10 +8019,14 @@ async def test_update_slate_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_slate_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.UpdateSlateRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.UpdateSlateRequest(),
+        {},
+    ],
+)
+async def test_update_slate_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -7784,7 +8034,7 @@ async def test_update_slate_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_slate), "__call__") as call:
@@ -7802,11 +8052,6 @@ async def test_update_slate_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_slate_async_from_dict():
-    await test_update_slate_async(request_type=dict)
 
 
 def test_update_slate_field_headers():
@@ -7965,8 +8210,8 @@ async def test_update_slate_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.DeleteSlateRequest,
-        dict,
+        video_stitcher_service.DeleteSlateRequest(),
+        {},
     ],
 )
 def test_delete_slate(request_type, transport: str = "grpc"):
@@ -7977,7 +8222,7 @@ def test_delete_slate(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_slate), "__call__") as call:
@@ -8018,9 +8263,10 @@ def test_delete_slate_non_empty_request_with_auto_populated_field():
         client.delete_slate(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.DeleteSlateRequest(
+        request_msg = video_stitcher_service.DeleteSlateRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_slate_use_cached_wrapped_rpc():
@@ -8111,10 +8357,14 @@ async def test_delete_slate_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_slate_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.DeleteSlateRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.DeleteSlateRequest(),
+        {},
+    ],
+)
+async def test_delete_slate_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -8122,7 +8372,7 @@ async def test_delete_slate_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_slate), "__call__") as call:
@@ -8140,11 +8390,6 @@ async def test_delete_slate_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_slate_async_from_dict():
-    await test_delete_slate_async(request_type=dict)
 
 
 def test_delete_slate_field_headers():
@@ -8293,8 +8538,8 @@ async def test_delete_slate_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.CreateLiveSessionRequest,
-        dict,
+        video_stitcher_service.CreateLiveSessionRequest(),
+        {},
     ],
 )
 def test_create_live_session(request_type, transport: str = "grpc"):
@@ -8305,7 +8550,7 @@ def test_create_live_session(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -8359,9 +8604,10 @@ def test_create_live_session_non_empty_request_with_auto_populated_field():
         client.create_live_session(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.CreateLiveSessionRequest(
+        request_msg = video_stitcher_service.CreateLiveSessionRequest(
             parent="parent_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_live_session_use_cached_wrapped_rpc():
@@ -8387,9 +8633,9 @@ def test_create_live_session_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_live_session
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_live_session] = (
+            mock_rpc
+        )
         request = {}
         client.create_live_session(request)
 
@@ -8446,10 +8692,14 @@ async def test_create_live_session_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_live_session_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.CreateLiveSessionRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.CreateLiveSessionRequest(),
+        {},
+    ],
+)
+async def test_create_live_session_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -8457,7 +8707,7 @@ async def test_create_live_session_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -8486,11 +8736,6 @@ async def test_create_live_session_async(
     assert response.play_uri == "play_uri_value"
     assert response.live_config == "live_config_value"
     assert response.ad_tracking == live_configs.AdTracking.CLIENT
-
-
-@pytest.mark.asyncio
-async def test_create_live_session_async_from_dict():
-    await test_create_live_session_async(request_type=dict)
 
 
 def test_create_live_session_field_headers():
@@ -8657,8 +8902,8 @@ async def test_create_live_session_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.GetLiveSessionRequest,
-        dict,
+        video_stitcher_service.GetLiveSessionRequest(),
+        {},
     ],
 )
 def test_get_live_session(request_type, transport: str = "grpc"):
@@ -8669,7 +8914,7 @@ def test_get_live_session(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_live_session), "__call__") as call:
@@ -8719,9 +8964,10 @@ def test_get_live_session_non_empty_request_with_auto_populated_field():
         client.get_live_session(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.GetLiveSessionRequest(
+        request_msg = video_stitcher_service.GetLiveSessionRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_live_session_use_cached_wrapped_rpc():
@@ -8745,9 +8991,9 @@ def test_get_live_session_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_live_session
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_live_session] = (
+            mock_rpc
+        )
         request = {}
         client.get_live_session(request)
 
@@ -8804,10 +9050,14 @@ async def test_get_live_session_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_live_session_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.GetLiveSessionRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetLiveSessionRequest(),
+        {},
+    ],
+)
+async def test_get_live_session_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -8815,7 +9065,7 @@ async def test_get_live_session_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_live_session), "__call__") as call:
@@ -8842,11 +9092,6 @@ async def test_get_live_session_async(
     assert response.play_uri == "play_uri_value"
     assert response.live_config == "live_config_value"
     assert response.ad_tracking == live_configs.AdTracking.CLIENT
-
-
-@pytest.mark.asyncio
-async def test_get_live_session_async_from_dict():
-    await test_get_live_session_async(request_type=dict)
 
 
 def test_get_live_session_field_headers():
@@ -8995,8 +9240,8 @@ async def test_get_live_session_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.CreateLiveConfigRequest,
-        dict,
+        video_stitcher_service.CreateLiveConfigRequest(),
+        {},
     ],
 )
 def test_create_live_config(request_type, transport: str = "grpc"):
@@ -9007,7 +9252,7 @@ def test_create_live_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9054,11 +9299,12 @@ def test_create_live_config_non_empty_request_with_auto_populated_field():
         client.create_live_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.CreateLiveConfigRequest(
+        request_msg = video_stitcher_service.CreateLiveConfigRequest(
             parent="parent_value",
             live_config_id="live_config_id_value",
             request_id="request_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_live_config_use_cached_wrapped_rpc():
@@ -9084,9 +9330,9 @@ def test_create_live_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_live_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_live_config] = (
+            mock_rpc
+        )
         request = {}
         client.create_live_config(request)
 
@@ -9153,10 +9399,14 @@ async def test_create_live_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_live_config_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.CreateLiveConfigRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.CreateLiveConfigRequest(),
+        {},
+    ],
+)
+async def test_create_live_config_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -9164,7 +9414,7 @@ async def test_create_live_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9184,11 +9434,6 @@ async def test_create_live_config_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_live_config_async_from_dict():
-    await test_create_live_config_async(request_type=dict)
 
 
 def test_create_live_config_field_headers():
@@ -9365,8 +9610,8 @@ async def test_create_live_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.ListLiveConfigsRequest,
-        dict,
+        video_stitcher_service.ListLiveConfigsRequest(),
+        {},
     ],
 )
 def test_list_live_configs(request_type, transport: str = "grpc"):
@@ -9377,7 +9622,7 @@ def test_list_live_configs(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9430,12 +9675,13 @@ def test_list_live_configs_non_empty_request_with_auto_populated_field():
         client.list_live_configs(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.ListLiveConfigsRequest(
+        request_msg = video_stitcher_service.ListLiveConfigsRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_live_configs_use_cached_wrapped_rpc():
@@ -9459,9 +9705,9 @@ def test_list_live_configs_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_live_configs
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_live_configs] = (
+            mock_rpc
+        )
         request = {}
         client.list_live_configs(request)
 
@@ -9518,10 +9764,14 @@ async def test_list_live_configs_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_live_configs_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.ListLiveConfigsRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.ListLiveConfigsRequest(),
+        {},
+    ],
+)
+async def test_list_live_configs_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -9529,7 +9779,7 @@ async def test_list_live_configs_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9554,11 +9804,6 @@ async def test_list_live_configs_async(
     assert isinstance(response, pagers.ListLiveConfigsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_live_configs_async_from_dict():
-    await test_list_live_configs_async(request_type=dict)
 
 
 def test_list_live_configs_field_headers():
@@ -9904,11 +10149,7 @@ async def test_list_live_configs_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_live_configs(request={})
-        ).pages:
+        async for page_ in (await client.list_live_configs(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -9917,8 +10158,8 @@ async def test_list_live_configs_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.GetLiveConfigRequest,
-        dict,
+        video_stitcher_service.GetLiveConfigRequest(),
+        {},
     ],
 )
 def test_get_live_config(request_type, transport: str = "grpc"):
@@ -9929,7 +10170,7 @@ def test_get_live_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_live_config), "__call__") as call:
@@ -9987,9 +10228,10 @@ def test_get_live_config_non_empty_request_with_auto_populated_field():
         client.get_live_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.GetLiveConfigRequest(
+        request_msg = video_stitcher_service.GetLiveConfigRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_live_config_use_cached_wrapped_rpc():
@@ -10070,10 +10312,14 @@ async def test_get_live_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_live_config_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.GetLiveConfigRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetLiveConfigRequest(),
+        {},
+    ],
+)
+async def test_get_live_config_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10081,7 +10327,7 @@ async def test_get_live_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_live_config), "__call__") as call:
@@ -10116,11 +10362,6 @@ async def test_get_live_config_async(
     assert (
         response.stitching_policy == live_configs.LiveConfig.StitchingPolicy.CUT_CURRENT
     )
-
-
-@pytest.mark.asyncio
-async def test_get_live_config_async_from_dict():
-    await test_get_live_config_async(request_type=dict)
 
 
 def test_get_live_config_field_headers():
@@ -10269,8 +10510,8 @@ async def test_get_live_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.DeleteLiveConfigRequest,
-        dict,
+        video_stitcher_service.DeleteLiveConfigRequest(),
+        {},
     ],
 )
 def test_delete_live_config(request_type, transport: str = "grpc"):
@@ -10281,7 +10522,7 @@ def test_delete_live_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -10326,9 +10567,10 @@ def test_delete_live_config_non_empty_request_with_auto_populated_field():
         client.delete_live_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.DeleteLiveConfigRequest(
+        request_msg = video_stitcher_service.DeleteLiveConfigRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_live_config_use_cached_wrapped_rpc():
@@ -10354,9 +10596,9 @@ def test_delete_live_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_live_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_live_config] = (
+            mock_rpc
+        )
         request = {}
         client.delete_live_config(request)
 
@@ -10423,10 +10665,14 @@ async def test_delete_live_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_live_config_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.DeleteLiveConfigRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.DeleteLiveConfigRequest(),
+        {},
+    ],
+)
+async def test_delete_live_config_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10434,7 +10680,7 @@ async def test_delete_live_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -10454,11 +10700,6 @@ async def test_delete_live_config_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_live_config_async_from_dict():
-    await test_delete_live_config_async(request_type=dict)
 
 
 def test_delete_live_config_field_headers():
@@ -10615,8 +10856,8 @@ async def test_delete_live_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.UpdateLiveConfigRequest,
-        dict,
+        video_stitcher_service.UpdateLiveConfigRequest(),
+        {},
     ],
 )
 def test_update_live_config(request_type, transport: str = "grpc"):
@@ -10627,7 +10868,7 @@ def test_update_live_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -10670,7 +10911,8 @@ def test_update_live_config_non_empty_request_with_auto_populated_field():
         client.update_live_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.UpdateLiveConfigRequest()
+        request_msg = video_stitcher_service.UpdateLiveConfigRequest()
+        assert args[0] == request_msg
 
 
 def test_update_live_config_use_cached_wrapped_rpc():
@@ -10696,9 +10938,9 @@ def test_update_live_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_live_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_live_config] = (
+            mock_rpc
+        )
         request = {}
         client.update_live_config(request)
 
@@ -10765,10 +11007,14 @@ async def test_update_live_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_live_config_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.UpdateLiveConfigRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.UpdateLiveConfigRequest(),
+        {},
+    ],
+)
+async def test_update_live_config_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10776,7 +11022,7 @@ async def test_update_live_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -10796,11 +11042,6 @@ async def test_update_live_config_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_live_config_async_from_dict():
-    await test_update_live_config_async(request_type=dict)
 
 
 def test_update_live_config_field_headers():
@@ -10967,8 +11208,8 @@ async def test_update_live_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.CreateVodConfigRequest,
-        dict,
+        video_stitcher_service.CreateVodConfigRequest(),
+        {},
     ],
 )
 def test_create_vod_config(request_type, transport: str = "grpc"):
@@ -10979,7 +11220,7 @@ def test_create_vod_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -11026,11 +11267,12 @@ def test_create_vod_config_non_empty_request_with_auto_populated_field():
         client.create_vod_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.CreateVodConfigRequest(
+        request_msg = video_stitcher_service.CreateVodConfigRequest(
             parent="parent_value",
             vod_config_id="vod_config_id_value",
             request_id="request_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_vod_config_use_cached_wrapped_rpc():
@@ -11054,9 +11296,9 @@ def test_create_vod_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_vod_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_vod_config] = (
+            mock_rpc
+        )
         request = {}
         client.create_vod_config(request)
 
@@ -11123,10 +11365,14 @@ async def test_create_vod_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_vod_config_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.CreateVodConfigRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.CreateVodConfigRequest(),
+        {},
+    ],
+)
+async def test_create_vod_config_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -11134,7 +11380,7 @@ async def test_create_vod_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -11154,11 +11400,6 @@ async def test_create_vod_config_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_vod_config_async_from_dict():
-    await test_create_vod_config_async(request_type=dict)
 
 
 def test_create_vod_config_field_headers():
@@ -11335,8 +11576,8 @@ async def test_create_vod_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.ListVodConfigsRequest,
-        dict,
+        video_stitcher_service.ListVodConfigsRequest(),
+        {},
     ],
 )
 def test_list_vod_configs(request_type, transport: str = "grpc"):
@@ -11347,7 +11588,7 @@ def test_list_vod_configs(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_vod_configs), "__call__") as call:
@@ -11396,12 +11637,13 @@ def test_list_vod_configs_non_empty_request_with_auto_populated_field():
         client.list_vod_configs(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.ListVodConfigsRequest(
+        request_msg = video_stitcher_service.ListVodConfigsRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_vod_configs_use_cached_wrapped_rpc():
@@ -11425,9 +11667,9 @@ def test_list_vod_configs_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_vod_configs
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_vod_configs] = (
+            mock_rpc
+        )
         request = {}
         client.list_vod_configs(request)
 
@@ -11484,10 +11726,14 @@ async def test_list_vod_configs_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_vod_configs_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.ListVodConfigsRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.ListVodConfigsRequest(),
+        {},
+    ],
+)
+async def test_list_vod_configs_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -11495,7 +11741,7 @@ async def test_list_vod_configs_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_vod_configs), "__call__") as call:
@@ -11518,11 +11764,6 @@ async def test_list_vod_configs_async(
     assert isinstance(response, pagers.ListVodConfigsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_vod_configs_async_from_dict():
-    await test_list_vod_configs_async(request_type=dict)
 
 
 def test_list_vod_configs_field_headers():
@@ -11852,11 +12093,7 @@ async def test_list_vod_configs_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_vod_configs(request={})
-        ).pages:
+        async for page_ in (await client.list_vod_configs(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -11865,8 +12102,8 @@ async def test_list_vod_configs_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.GetVodConfigRequest,
-        dict,
+        video_stitcher_service.GetVodConfigRequest(),
+        {},
     ],
 )
 def test_get_vod_config(request_type, transport: str = "grpc"):
@@ -11877,7 +12114,7 @@ def test_get_vod_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_vod_config), "__call__") as call:
@@ -11927,9 +12164,10 @@ def test_get_vod_config_non_empty_request_with_auto_populated_field():
         client.get_vod_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.GetVodConfigRequest(
+        request_msg = video_stitcher_service.GetVodConfigRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_vod_config_use_cached_wrapped_rpc():
@@ -12010,10 +12248,14 @@ async def test_get_vod_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_vod_config_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.GetVodConfigRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetVodConfigRequest(),
+        {},
+    ],
+)
+async def test_get_vod_config_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -12021,7 +12263,7 @@ async def test_get_vod_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_vod_config), "__call__") as call:
@@ -12048,11 +12290,6 @@ async def test_get_vod_config_async(
     assert response.source_uri == "source_uri_value"
     assert response.ad_tag_uri == "ad_tag_uri_value"
     assert response.state == vod_configs.VodConfig.State.CREATING
-
-
-@pytest.mark.asyncio
-async def test_get_vod_config_async_from_dict():
-    await test_get_vod_config_async(request_type=dict)
 
 
 def test_get_vod_config_field_headers():
@@ -12201,8 +12438,8 @@ async def test_get_vod_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.DeleteVodConfigRequest,
-        dict,
+        video_stitcher_service.DeleteVodConfigRequest(),
+        {},
     ],
 )
 def test_delete_vod_config(request_type, transport: str = "grpc"):
@@ -12213,7 +12450,7 @@ def test_delete_vod_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -12258,9 +12495,10 @@ def test_delete_vod_config_non_empty_request_with_auto_populated_field():
         client.delete_vod_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.DeleteVodConfigRequest(
+        request_msg = video_stitcher_service.DeleteVodConfigRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_vod_config_use_cached_wrapped_rpc():
@@ -12284,9 +12522,9 @@ def test_delete_vod_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_vod_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_vod_config] = (
+            mock_rpc
+        )
         request = {}
         client.delete_vod_config(request)
 
@@ -12353,10 +12591,14 @@ async def test_delete_vod_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_vod_config_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.DeleteVodConfigRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.DeleteVodConfigRequest(),
+        {},
+    ],
+)
+async def test_delete_vod_config_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -12364,7 +12606,7 @@ async def test_delete_vod_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -12384,11 +12626,6 @@ async def test_delete_vod_config_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_vod_config_async_from_dict():
-    await test_delete_vod_config_async(request_type=dict)
 
 
 def test_delete_vod_config_field_headers():
@@ -12545,8 +12782,8 @@ async def test_delete_vod_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        video_stitcher_service.UpdateVodConfigRequest,
-        dict,
+        video_stitcher_service.UpdateVodConfigRequest(),
+        {},
     ],
 )
 def test_update_vod_config(request_type, transport: str = "grpc"):
@@ -12557,7 +12794,7 @@ def test_update_vod_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -12600,7 +12837,8 @@ def test_update_vod_config_non_empty_request_with_auto_populated_field():
         client.update_vod_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == video_stitcher_service.UpdateVodConfigRequest()
+        request_msg = video_stitcher_service.UpdateVodConfigRequest()
+        assert args[0] == request_msg
 
 
 def test_update_vod_config_use_cached_wrapped_rpc():
@@ -12624,9 +12862,9 @@ def test_update_vod_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_vod_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_vod_config] = (
+            mock_rpc
+        )
         request = {}
         client.update_vod_config(request)
 
@@ -12693,10 +12931,14 @@ async def test_update_vod_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_vod_config_async(
-    transport: str = "grpc_asyncio",
-    request_type=video_stitcher_service.UpdateVodConfigRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.UpdateVodConfigRequest(),
+        {},
+    ],
+)
+async def test_update_vod_config_async(request_type, transport: str = "grpc_asyncio"):
     client = VideoStitcherServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -12704,7 +12946,7 @@ async def test_update_vod_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -12724,11 +12966,6 @@ async def test_update_vod_config_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_vod_config_async_from_dict():
-    await test_update_vod_config_async(request_type=dict)
 
 
 def test_update_vod_config_field_headers():
@@ -12892,6 +13129,6215 @@ async def test_update_vod_config_flattened_error_async():
         )
 
 
+def test_create_cdn_key_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.create_cdn_key in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.create_cdn_key] = mock_rpc
+
+        request = {}
+        client.create_cdn_key(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.create_cdn_key(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_create_cdn_key_rest_required_fields(
+    request_type=video_stitcher_service.CreateCdnKeyRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request_init["cdn_key_id"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+    assert "cdnKeyId" not in jsonified_request
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_cdn_key._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+    assert "cdnKeyId" in jsonified_request
+    assert jsonified_request["cdnKeyId"] == request_init["cdn_key_id"]
+
+    jsonified_request["parent"] = "parent_value"
+    jsonified_request["cdnKeyId"] = "cdn_key_id_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_cdn_key._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("cdn_key_id",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+    assert "cdnKeyId" in jsonified_request
+    assert jsonified_request["cdnKeyId"] == "cdn_key_id_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.create_cdn_key(request)
+
+            expected_params = [
+                (
+                    "cdnKeyId",
+                    "",
+                ),
+                ("$alt", "json;enum-encoding=int"),
+            ]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_create_cdn_key_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.create_cdn_key._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(("cdnKeyId",))
+        & set(
+            (
+                "parent",
+                "cdnKey",
+                "cdnKeyId",
+            )
+        )
+    )
+
+
+def test_create_cdn_key_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+            cdn_key=cdn_keys.CdnKey(
+                google_cdn_key=cdn_keys.GoogleCdnKey(private_key=b"private_key_blob")
+            ),
+            cdn_key_id="cdn_key_id_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.create_cdn_key(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/cdnKeys" % client.transport._host,
+            args[1],
+        )
+
+
+def test_create_cdn_key_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_cdn_key(
+            video_stitcher_service.CreateCdnKeyRequest(),
+            parent="parent_value",
+            cdn_key=cdn_keys.CdnKey(
+                google_cdn_key=cdn_keys.GoogleCdnKey(private_key=b"private_key_blob")
+            ),
+            cdn_key_id="cdn_key_id_value",
+        )
+
+
+def test_list_cdn_keys_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.list_cdn_keys in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.list_cdn_keys] = mock_rpc
+
+        request = {}
+        client.list_cdn_keys(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_cdn_keys(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_cdn_keys_rest_required_fields(
+    request_type=video_stitcher_service.ListCdnKeysRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_cdn_keys._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_cdn_keys._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "filter",
+            "order_by",
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = video_stitcher_service.ListCdnKeysResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = video_stitcher_service.ListCdnKeysResponse.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_cdn_keys(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_cdn_keys_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_cdn_keys._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "filter",
+                "orderBy",
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_cdn_keys_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = video_stitcher_service.ListCdnKeysResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = video_stitcher_service.ListCdnKeysResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_cdn_keys(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/cdnKeys" % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_cdn_keys_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_cdn_keys(
+            video_stitcher_service.ListCdnKeysRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_cdn_keys_rest_pager(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            video_stitcher_service.ListCdnKeysResponse(
+                cdn_keys=[
+                    cdn_keys.CdnKey(),
+                    cdn_keys.CdnKey(),
+                    cdn_keys.CdnKey(),
+                ],
+                next_page_token="abc",
+            ),
+            video_stitcher_service.ListCdnKeysResponse(
+                cdn_keys=[],
+                next_page_token="def",
+            ),
+            video_stitcher_service.ListCdnKeysResponse(
+                cdn_keys=[
+                    cdn_keys.CdnKey(),
+                ],
+                next_page_token="ghi",
+            ),
+            video_stitcher_service.ListCdnKeysResponse(
+                cdn_keys=[
+                    cdn_keys.CdnKey(),
+                    cdn_keys.CdnKey(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(
+            video_stitcher_service.ListCdnKeysResponse.to_json(x) for x in response
+        )
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        pager = client.list_cdn_keys(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, cdn_keys.CdnKey) for i in results)
+
+        pages = list(client.list_cdn_keys(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+def test_get_cdn_key_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.get_cdn_key in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_cdn_key] = mock_rpc
+
+        request = {}
+        client.get_cdn_key(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_cdn_key(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_cdn_key_rest_required_fields(
+    request_type=video_stitcher_service.GetCdnKeyRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_cdn_key._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_cdn_key._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = cdn_keys.CdnKey()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = cdn_keys.CdnKey.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_cdn_key(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_cdn_key_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_cdn_key._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_cdn_key_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = cdn_keys.CdnKey()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"name": "projects/sample1/locations/sample2/cdnKeys/sample3"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = cdn_keys.CdnKey.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_cdn_key(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/cdnKeys/*}" % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_cdn_key_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_cdn_key(
+            video_stitcher_service.GetCdnKeyRequest(),
+            name="name_value",
+        )
+
+
+def test_delete_cdn_key_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.delete_cdn_key in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.delete_cdn_key] = mock_rpc
+
+        request = {}
+        client.delete_cdn_key(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.delete_cdn_key(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_delete_cdn_key_rest_required_fields(
+    request_type=video_stitcher_service.DeleteCdnKeyRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_cdn_key._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_cdn_key._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "delete",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.delete_cdn_key(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_delete_cdn_key_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.delete_cdn_key._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_delete_cdn_key_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"name": "projects/sample1/locations/sample2/cdnKeys/sample3"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.delete_cdn_key(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/cdnKeys/*}" % client.transport._host,
+            args[1],
+        )
+
+
+def test_delete_cdn_key_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.delete_cdn_key(
+            video_stitcher_service.DeleteCdnKeyRequest(),
+            name="name_value",
+        )
+
+
+def test_update_cdn_key_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.update_cdn_key in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.update_cdn_key] = mock_rpc
+
+        request = {}
+        client.update_cdn_key(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.update_cdn_key(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_update_cdn_key_rest_required_fields(
+    request_type=video_stitcher_service.UpdateCdnKeyRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_cdn_key._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_cdn_key._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("update_mask",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "patch",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.update_cdn_key(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_update_cdn_key_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.update_cdn_key._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(("updateMask",))
+        & set(
+            (
+                "cdnKey",
+                "updateMask",
+            )
+        )
+    )
+
+
+def test_update_cdn_key_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "cdn_key": {"name": "projects/sample1/locations/sample2/cdnKeys/sample3"}
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            cdn_key=cdn_keys.CdnKey(
+                google_cdn_key=cdn_keys.GoogleCdnKey(private_key=b"private_key_blob")
+            ),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.update_cdn_key(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{cdn_key.name=projects/*/locations/*/cdnKeys/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_update_cdn_key_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_cdn_key(
+            video_stitcher_service.UpdateCdnKeyRequest(),
+            cdn_key=cdn_keys.CdnKey(
+                google_cdn_key=cdn_keys.GoogleCdnKey(private_key=b"private_key_blob")
+            ),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+def test_create_vod_session_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.create_vod_session in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.create_vod_session] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.create_vod_session(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.create_vod_session(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_create_vod_session_rest_required_fields(
+    request_type=video_stitcher_service.CreateVodSessionRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_vod_session._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_vod_session._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = sessions.VodSession()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = sessions.VodSession.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.create_vod_session(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_create_vod_session_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.create_vod_session._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(())
+        & set(
+            (
+                "parent",
+                "vodSession",
+            )
+        )
+    )
+
+
+def test_create_vod_session_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = sessions.VodSession()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+            vod_session=sessions.VodSession(name="name_value"),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = sessions.VodSession.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.create_vod_session(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/vodSessions"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_create_vod_session_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_vod_session(
+            video_stitcher_service.CreateVodSessionRequest(),
+            parent="parent_value",
+            vod_session=sessions.VodSession(name="name_value"),
+        )
+
+
+def test_get_vod_session_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.get_vod_session in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_vod_session] = mock_rpc
+
+        request = {}
+        client.get_vod_session(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_vod_session(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_vod_session_rest_required_fields(
+    request_type=video_stitcher_service.GetVodSessionRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_vod_session._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_vod_session._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = sessions.VodSession()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = sessions.VodSession.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_vod_session(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_vod_session_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_vod_session._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_vod_session_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = sessions.VodSession()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/vodSessions/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = sessions.VodSession.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_vod_session(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/vodSessions/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_vod_session_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_vod_session(
+            video_stitcher_service.GetVodSessionRequest(),
+            name="name_value",
+        )
+
+
+def test_list_vod_stitch_details_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_vod_stitch_details
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.list_vod_stitch_details
+        ] = mock_rpc
+
+        request = {}
+        client.list_vod_stitch_details(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_vod_stitch_details(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_vod_stitch_details_rest_required_fields(
+    request_type=video_stitcher_service.ListVodStitchDetailsRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_vod_stitch_details._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_vod_stitch_details._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = video_stitcher_service.ListVodStitchDetailsResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = video_stitcher_service.ListVodStitchDetailsResponse.pb(
+                return_value
+            )
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_vod_stitch_details(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_vod_stitch_details_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_vod_stitch_details._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_vod_stitch_details_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = video_stitcher_service.ListVodStitchDetailsResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "parent": "projects/sample1/locations/sample2/vodSessions/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = video_stitcher_service.ListVodStitchDetailsResponse.pb(
+            return_value
+        )
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_vod_stitch_details(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*/vodSessions/*}/vodStitchDetails"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_vod_stitch_details_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_vod_stitch_details(
+            video_stitcher_service.ListVodStitchDetailsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_vod_stitch_details_rest_pager(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            video_stitcher_service.ListVodStitchDetailsResponse(
+                vod_stitch_details=[
+                    stitch_details.VodStitchDetail(),
+                    stitch_details.VodStitchDetail(),
+                    stitch_details.VodStitchDetail(),
+                ],
+                next_page_token="abc",
+            ),
+            video_stitcher_service.ListVodStitchDetailsResponse(
+                vod_stitch_details=[],
+                next_page_token="def",
+            ),
+            video_stitcher_service.ListVodStitchDetailsResponse(
+                vod_stitch_details=[
+                    stitch_details.VodStitchDetail(),
+                ],
+                next_page_token="ghi",
+            ),
+            video_stitcher_service.ListVodStitchDetailsResponse(
+                vod_stitch_details=[
+                    stitch_details.VodStitchDetail(),
+                    stitch_details.VodStitchDetail(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(
+            video_stitcher_service.ListVodStitchDetailsResponse.to_json(x)
+            for x in response
+        )
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {
+            "parent": "projects/sample1/locations/sample2/vodSessions/sample3"
+        }
+
+        pager = client.list_vod_stitch_details(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, stitch_details.VodStitchDetail) for i in results)
+
+        pages = list(client.list_vod_stitch_details(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+def test_get_vod_stitch_detail_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_vod_stitch_detail
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_vod_stitch_detail] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.get_vod_stitch_detail(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_vod_stitch_detail(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_vod_stitch_detail_rest_required_fields(
+    request_type=video_stitcher_service.GetVodStitchDetailRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_vod_stitch_detail._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_vod_stitch_detail._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = stitch_details.VodStitchDetail()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = stitch_details.VodStitchDetail.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_vod_stitch_detail(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_vod_stitch_detail_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_vod_stitch_detail._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_vod_stitch_detail_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = stitch_details.VodStitchDetail()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/vodSessions/sample3/vodStitchDetails/sample4"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = stitch_details.VodStitchDetail.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_vod_stitch_detail(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/vodSessions/*/vodStitchDetails/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_vod_stitch_detail_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_vod_stitch_detail(
+            video_stitcher_service.GetVodStitchDetailRequest(),
+            name="name_value",
+        )
+
+
+def test_list_vod_ad_tag_details_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_vod_ad_tag_details
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.list_vod_ad_tag_details
+        ] = mock_rpc
+
+        request = {}
+        client.list_vod_ad_tag_details(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_vod_ad_tag_details(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_vod_ad_tag_details_rest_required_fields(
+    request_type=video_stitcher_service.ListVodAdTagDetailsRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_vod_ad_tag_details._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_vod_ad_tag_details._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = video_stitcher_service.ListVodAdTagDetailsResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = video_stitcher_service.ListVodAdTagDetailsResponse.pb(
+                return_value
+            )
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_vod_ad_tag_details(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_vod_ad_tag_details_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_vod_ad_tag_details._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_vod_ad_tag_details_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = video_stitcher_service.ListVodAdTagDetailsResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "parent": "projects/sample1/locations/sample2/vodSessions/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = video_stitcher_service.ListVodAdTagDetailsResponse.pb(
+            return_value
+        )
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_vod_ad_tag_details(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*/vodSessions/*}/vodAdTagDetails"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_vod_ad_tag_details_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_vod_ad_tag_details(
+            video_stitcher_service.ListVodAdTagDetailsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_vod_ad_tag_details_rest_pager(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            video_stitcher_service.ListVodAdTagDetailsResponse(
+                vod_ad_tag_details=[
+                    ad_tag_details.VodAdTagDetail(),
+                    ad_tag_details.VodAdTagDetail(),
+                    ad_tag_details.VodAdTagDetail(),
+                ],
+                next_page_token="abc",
+            ),
+            video_stitcher_service.ListVodAdTagDetailsResponse(
+                vod_ad_tag_details=[],
+                next_page_token="def",
+            ),
+            video_stitcher_service.ListVodAdTagDetailsResponse(
+                vod_ad_tag_details=[
+                    ad_tag_details.VodAdTagDetail(),
+                ],
+                next_page_token="ghi",
+            ),
+            video_stitcher_service.ListVodAdTagDetailsResponse(
+                vod_ad_tag_details=[
+                    ad_tag_details.VodAdTagDetail(),
+                    ad_tag_details.VodAdTagDetail(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(
+            video_stitcher_service.ListVodAdTagDetailsResponse.to_json(x)
+            for x in response
+        )
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {
+            "parent": "projects/sample1/locations/sample2/vodSessions/sample3"
+        }
+
+        pager = client.list_vod_ad_tag_details(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, ad_tag_details.VodAdTagDetail) for i in results)
+
+        pages = list(client.list_vod_ad_tag_details(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+def test_get_vod_ad_tag_detail_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_vod_ad_tag_detail
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_vod_ad_tag_detail] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.get_vod_ad_tag_detail(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_vod_ad_tag_detail(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_vod_ad_tag_detail_rest_required_fields(
+    request_type=video_stitcher_service.GetVodAdTagDetailRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_vod_ad_tag_detail._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_vod_ad_tag_detail._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = ad_tag_details.VodAdTagDetail()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = ad_tag_details.VodAdTagDetail.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_vod_ad_tag_detail(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_vod_ad_tag_detail_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_vod_ad_tag_detail._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_vod_ad_tag_detail_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = ad_tag_details.VodAdTagDetail()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/vodSessions/sample3/vodAdTagDetails/sample4"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = ad_tag_details.VodAdTagDetail.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_vod_ad_tag_detail(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/vodSessions/*/vodAdTagDetails/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_vod_ad_tag_detail_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_vod_ad_tag_detail(
+            video_stitcher_service.GetVodAdTagDetailRequest(),
+            name="name_value",
+        )
+
+
+def test_list_live_ad_tag_details_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_live_ad_tag_details
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.list_live_ad_tag_details
+        ] = mock_rpc
+
+        request = {}
+        client.list_live_ad_tag_details(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_live_ad_tag_details(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_live_ad_tag_details_rest_required_fields(
+    request_type=video_stitcher_service.ListLiveAdTagDetailsRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_live_ad_tag_details._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_live_ad_tag_details._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = video_stitcher_service.ListLiveAdTagDetailsResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = video_stitcher_service.ListLiveAdTagDetailsResponse.pb(
+                return_value
+            )
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_live_ad_tag_details(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_live_ad_tag_details_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_live_ad_tag_details._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_live_ad_tag_details_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = video_stitcher_service.ListLiveAdTagDetailsResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "parent": "projects/sample1/locations/sample2/liveSessions/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = video_stitcher_service.ListLiveAdTagDetailsResponse.pb(
+            return_value
+        )
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_live_ad_tag_details(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*/liveSessions/*}/liveAdTagDetails"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_live_ad_tag_details_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_live_ad_tag_details(
+            video_stitcher_service.ListLiveAdTagDetailsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_live_ad_tag_details_rest_pager(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            video_stitcher_service.ListLiveAdTagDetailsResponse(
+                live_ad_tag_details=[
+                    ad_tag_details.LiveAdTagDetail(),
+                    ad_tag_details.LiveAdTagDetail(),
+                    ad_tag_details.LiveAdTagDetail(),
+                ],
+                next_page_token="abc",
+            ),
+            video_stitcher_service.ListLiveAdTagDetailsResponse(
+                live_ad_tag_details=[],
+                next_page_token="def",
+            ),
+            video_stitcher_service.ListLiveAdTagDetailsResponse(
+                live_ad_tag_details=[
+                    ad_tag_details.LiveAdTagDetail(),
+                ],
+                next_page_token="ghi",
+            ),
+            video_stitcher_service.ListLiveAdTagDetailsResponse(
+                live_ad_tag_details=[
+                    ad_tag_details.LiveAdTagDetail(),
+                    ad_tag_details.LiveAdTagDetail(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(
+            video_stitcher_service.ListLiveAdTagDetailsResponse.to_json(x)
+            for x in response
+        )
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {
+            "parent": "projects/sample1/locations/sample2/liveSessions/sample3"
+        }
+
+        pager = client.list_live_ad_tag_details(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, ad_tag_details.LiveAdTagDetail) for i in results)
+
+        pages = list(client.list_live_ad_tag_details(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+def test_get_live_ad_tag_detail_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_live_ad_tag_detail
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_live_ad_tag_detail] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.get_live_ad_tag_detail(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_live_ad_tag_detail(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_live_ad_tag_detail_rest_required_fields(
+    request_type=video_stitcher_service.GetLiveAdTagDetailRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_live_ad_tag_detail._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_live_ad_tag_detail._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = ad_tag_details.LiveAdTagDetail()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = ad_tag_details.LiveAdTagDetail.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_live_ad_tag_detail(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_live_ad_tag_detail_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_live_ad_tag_detail._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_live_ad_tag_detail_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = ad_tag_details.LiveAdTagDetail()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/liveSessions/sample3/liveAdTagDetails/sample4"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = ad_tag_details.LiveAdTagDetail.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_live_ad_tag_detail(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/liveSessions/*/liveAdTagDetails/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_live_ad_tag_detail_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_live_ad_tag_detail(
+            video_stitcher_service.GetLiveAdTagDetailRequest(),
+            name="name_value",
+        )
+
+
+def test_create_slate_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.create_slate in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.create_slate] = mock_rpc
+
+        request = {}
+        client.create_slate(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.create_slate(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_create_slate_rest_required_fields(
+    request_type=video_stitcher_service.CreateSlateRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request_init["slate_id"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+    assert "slateId" not in jsonified_request
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_slate._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+    assert "slateId" in jsonified_request
+    assert jsonified_request["slateId"] == request_init["slate_id"]
+
+    jsonified_request["parent"] = "parent_value"
+    jsonified_request["slateId"] = "slate_id_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_slate._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "request_id",
+            "slate_id",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+    assert "slateId" in jsonified_request
+    assert jsonified_request["slateId"] == "slate_id_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.create_slate(request)
+
+            expected_params = [
+                (
+                    "slateId",
+                    "",
+                ),
+                ("$alt", "json;enum-encoding=int"),
+            ]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_create_slate_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.create_slate._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "requestId",
+                "slateId",
+            )
+        )
+        & set(
+            (
+                "parent",
+                "slateId",
+                "slate",
+            )
+        )
+    )
+
+
+def test_create_slate_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+            slate=slates.Slate(name="name_value"),
+            slate_id="slate_id_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.create_slate(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/slates" % client.transport._host,
+            args[1],
+        )
+
+
+def test_create_slate_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_slate(
+            video_stitcher_service.CreateSlateRequest(),
+            parent="parent_value",
+            slate=slates.Slate(name="name_value"),
+            slate_id="slate_id_value",
+        )
+
+
+def test_list_slates_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.list_slates in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.list_slates] = mock_rpc
+
+        request = {}
+        client.list_slates(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_slates(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_slates_rest_required_fields(
+    request_type=video_stitcher_service.ListSlatesRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_slates._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_slates._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "filter",
+            "order_by",
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = video_stitcher_service.ListSlatesResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = video_stitcher_service.ListSlatesResponse.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_slates(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_slates_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_slates._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "filter",
+                "orderBy",
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_slates_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = video_stitcher_service.ListSlatesResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = video_stitcher_service.ListSlatesResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_slates(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/slates" % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_slates_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_slates(
+            video_stitcher_service.ListSlatesRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_slates_rest_pager(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            video_stitcher_service.ListSlatesResponse(
+                slates=[
+                    slates.Slate(),
+                    slates.Slate(),
+                    slates.Slate(),
+                ],
+                next_page_token="abc",
+            ),
+            video_stitcher_service.ListSlatesResponse(
+                slates=[],
+                next_page_token="def",
+            ),
+            video_stitcher_service.ListSlatesResponse(
+                slates=[
+                    slates.Slate(),
+                ],
+                next_page_token="ghi",
+            ),
+            video_stitcher_service.ListSlatesResponse(
+                slates=[
+                    slates.Slate(),
+                    slates.Slate(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(
+            video_stitcher_service.ListSlatesResponse.to_json(x) for x in response
+        )
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        pager = client.list_slates(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, slates.Slate) for i in results)
+
+        pages = list(client.list_slates(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+def test_get_slate_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.get_slate in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_slate] = mock_rpc
+
+        request = {}
+        client.get_slate(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_slate(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_slate_rest_required_fields(
+    request_type=video_stitcher_service.GetSlateRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_slate._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_slate._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = slates.Slate()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = slates.Slate.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_slate(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_slate_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_slate._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_slate_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = slates.Slate()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"name": "projects/sample1/locations/sample2/slates/sample3"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = slates.Slate.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_slate(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/slates/*}" % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_slate_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_slate(
+            video_stitcher_service.GetSlateRequest(),
+            name="name_value",
+        )
+
+
+def test_update_slate_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.update_slate in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.update_slate] = mock_rpc
+
+        request = {}
+        client.update_slate(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.update_slate(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_update_slate_rest_required_fields(
+    request_type=video_stitcher_service.UpdateSlateRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_slate._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_slate._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("update_mask",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "patch",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.update_slate(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_update_slate_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.update_slate._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(("updateMask",))
+        & set(
+            (
+                "slate",
+                "updateMask",
+            )
+        )
+    )
+
+
+def test_update_slate_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "slate": {"name": "projects/sample1/locations/sample2/slates/sample3"}
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            slate=slates.Slate(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.update_slate(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{slate.name=projects/*/locations/*/slates/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_update_slate_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_slate(
+            video_stitcher_service.UpdateSlateRequest(),
+            slate=slates.Slate(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+def test_delete_slate_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.delete_slate in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.delete_slate] = mock_rpc
+
+        request = {}
+        client.delete_slate(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.delete_slate(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_delete_slate_rest_required_fields(
+    request_type=video_stitcher_service.DeleteSlateRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_slate._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_slate._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "delete",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.delete_slate(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_delete_slate_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.delete_slate._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_delete_slate_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"name": "projects/sample1/locations/sample2/slates/sample3"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.delete_slate(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/slates/*}" % client.transport._host,
+            args[1],
+        )
+
+
+def test_delete_slate_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.delete_slate(
+            video_stitcher_service.DeleteSlateRequest(),
+            name="name_value",
+        )
+
+
+def test_create_live_session_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.create_live_session in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.create_live_session] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.create_live_session(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.create_live_session(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_create_live_session_rest_required_fields(
+    request_type=video_stitcher_service.CreateLiveSessionRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_live_session._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_live_session._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = sessions.LiveSession()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = sessions.LiveSession.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.create_live_session(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_create_live_session_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.create_live_session._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(())
+        & set(
+            (
+                "parent",
+                "liveSession",
+            )
+        )
+    )
+
+
+def test_create_live_session_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = sessions.LiveSession()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+            live_session=sessions.LiveSession(name="name_value"),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = sessions.LiveSession.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.create_live_session(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/liveSessions"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_create_live_session_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_live_session(
+            video_stitcher_service.CreateLiveSessionRequest(),
+            parent="parent_value",
+            live_session=sessions.LiveSession(name="name_value"),
+        )
+
+
+def test_get_live_session_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.get_live_session in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_live_session] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.get_live_session(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_live_session(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_live_session_rest_required_fields(
+    request_type=video_stitcher_service.GetLiveSessionRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_live_session._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_live_session._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = sessions.LiveSession()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = sessions.LiveSession.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_live_session(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_live_session_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_live_session._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_live_session_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = sessions.LiveSession()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/liveSessions/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = sessions.LiveSession.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_live_session(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/liveSessions/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_live_session_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_live_session(
+            video_stitcher_service.GetLiveSessionRequest(),
+            name="name_value",
+        )
+
+
+def test_create_live_config_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.create_live_config in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.create_live_config] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.create_live_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.create_live_config(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_create_live_config_rest_required_fields(
+    request_type=video_stitcher_service.CreateLiveConfigRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request_init["live_config_id"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+    assert "liveConfigId" not in jsonified_request
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_live_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+    assert "liveConfigId" in jsonified_request
+    assert jsonified_request["liveConfigId"] == request_init["live_config_id"]
+
+    jsonified_request["parent"] = "parent_value"
+    jsonified_request["liveConfigId"] = "live_config_id_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_live_config._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "live_config_id",
+            "request_id",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+    assert "liveConfigId" in jsonified_request
+    assert jsonified_request["liveConfigId"] == "live_config_id_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.create_live_config(request)
+
+            expected_params = [
+                (
+                    "liveConfigId",
+                    "",
+                ),
+                ("$alt", "json;enum-encoding=int"),
+            ]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_create_live_config_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.create_live_config._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "liveConfigId",
+                "requestId",
+            )
+        )
+        & set(
+            (
+                "parent",
+                "liveConfigId",
+                "liveConfig",
+            )
+        )
+    )
+
+
+def test_create_live_config_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+            live_config=live_configs.LiveConfig(name="name_value"),
+            live_config_id="live_config_id_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.create_live_config(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/liveConfigs"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_create_live_config_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_live_config(
+            video_stitcher_service.CreateLiveConfigRequest(),
+            parent="parent_value",
+            live_config=live_configs.LiveConfig(name="name_value"),
+            live_config_id="live_config_id_value",
+        )
+
+
+def test_list_live_configs_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.list_live_configs in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.list_live_configs] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.list_live_configs(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_live_configs(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_live_configs_rest_required_fields(
+    request_type=video_stitcher_service.ListLiveConfigsRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_live_configs._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_live_configs._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "filter",
+            "order_by",
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = video_stitcher_service.ListLiveConfigsResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = video_stitcher_service.ListLiveConfigsResponse.pb(
+                return_value
+            )
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_live_configs(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_live_configs_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_live_configs._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "filter",
+                "orderBy",
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_live_configs_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = video_stitcher_service.ListLiveConfigsResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = video_stitcher_service.ListLiveConfigsResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_live_configs(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/liveConfigs"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_live_configs_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_live_configs(
+            video_stitcher_service.ListLiveConfigsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_live_configs_rest_pager(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            video_stitcher_service.ListLiveConfigsResponse(
+                live_configs=[
+                    live_configs.LiveConfig(),
+                    live_configs.LiveConfig(),
+                    live_configs.LiveConfig(),
+                ],
+                next_page_token="abc",
+            ),
+            video_stitcher_service.ListLiveConfigsResponse(
+                live_configs=[],
+                next_page_token="def",
+            ),
+            video_stitcher_service.ListLiveConfigsResponse(
+                live_configs=[
+                    live_configs.LiveConfig(),
+                ],
+                next_page_token="ghi",
+            ),
+            video_stitcher_service.ListLiveConfigsResponse(
+                live_configs=[
+                    live_configs.LiveConfig(),
+                    live_configs.LiveConfig(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(
+            video_stitcher_service.ListLiveConfigsResponse.to_json(x) for x in response
+        )
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        pager = client.list_live_configs(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, live_configs.LiveConfig) for i in results)
+
+        pages = list(client.list_live_configs(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+def test_get_live_config_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.get_live_config in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_live_config] = mock_rpc
+
+        request = {}
+        client.get_live_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_live_config(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_live_config_rest_required_fields(
+    request_type=video_stitcher_service.GetLiveConfigRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_live_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_live_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = live_configs.LiveConfig()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = live_configs.LiveConfig.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_live_config(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_live_config_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_live_config._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_live_config_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = live_configs.LiveConfig()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/liveConfigs/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = live_configs.LiveConfig.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_live_config(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/liveConfigs/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_live_config_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_live_config(
+            video_stitcher_service.GetLiveConfigRequest(),
+            name="name_value",
+        )
+
+
+def test_delete_live_config_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.delete_live_config in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.delete_live_config] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.delete_live_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.delete_live_config(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_delete_live_config_rest_required_fields(
+    request_type=video_stitcher_service.DeleteLiveConfigRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_live_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_live_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "delete",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.delete_live_config(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_delete_live_config_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.delete_live_config._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_delete_live_config_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/liveConfigs/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.delete_live_config(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/liveConfigs/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_delete_live_config_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.delete_live_config(
+            video_stitcher_service.DeleteLiveConfigRequest(),
+            name="name_value",
+        )
+
+
+def test_update_live_config_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.update_live_config in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.update_live_config] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.update_live_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.update_live_config(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_update_live_config_rest_required_fields(
+    request_type=video_stitcher_service.UpdateLiveConfigRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_live_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_live_config._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("update_mask",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "patch",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.update_live_config(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_update_live_config_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.update_live_config._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(("updateMask",))
+        & set(
+            (
+                "liveConfig",
+                "updateMask",
+            )
+        )
+    )
+
+
+def test_update_live_config_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "live_config": {
+                "name": "projects/sample1/locations/sample2/liveConfigs/sample3"
+            }
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            live_config=live_configs.LiveConfig(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.update_live_config(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{live_config.name=projects/*/locations/*/liveConfigs/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_update_live_config_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_live_config(
+            video_stitcher_service.UpdateLiveConfigRequest(),
+            live_config=live_configs.LiveConfig(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+def test_create_vod_config_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.create_vod_config in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.create_vod_config] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.create_vod_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.create_vod_config(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_create_vod_config_rest_required_fields(
+    request_type=video_stitcher_service.CreateVodConfigRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request_init["vod_config_id"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+    assert "vodConfigId" not in jsonified_request
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_vod_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+    assert "vodConfigId" in jsonified_request
+    assert jsonified_request["vodConfigId"] == request_init["vod_config_id"]
+
+    jsonified_request["parent"] = "parent_value"
+    jsonified_request["vodConfigId"] = "vod_config_id_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_vod_config._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "request_id",
+            "vod_config_id",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+    assert "vodConfigId" in jsonified_request
+    assert jsonified_request["vodConfigId"] == "vod_config_id_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.create_vod_config(request)
+
+            expected_params = [
+                (
+                    "vodConfigId",
+                    "",
+                ),
+                ("$alt", "json;enum-encoding=int"),
+            ]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_create_vod_config_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.create_vod_config._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "requestId",
+                "vodConfigId",
+            )
+        )
+        & set(
+            (
+                "parent",
+                "vodConfigId",
+                "vodConfig",
+            )
+        )
+    )
+
+
+def test_create_vod_config_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+            vod_config=vod_configs.VodConfig(name="name_value"),
+            vod_config_id="vod_config_id_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.create_vod_config(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/vodConfigs" % client.transport._host,
+            args[1],
+        )
+
+
+def test_create_vod_config_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_vod_config(
+            video_stitcher_service.CreateVodConfigRequest(),
+            parent="parent_value",
+            vod_config=vod_configs.VodConfig(name="name_value"),
+            vod_config_id="vod_config_id_value",
+        )
+
+
+def test_list_vod_configs_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.list_vod_configs in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.list_vod_configs] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.list_vod_configs(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_vod_configs(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_vod_configs_rest_required_fields(
+    request_type=video_stitcher_service.ListVodConfigsRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_vod_configs._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_vod_configs._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "filter",
+            "order_by",
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = video_stitcher_service.ListVodConfigsResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = video_stitcher_service.ListVodConfigsResponse.pb(
+                return_value
+            )
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_vod_configs(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_vod_configs_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_vod_configs._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "filter",
+                "orderBy",
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_vod_configs_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = video_stitcher_service.ListVodConfigsResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = video_stitcher_service.ListVodConfigsResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_vod_configs(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/vodConfigs" % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_vod_configs_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_vod_configs(
+            video_stitcher_service.ListVodConfigsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_vod_configs_rest_pager(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            video_stitcher_service.ListVodConfigsResponse(
+                vod_configs=[
+                    vod_configs.VodConfig(),
+                    vod_configs.VodConfig(),
+                    vod_configs.VodConfig(),
+                ],
+                next_page_token="abc",
+            ),
+            video_stitcher_service.ListVodConfigsResponse(
+                vod_configs=[],
+                next_page_token="def",
+            ),
+            video_stitcher_service.ListVodConfigsResponse(
+                vod_configs=[
+                    vod_configs.VodConfig(),
+                ],
+                next_page_token="ghi",
+            ),
+            video_stitcher_service.ListVodConfigsResponse(
+                vod_configs=[
+                    vod_configs.VodConfig(),
+                    vod_configs.VodConfig(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(
+            video_stitcher_service.ListVodConfigsResponse.to_json(x) for x in response
+        )
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        pager = client.list_vod_configs(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, vod_configs.VodConfig) for i in results)
+
+        pages = list(client.list_vod_configs(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+def test_get_vod_config_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.get_vod_config in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_vod_config] = mock_rpc
+
+        request = {}
+        client.get_vod_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_vod_config(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_vod_config_rest_required_fields(
+    request_type=video_stitcher_service.GetVodConfigRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_vod_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_vod_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = vod_configs.VodConfig()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = vod_configs.VodConfig.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_vod_config(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_vod_config_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_vod_config._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_vod_config_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = vod_configs.VodConfig()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/vodConfigs/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = vod_configs.VodConfig.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_vod_config(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/vodConfigs/*}" % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_vod_config_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_vod_config(
+            video_stitcher_service.GetVodConfigRequest(),
+            name="name_value",
+        )
+
+
+def test_delete_vod_config_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.delete_vod_config in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.delete_vod_config] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.delete_vod_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.delete_vod_config(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_delete_vod_config_rest_required_fields(
+    request_type=video_stitcher_service.DeleteVodConfigRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_vod_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_vod_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "delete",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.delete_vod_config(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_delete_vod_config_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.delete_vod_config._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_delete_vod_config_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/vodConfigs/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.delete_vod_config(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/vodConfigs/*}" % client.transport._host,
+            args[1],
+        )
+
+
+def test_delete_vod_config_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.delete_vod_config(
+            video_stitcher_service.DeleteVodConfigRequest(),
+            name="name_value",
+        )
+
+
+def test_update_vod_config_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = VideoStitcherServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.update_vod_config in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.update_vod_config] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.update_vod_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.update_vod_config(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_update_vod_config_rest_required_fields(
+    request_type=video_stitcher_service.UpdateVodConfigRequest,
+):
+    transport_class = transports.VideoStitcherServiceRestTransport
+
+    request_init = {}
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_vod_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_vod_config._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("update_mask",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "patch",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.update_vod_config(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_update_vod_config_rest_unset_required_fields():
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.update_vod_config._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(("updateMask",))
+        & set(
+            (
+                "vodConfig",
+                "updateMask",
+            )
+        )
+    )
+
+
+def test_update_vod_config_rest_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "vod_config": {
+                "name": "projects/sample1/locations/sample2/vodConfigs/sample3"
+            }
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            vod_config=vod_configs.VodConfig(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.update_vod_config(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{vod_config.name=projects/*/locations/*/vodConfigs/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_update_vod_config_rest_flattened_error(transport: str = "rest"):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_vod_config(
+            video_stitcher_service.UpdateVodConfigRequest(),
+            vod_config=vod_configs.VodConfig(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
 def test_credentials_transport_error():
     # It is an error to provide credentials and a transport instance.
     transport = transports.VideoStitcherServiceGrpcTransport(
@@ -12973,6 +19419,7 @@ def test_transport_get_channel():
     [
         transports.VideoStitcherServiceGrpcTransport,
         transports.VideoStitcherServiceGrpcAsyncIOTransport,
+        transports.VideoStitcherServiceRestTransport,
     ],
 )
 def test_transport_adc(transport_class):
@@ -13014,7 +19461,6 @@ def test_create_cdn_key_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.CreateCdnKeyRequest()
-
         assert args[0] == request_msg
 
 
@@ -13035,7 +19481,6 @@ def test_list_cdn_keys_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.ListCdnKeysRequest()
-
         assert args[0] == request_msg
 
 
@@ -13056,7 +19501,6 @@ def test_get_cdn_key_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetCdnKeyRequest()
-
         assert args[0] == request_msg
 
 
@@ -13077,7 +19521,6 @@ def test_delete_cdn_key_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.DeleteCdnKeyRequest()
-
         assert args[0] == request_msg
 
 
@@ -13098,7 +19541,6 @@ def test_update_cdn_key_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.UpdateCdnKeyRequest()
-
         assert args[0] == request_msg
 
 
@@ -13121,7 +19563,6 @@ def test_create_vod_session_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.CreateVodSessionRequest()
-
         assert args[0] == request_msg
 
 
@@ -13142,7 +19583,6 @@ def test_get_vod_session_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetVodSessionRequest()
-
         assert args[0] == request_msg
 
 
@@ -13165,7 +19605,6 @@ def test_list_vod_stitch_details_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.ListVodStitchDetailsRequest()
-
         assert args[0] == request_msg
 
 
@@ -13188,7 +19627,6 @@ def test_get_vod_stitch_detail_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetVodStitchDetailRequest()
-
         assert args[0] == request_msg
 
 
@@ -13211,7 +19649,6 @@ def test_list_vod_ad_tag_details_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.ListVodAdTagDetailsRequest()
-
         assert args[0] == request_msg
 
 
@@ -13234,7 +19671,6 @@ def test_get_vod_ad_tag_detail_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetVodAdTagDetailRequest()
-
         assert args[0] == request_msg
 
 
@@ -13257,7 +19693,6 @@ def test_list_live_ad_tag_details_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.ListLiveAdTagDetailsRequest()
-
         assert args[0] == request_msg
 
 
@@ -13280,7 +19715,6 @@ def test_get_live_ad_tag_detail_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetLiveAdTagDetailRequest()
-
         assert args[0] == request_msg
 
 
@@ -13301,7 +19735,6 @@ def test_create_slate_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.CreateSlateRequest()
-
         assert args[0] == request_msg
 
 
@@ -13322,7 +19755,6 @@ def test_list_slates_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.ListSlatesRequest()
-
         assert args[0] == request_msg
 
 
@@ -13343,7 +19775,6 @@ def test_get_slate_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetSlateRequest()
-
         assert args[0] == request_msg
 
 
@@ -13364,7 +19795,6 @@ def test_update_slate_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.UpdateSlateRequest()
-
         assert args[0] == request_msg
 
 
@@ -13385,7 +19815,6 @@ def test_delete_slate_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.DeleteSlateRequest()
-
         assert args[0] == request_msg
 
 
@@ -13408,7 +19837,6 @@ def test_create_live_session_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.CreateLiveSessionRequest()
-
         assert args[0] == request_msg
 
 
@@ -13429,7 +19857,6 @@ def test_get_live_session_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetLiveSessionRequest()
-
         assert args[0] == request_msg
 
 
@@ -13452,7 +19879,6 @@ def test_create_live_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.CreateLiveConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -13475,7 +19901,6 @@ def test_list_live_configs_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.ListLiveConfigsRequest()
-
         assert args[0] == request_msg
 
 
@@ -13496,7 +19921,6 @@ def test_get_live_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetLiveConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -13519,7 +19943,6 @@ def test_delete_live_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.DeleteLiveConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -13542,7 +19965,6 @@ def test_update_live_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.UpdateLiveConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -13565,7 +19987,6 @@ def test_create_vod_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.CreateVodConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -13586,7 +20007,6 @@ def test_list_vod_configs_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.ListVodConfigsRequest()
-
         assert args[0] == request_msg
 
 
@@ -13607,7 +20027,6 @@ def test_get_vod_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetVodConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -13630,7 +20049,6 @@ def test_delete_vod_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.DeleteVodConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -13653,7 +20071,6 @@ def test_update_vod_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.UpdateVodConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -13692,7 +20109,6 @@ async def test_create_cdn_key_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.CreateCdnKeyRequest()
-
         assert args[0] == request_msg
 
 
@@ -13720,7 +20136,6 @@ async def test_list_cdn_keys_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.ListCdnKeysRequest()
-
         assert args[0] == request_msg
 
 
@@ -13748,7 +20163,6 @@ async def test_get_cdn_key_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetCdnKeyRequest()
-
         assert args[0] == request_msg
 
 
@@ -13773,7 +20187,6 @@ async def test_delete_cdn_key_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.DeleteCdnKeyRequest()
-
         assert args[0] == request_msg
 
 
@@ -13798,7 +20211,6 @@ async def test_update_cdn_key_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.UpdateCdnKeyRequest()
-
         assert args[0] == request_msg
 
 
@@ -13833,7 +20245,6 @@ async def test_create_vod_session_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.CreateVodSessionRequest()
-
         assert args[0] == request_msg
 
 
@@ -13866,7 +20277,6 @@ async def test_get_vod_session_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetVodSessionRequest()
-
         assert args[0] == request_msg
 
 
@@ -13895,7 +20305,6 @@ async def test_list_vod_stitch_details_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.ListVodStitchDetailsRequest()
-
         assert args[0] == request_msg
 
 
@@ -13924,7 +20333,6 @@ async def test_get_vod_stitch_detail_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetVodStitchDetailRequest()
-
         assert args[0] == request_msg
 
 
@@ -13953,7 +20361,6 @@ async def test_list_vod_ad_tag_details_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.ListVodAdTagDetailsRequest()
-
         assert args[0] == request_msg
 
 
@@ -13982,7 +20389,6 @@ async def test_get_vod_ad_tag_detail_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetVodAdTagDetailRequest()
-
         assert args[0] == request_msg
 
 
@@ -14011,7 +20417,6 @@ async def test_list_live_ad_tag_details_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.ListLiveAdTagDetailsRequest()
-
         assert args[0] == request_msg
 
 
@@ -14040,7 +20445,6 @@ async def test_get_live_ad_tag_detail_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetLiveAdTagDetailRequest()
-
         assert args[0] == request_msg
 
 
@@ -14065,7 +20469,6 @@ async def test_create_slate_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.CreateSlateRequest()
-
         assert args[0] == request_msg
 
 
@@ -14093,7 +20496,6 @@ async def test_list_slates_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.ListSlatesRequest()
-
         assert args[0] == request_msg
 
 
@@ -14121,7 +20523,6 @@ async def test_get_slate_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetSlateRequest()
-
         assert args[0] == request_msg
 
 
@@ -14146,7 +20547,6 @@ async def test_update_slate_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.UpdateSlateRequest()
-
         assert args[0] == request_msg
 
 
@@ -14171,7 +20571,6 @@ async def test_delete_slate_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.DeleteSlateRequest()
-
         assert args[0] == request_msg
 
 
@@ -14203,7 +20602,6 @@ async def test_create_live_session_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.CreateLiveSessionRequest()
-
         assert args[0] == request_msg
 
 
@@ -14233,7 +20631,6 @@ async def test_get_live_session_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetLiveSessionRequest()
-
         assert args[0] == request_msg
 
 
@@ -14260,7 +20657,6 @@ async def test_create_live_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.CreateLiveConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -14290,7 +20686,6 @@ async def test_list_live_configs_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.ListLiveConfigsRequest()
-
         assert args[0] == request_msg
 
 
@@ -14323,7 +20718,6 @@ async def test_get_live_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetLiveConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -14350,7 +20744,6 @@ async def test_delete_live_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.DeleteLiveConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -14377,7 +20770,6 @@ async def test_update_live_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.UpdateLiveConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -14404,7 +20796,6 @@ async def test_create_vod_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.CreateVodConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -14432,7 +20823,6 @@ async def test_list_vod_configs_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.ListVodConfigsRequest()
-
         assert args[0] == request_msg
 
 
@@ -14462,7 +20852,6 @@ async def test_get_vod_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.GetVodConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -14489,7 +20878,6 @@ async def test_delete_vod_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.DeleteVodConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -14516,8 +20904,5766 @@ async def test_update_vod_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = video_stitcher_service.UpdateVodConfigRequest()
-
         assert args[0] == request_msg
+
+
+def test_transport_kind_rest():
+    transport = VideoStitcherServiceClient.get_transport_class("rest")(
+        credentials=ga_credentials.AnonymousCredentials()
+    )
+    assert transport.kind == "rest"
+
+
+def test_create_cdn_key_rest_bad_request(
+    request_type=video_stitcher_service.CreateCdnKeyRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.create_cdn_key(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.CreateCdnKeyRequest,
+        dict,
+    ],
+)
+def test_create_cdn_key_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request_init["cdn_key"] = {
+        "google_cdn_key": {
+            "private_key": b"private_key_blob",
+            "key_name": "key_name_value",
+        },
+        "akamai_cdn_key": {"token_key": b"token_key_blob"},
+        "media_cdn_key": {
+            "private_key": b"private_key_blob",
+            "key_name": "key_name_value",
+            "token_config": {"query_parameter": "query_parameter_value"},
+        },
+        "name": "name_value",
+        "hostname": "hostname_value",
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = video_stitcher_service.CreateCdnKeyRequest.meta.fields["cdn_key"]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["cdn_key"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["cdn_key"][field])):
+                    del request_init["cdn_key"][field][i][subfield]
+            else:
+                del request_init["cdn_key"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.create_cdn_key(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_create_cdn_key_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_create_cdn_key"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_create_cdn_key_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_create_cdn_key"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.CreateCdnKeyRequest.pb(
+            video_stitcher_service.CreateCdnKeyRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.CreateCdnKeyRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.create_cdn_key(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_list_cdn_keys_rest_bad_request(
+    request_type=video_stitcher_service.ListCdnKeysRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_cdn_keys(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.ListCdnKeysRequest,
+        dict,
+    ],
+)
+def test_list_cdn_keys_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = video_stitcher_service.ListCdnKeysResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = video_stitcher_service.ListCdnKeysResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_cdn_keys(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListCdnKeysPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_cdn_keys_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_list_cdn_keys"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_list_cdn_keys_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_list_cdn_keys"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.ListCdnKeysRequest.pb(
+            video_stitcher_service.ListCdnKeysRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = video_stitcher_service.ListCdnKeysResponse.to_json(
+            video_stitcher_service.ListCdnKeysResponse()
+        )
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.ListCdnKeysRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = video_stitcher_service.ListCdnKeysResponse()
+        post_with_metadata.return_value = (
+            video_stitcher_service.ListCdnKeysResponse(),
+            metadata,
+        )
+
+        client.list_cdn_keys(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_cdn_key_rest_bad_request(
+    request_type=video_stitcher_service.GetCdnKeyRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/cdnKeys/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_cdn_key(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetCdnKeyRequest,
+        dict,
+    ],
+)
+def test_get_cdn_key_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/cdnKeys/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = cdn_keys.CdnKey(
+            name="name_value",
+            hostname="hostname_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = cdn_keys.CdnKey.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_cdn_key(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, cdn_keys.CdnKey)
+    assert response.name == "name_value"
+    assert response.hostname == "hostname_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_cdn_key_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_get_cdn_key"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_get_cdn_key_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_get_cdn_key"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.GetCdnKeyRequest.pb(
+            video_stitcher_service.GetCdnKeyRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = cdn_keys.CdnKey.to_json(cdn_keys.CdnKey())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.GetCdnKeyRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = cdn_keys.CdnKey()
+        post_with_metadata.return_value = cdn_keys.CdnKey(), metadata
+
+        client.get_cdn_key(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_delete_cdn_key_rest_bad_request(
+    request_type=video_stitcher_service.DeleteCdnKeyRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/cdnKeys/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.delete_cdn_key(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.DeleteCdnKeyRequest,
+        dict,
+    ],
+)
+def test_delete_cdn_key_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/cdnKeys/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.delete_cdn_key(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_delete_cdn_key_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_delete_cdn_key"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_delete_cdn_key_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_delete_cdn_key"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.DeleteCdnKeyRequest.pb(
+            video_stitcher_service.DeleteCdnKeyRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.DeleteCdnKeyRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.delete_cdn_key(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_update_cdn_key_rest_bad_request(
+    request_type=video_stitcher_service.UpdateCdnKeyRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "cdn_key": {"name": "projects/sample1/locations/sample2/cdnKeys/sample3"}
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.update_cdn_key(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.UpdateCdnKeyRequest,
+        dict,
+    ],
+)
+def test_update_cdn_key_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "cdn_key": {"name": "projects/sample1/locations/sample2/cdnKeys/sample3"}
+    }
+    request_init["cdn_key"] = {
+        "google_cdn_key": {
+            "private_key": b"private_key_blob",
+            "key_name": "key_name_value",
+        },
+        "akamai_cdn_key": {"token_key": b"token_key_blob"},
+        "media_cdn_key": {
+            "private_key": b"private_key_blob",
+            "key_name": "key_name_value",
+            "token_config": {"query_parameter": "query_parameter_value"},
+        },
+        "name": "projects/sample1/locations/sample2/cdnKeys/sample3",
+        "hostname": "hostname_value",
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = video_stitcher_service.UpdateCdnKeyRequest.meta.fields["cdn_key"]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["cdn_key"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["cdn_key"][field])):
+                    del request_init["cdn_key"][field][i][subfield]
+            else:
+                del request_init["cdn_key"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.update_cdn_key(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_update_cdn_key_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_update_cdn_key"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_update_cdn_key_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_update_cdn_key"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.UpdateCdnKeyRequest.pb(
+            video_stitcher_service.UpdateCdnKeyRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.UpdateCdnKeyRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.update_cdn_key(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_create_vod_session_rest_bad_request(
+    request_type=video_stitcher_service.CreateVodSessionRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.create_vod_session(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.CreateVodSessionRequest,
+        dict,
+    ],
+)
+def test_create_vod_session_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request_init["vod_session"] = {
+        "name": "name_value",
+        "interstitials": {
+            "ad_breaks": [
+                {
+                    "progress_events": [
+                        {
+                            "time_offset": {"seconds": 751, "nanos": 543},
+                            "events": [
+                                {
+                                    "type_": 1,
+                                    "uri": "uri_value",
+                                    "id": "id_value",
+                                    "offset": {},
+                                }
+                            ],
+                        }
+                    ],
+                    "ads": [
+                        {
+                            "duration": {},
+                            "companion_ads": {
+                                "display_requirement": 1,
+                                "companions": [
+                                    {
+                                        "iframe_ad_resource": {"uri": "uri_value"},
+                                        "static_ad_resource": {
+                                            "uri": "uri_value",
+                                            "creative_type": "creative_type_value",
+                                        },
+                                        "html_ad_resource": {
+                                            "html_source": "html_source_value"
+                                        },
+                                        "api_framework": "api_framework_value",
+                                        "height_px": 960,
+                                        "width_px": 871,
+                                        "asset_height_px": 1599,
+                                        "expanded_height_px": 1896,
+                                        "asset_width_px": 1510,
+                                        "expanded_width_px": 1807,
+                                        "ad_slot_id": "ad_slot_id_value",
+                                        "events": {},
+                                    }
+                                ],
+                            },
+                            "activity_events": {},
+                        }
+                    ],
+                    "end_time_offset": {},
+                    "start_time_offset": {},
+                }
+            ],
+            "session_content": {"duration": {}},
+        },
+        "play_uri": "play_uri_value",
+        "source_uri": "source_uri_value",
+        "ad_tag_uri": "ad_tag_uri_value",
+        "ad_tag_macro_map": {},
+        "manifest_options": {
+            "include_renditions": [{"bitrate_bps": 1167, "codecs": "codecs_value"}],
+            "bitrate_order": 1,
+        },
+        "asset_id": "asset_id_value",
+        "ad_tracking": 1,
+        "gam_settings": {
+            "network_code": "network_code_value",
+            "stream_id": "stream_id_value",
+        },
+        "vod_config": "vod_config_value",
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = video_stitcher_service.CreateVodSessionRequest.meta.fields[
+        "vod_session"
+    ]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["vod_session"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["vod_session"][field])):
+                    del request_init["vod_session"][field][i][subfield]
+            else:
+                del request_init["vod_session"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = sessions.VodSession(
+            name="name_value",
+            play_uri="play_uri_value",
+            source_uri="source_uri_value",
+            ad_tag_uri="ad_tag_uri_value",
+            asset_id="asset_id_value",
+            ad_tracking=live_configs.AdTracking.CLIENT,
+            vod_config="vod_config_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = sessions.VodSession.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.create_vod_session(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, sessions.VodSession)
+    assert response.name == "name_value"
+    assert response.play_uri == "play_uri_value"
+    assert response.source_uri == "source_uri_value"
+    assert response.ad_tag_uri == "ad_tag_uri_value"
+    assert response.asset_id == "asset_id_value"
+    assert response.ad_tracking == live_configs.AdTracking.CLIENT
+    assert response.vod_config == "vod_config_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_create_vod_session_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_create_vod_session"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_create_vod_session_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_create_vod_session"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.CreateVodSessionRequest.pb(
+            video_stitcher_service.CreateVodSessionRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = sessions.VodSession.to_json(sessions.VodSession())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.CreateVodSessionRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = sessions.VodSession()
+        post_with_metadata.return_value = sessions.VodSession(), metadata
+
+        client.create_vod_session(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_vod_session_rest_bad_request(
+    request_type=video_stitcher_service.GetVodSessionRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/vodSessions/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_vod_session(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetVodSessionRequest,
+        dict,
+    ],
+)
+def test_get_vod_session_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/vodSessions/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = sessions.VodSession(
+            name="name_value",
+            play_uri="play_uri_value",
+            source_uri="source_uri_value",
+            ad_tag_uri="ad_tag_uri_value",
+            asset_id="asset_id_value",
+            ad_tracking=live_configs.AdTracking.CLIENT,
+            vod_config="vod_config_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = sessions.VodSession.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_vod_session(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, sessions.VodSession)
+    assert response.name == "name_value"
+    assert response.play_uri == "play_uri_value"
+    assert response.source_uri == "source_uri_value"
+    assert response.ad_tag_uri == "ad_tag_uri_value"
+    assert response.asset_id == "asset_id_value"
+    assert response.ad_tracking == live_configs.AdTracking.CLIENT
+    assert response.vod_config == "vod_config_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_vod_session_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_get_vod_session"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_get_vod_session_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_get_vod_session"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.GetVodSessionRequest.pb(
+            video_stitcher_service.GetVodSessionRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = sessions.VodSession.to_json(sessions.VodSession())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.GetVodSessionRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = sessions.VodSession()
+        post_with_metadata.return_value = sessions.VodSession(), metadata
+
+        client.get_vod_session(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_list_vod_stitch_details_rest_bad_request(
+    request_type=video_stitcher_service.ListVodStitchDetailsRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/vodSessions/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_vod_stitch_details(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.ListVodStitchDetailsRequest,
+        dict,
+    ],
+)
+def test_list_vod_stitch_details_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/vodSessions/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = video_stitcher_service.ListVodStitchDetailsResponse(
+            next_page_token="next_page_token_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = video_stitcher_service.ListVodStitchDetailsResponse.pb(
+            return_value
+        )
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_vod_stitch_details(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListVodStitchDetailsPager)
+    assert response.next_page_token == "next_page_token_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_vod_stitch_details_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_list_vod_stitch_details",
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_list_vod_stitch_details_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "pre_list_vod_stitch_details",
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.ListVodStitchDetailsRequest.pb(
+            video_stitcher_service.ListVodStitchDetailsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = video_stitcher_service.ListVodStitchDetailsResponse.to_json(
+            video_stitcher_service.ListVodStitchDetailsResponse()
+        )
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.ListVodStitchDetailsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = video_stitcher_service.ListVodStitchDetailsResponse()
+        post_with_metadata.return_value = (
+            video_stitcher_service.ListVodStitchDetailsResponse(),
+            metadata,
+        )
+
+        client.list_vod_stitch_details(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_vod_stitch_detail_rest_bad_request(
+    request_type=video_stitcher_service.GetVodStitchDetailRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/vodSessions/sample3/vodStitchDetails/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_vod_stitch_detail(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetVodStitchDetailRequest,
+        dict,
+    ],
+)
+def test_get_vod_stitch_detail_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/vodSessions/sample3/vodStitchDetails/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = stitch_details.VodStitchDetail(
+            name="name_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = stitch_details.VodStitchDetail.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_vod_stitch_detail(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, stitch_details.VodStitchDetail)
+    assert response.name == "name_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_vod_stitch_detail_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_get_vod_stitch_detail"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_get_vod_stitch_detail_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_get_vod_stitch_detail"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.GetVodStitchDetailRequest.pb(
+            video_stitcher_service.GetVodStitchDetailRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = stitch_details.VodStitchDetail.to_json(
+            stitch_details.VodStitchDetail()
+        )
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.GetVodStitchDetailRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = stitch_details.VodStitchDetail()
+        post_with_metadata.return_value = stitch_details.VodStitchDetail(), metadata
+
+        client.get_vod_stitch_detail(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_list_vod_ad_tag_details_rest_bad_request(
+    request_type=video_stitcher_service.ListVodAdTagDetailsRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/vodSessions/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_vod_ad_tag_details(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.ListVodAdTagDetailsRequest,
+        dict,
+    ],
+)
+def test_list_vod_ad_tag_details_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/vodSessions/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = video_stitcher_service.ListVodAdTagDetailsResponse(
+            next_page_token="next_page_token_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = video_stitcher_service.ListVodAdTagDetailsResponse.pb(
+            return_value
+        )
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_vod_ad_tag_details(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListVodAdTagDetailsPager)
+    assert response.next_page_token == "next_page_token_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_vod_ad_tag_details_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_list_vod_ad_tag_details",
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_list_vod_ad_tag_details_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "pre_list_vod_ad_tag_details",
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.ListVodAdTagDetailsRequest.pb(
+            video_stitcher_service.ListVodAdTagDetailsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = video_stitcher_service.ListVodAdTagDetailsResponse.to_json(
+            video_stitcher_service.ListVodAdTagDetailsResponse()
+        )
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.ListVodAdTagDetailsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = video_stitcher_service.ListVodAdTagDetailsResponse()
+        post_with_metadata.return_value = (
+            video_stitcher_service.ListVodAdTagDetailsResponse(),
+            metadata,
+        )
+
+        client.list_vod_ad_tag_details(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_vod_ad_tag_detail_rest_bad_request(
+    request_type=video_stitcher_service.GetVodAdTagDetailRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/vodSessions/sample3/vodAdTagDetails/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_vod_ad_tag_detail(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetVodAdTagDetailRequest,
+        dict,
+    ],
+)
+def test_get_vod_ad_tag_detail_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/vodSessions/sample3/vodAdTagDetails/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = ad_tag_details.VodAdTagDetail(
+            name="name_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = ad_tag_details.VodAdTagDetail.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_vod_ad_tag_detail(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, ad_tag_details.VodAdTagDetail)
+    assert response.name == "name_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_vod_ad_tag_detail_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_get_vod_ad_tag_detail"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_get_vod_ad_tag_detail_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_get_vod_ad_tag_detail"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.GetVodAdTagDetailRequest.pb(
+            video_stitcher_service.GetVodAdTagDetailRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = ad_tag_details.VodAdTagDetail.to_json(
+            ad_tag_details.VodAdTagDetail()
+        )
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.GetVodAdTagDetailRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = ad_tag_details.VodAdTagDetail()
+        post_with_metadata.return_value = ad_tag_details.VodAdTagDetail(), metadata
+
+        client.get_vod_ad_tag_detail(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_list_live_ad_tag_details_rest_bad_request(
+    request_type=video_stitcher_service.ListLiveAdTagDetailsRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/liveSessions/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_live_ad_tag_details(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.ListLiveAdTagDetailsRequest,
+        dict,
+    ],
+)
+def test_list_live_ad_tag_details_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/liveSessions/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = video_stitcher_service.ListLiveAdTagDetailsResponse(
+            next_page_token="next_page_token_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = video_stitcher_service.ListLiveAdTagDetailsResponse.pb(
+            return_value
+        )
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_live_ad_tag_details(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListLiveAdTagDetailsPager)
+    assert response.next_page_token == "next_page_token_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_live_ad_tag_details_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_list_live_ad_tag_details",
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_list_live_ad_tag_details_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "pre_list_live_ad_tag_details",
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.ListLiveAdTagDetailsRequest.pb(
+            video_stitcher_service.ListLiveAdTagDetailsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = video_stitcher_service.ListLiveAdTagDetailsResponse.to_json(
+            video_stitcher_service.ListLiveAdTagDetailsResponse()
+        )
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.ListLiveAdTagDetailsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = video_stitcher_service.ListLiveAdTagDetailsResponse()
+        post_with_metadata.return_value = (
+            video_stitcher_service.ListLiveAdTagDetailsResponse(),
+            metadata,
+        )
+
+        client.list_live_ad_tag_details(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_live_ad_tag_detail_rest_bad_request(
+    request_type=video_stitcher_service.GetLiveAdTagDetailRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/liveSessions/sample3/liveAdTagDetails/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_live_ad_tag_detail(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetLiveAdTagDetailRequest,
+        dict,
+    ],
+)
+def test_get_live_ad_tag_detail_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/liveSessions/sample3/liveAdTagDetails/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = ad_tag_details.LiveAdTagDetail(
+            name="name_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = ad_tag_details.LiveAdTagDetail.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_live_ad_tag_detail(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, ad_tag_details.LiveAdTagDetail)
+    assert response.name == "name_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_live_ad_tag_detail_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_get_live_ad_tag_detail",
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_get_live_ad_tag_detail_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_get_live_ad_tag_detail"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.GetLiveAdTagDetailRequest.pb(
+            video_stitcher_service.GetLiveAdTagDetailRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = ad_tag_details.LiveAdTagDetail.to_json(
+            ad_tag_details.LiveAdTagDetail()
+        )
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.GetLiveAdTagDetailRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = ad_tag_details.LiveAdTagDetail()
+        post_with_metadata.return_value = ad_tag_details.LiveAdTagDetail(), metadata
+
+        client.get_live_ad_tag_detail(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_create_slate_rest_bad_request(
+    request_type=video_stitcher_service.CreateSlateRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.create_slate(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.CreateSlateRequest,
+        dict,
+    ],
+)
+def test_create_slate_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request_init["slate"] = {
+        "name": "name_value",
+        "uri": "uri_value",
+        "gam_slate": {"network_code": "network_code_value", "gam_slate_id": 1241},
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = video_stitcher_service.CreateSlateRequest.meta.fields["slate"]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["slate"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["slate"][field])):
+                    del request_init["slate"][field][i][subfield]
+            else:
+                del request_init["slate"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.create_slate(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_create_slate_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_create_slate"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_create_slate_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_create_slate"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.CreateSlateRequest.pb(
+            video_stitcher_service.CreateSlateRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.CreateSlateRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.create_slate(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_list_slates_rest_bad_request(
+    request_type=video_stitcher_service.ListSlatesRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_slates(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.ListSlatesRequest,
+        dict,
+    ],
+)
+def test_list_slates_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = video_stitcher_service.ListSlatesResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = video_stitcher_service.ListSlatesResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_slates(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListSlatesPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_slates_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_list_slates"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_list_slates_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_list_slates"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.ListSlatesRequest.pb(
+            video_stitcher_service.ListSlatesRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = video_stitcher_service.ListSlatesResponse.to_json(
+            video_stitcher_service.ListSlatesResponse()
+        )
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.ListSlatesRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = video_stitcher_service.ListSlatesResponse()
+        post_with_metadata.return_value = (
+            video_stitcher_service.ListSlatesResponse(),
+            metadata,
+        )
+
+        client.list_slates(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_slate_rest_bad_request(
+    request_type=video_stitcher_service.GetSlateRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/slates/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_slate(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetSlateRequest,
+        dict,
+    ],
+)
+def test_get_slate_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/slates/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = slates.Slate(
+            name="name_value",
+            uri="uri_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = slates.Slate.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_slate(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, slates.Slate)
+    assert response.name == "name_value"
+    assert response.uri == "uri_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_slate_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_get_slate"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_get_slate_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_get_slate"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.GetSlateRequest.pb(
+            video_stitcher_service.GetSlateRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = slates.Slate.to_json(slates.Slate())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.GetSlateRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = slates.Slate()
+        post_with_metadata.return_value = slates.Slate(), metadata
+
+        client.get_slate(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_update_slate_rest_bad_request(
+    request_type=video_stitcher_service.UpdateSlateRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "slate": {"name": "projects/sample1/locations/sample2/slates/sample3"}
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.update_slate(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.UpdateSlateRequest,
+        dict,
+    ],
+)
+def test_update_slate_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "slate": {"name": "projects/sample1/locations/sample2/slates/sample3"}
+    }
+    request_init["slate"] = {
+        "name": "projects/sample1/locations/sample2/slates/sample3",
+        "uri": "uri_value",
+        "gam_slate": {"network_code": "network_code_value", "gam_slate_id": 1241},
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = video_stitcher_service.UpdateSlateRequest.meta.fields["slate"]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["slate"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["slate"][field])):
+                    del request_init["slate"][field][i][subfield]
+            else:
+                del request_init["slate"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.update_slate(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_update_slate_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_update_slate"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_update_slate_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_update_slate"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.UpdateSlateRequest.pb(
+            video_stitcher_service.UpdateSlateRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.UpdateSlateRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.update_slate(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_delete_slate_rest_bad_request(
+    request_type=video_stitcher_service.DeleteSlateRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/slates/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.delete_slate(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.DeleteSlateRequest,
+        dict,
+    ],
+)
+def test_delete_slate_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/slates/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.delete_slate(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_delete_slate_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_delete_slate"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_delete_slate_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_delete_slate"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.DeleteSlateRequest.pb(
+            video_stitcher_service.DeleteSlateRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.DeleteSlateRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.delete_slate(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_create_live_session_rest_bad_request(
+    request_type=video_stitcher_service.CreateLiveSessionRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.create_live_session(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.CreateLiveSessionRequest,
+        dict,
+    ],
+)
+def test_create_live_session_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request_init["live_session"] = {
+        "name": "name_value",
+        "play_uri": "play_uri_value",
+        "ad_tag_macros": {},
+        "manifest_options": {
+            "include_renditions": [{"bitrate_bps": 1167, "codecs": "codecs_value"}],
+            "bitrate_order": 1,
+        },
+        "gam_settings": {"stream_id": "stream_id_value", "targeting_parameters": {}},
+        "live_config": "live_config_value",
+        "ad_tracking": 1,
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = video_stitcher_service.CreateLiveSessionRequest.meta.fields[
+        "live_session"
+    ]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["live_session"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["live_session"][field])):
+                    del request_init["live_session"][field][i][subfield]
+            else:
+                del request_init["live_session"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = sessions.LiveSession(
+            name="name_value",
+            play_uri="play_uri_value",
+            live_config="live_config_value",
+            ad_tracking=live_configs.AdTracking.CLIENT,
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = sessions.LiveSession.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.create_live_session(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, sessions.LiveSession)
+    assert response.name == "name_value"
+    assert response.play_uri == "play_uri_value"
+    assert response.live_config == "live_config_value"
+    assert response.ad_tracking == live_configs.AdTracking.CLIENT
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_create_live_session_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_create_live_session"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_create_live_session_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_create_live_session"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.CreateLiveSessionRequest.pb(
+            video_stitcher_service.CreateLiveSessionRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = sessions.LiveSession.to_json(sessions.LiveSession())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.CreateLiveSessionRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = sessions.LiveSession()
+        post_with_metadata.return_value = sessions.LiveSession(), metadata
+
+        client.create_live_session(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_live_session_rest_bad_request(
+    request_type=video_stitcher_service.GetLiveSessionRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/liveSessions/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_live_session(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetLiveSessionRequest,
+        dict,
+    ],
+)
+def test_get_live_session_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/liveSessions/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = sessions.LiveSession(
+            name="name_value",
+            play_uri="play_uri_value",
+            live_config="live_config_value",
+            ad_tracking=live_configs.AdTracking.CLIENT,
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = sessions.LiveSession.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_live_session(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, sessions.LiveSession)
+    assert response.name == "name_value"
+    assert response.play_uri == "play_uri_value"
+    assert response.live_config == "live_config_value"
+    assert response.ad_tracking == live_configs.AdTracking.CLIENT
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_live_session_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_get_live_session"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_get_live_session_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_get_live_session"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.GetLiveSessionRequest.pb(
+            video_stitcher_service.GetLiveSessionRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = sessions.LiveSession.to_json(sessions.LiveSession())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.GetLiveSessionRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = sessions.LiveSession()
+        post_with_metadata.return_value = sessions.LiveSession(), metadata
+
+        client.get_live_session(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_create_live_config_rest_bad_request(
+    request_type=video_stitcher_service.CreateLiveConfigRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.create_live_config(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.CreateLiveConfigRequest,
+        dict,
+    ],
+)
+def test_create_live_config_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request_init["live_config"] = {
+        "name": "name_value",
+        "source_uri": "source_uri_value",
+        "ad_tag_uri": "ad_tag_uri_value",
+        "gam_live_config": {
+            "network_code": "network_code_value",
+            "asset_key": "asset_key_value",
+            "custom_asset_key": "custom_asset_key_value",
+        },
+        "state": 1,
+        "ad_tracking": 1,
+        "default_slate": "default_slate_value",
+        "stitching_policy": 1,
+        "prefetch_config": {
+            "enabled": True,
+            "initial_ad_request_duration": {"seconds": 751, "nanos": 543},
+        },
+        "source_fetch_options": {"headers": {}},
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = video_stitcher_service.CreateLiveConfigRequest.meta.fields[
+        "live_config"
+    ]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["live_config"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["live_config"][field])):
+                    del request_init["live_config"][field][i][subfield]
+            else:
+                del request_init["live_config"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.create_live_config(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_create_live_config_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_create_live_config"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_create_live_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_create_live_config"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.CreateLiveConfigRequest.pb(
+            video_stitcher_service.CreateLiveConfigRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.CreateLiveConfigRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.create_live_config(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_list_live_configs_rest_bad_request(
+    request_type=video_stitcher_service.ListLiveConfigsRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_live_configs(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.ListLiveConfigsRequest,
+        dict,
+    ],
+)
+def test_list_live_configs_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = video_stitcher_service.ListLiveConfigsResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = video_stitcher_service.ListLiveConfigsResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_live_configs(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListLiveConfigsPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_live_configs_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_list_live_configs"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_list_live_configs_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_list_live_configs"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.ListLiveConfigsRequest.pb(
+            video_stitcher_service.ListLiveConfigsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = video_stitcher_service.ListLiveConfigsResponse.to_json(
+            video_stitcher_service.ListLiveConfigsResponse()
+        )
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.ListLiveConfigsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = video_stitcher_service.ListLiveConfigsResponse()
+        post_with_metadata.return_value = (
+            video_stitcher_service.ListLiveConfigsResponse(),
+            metadata,
+        )
+
+        client.list_live_configs(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_live_config_rest_bad_request(
+    request_type=video_stitcher_service.GetLiveConfigRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/liveConfigs/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_live_config(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetLiveConfigRequest,
+        dict,
+    ],
+)
+def test_get_live_config_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/liveConfigs/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = live_configs.LiveConfig(
+            name="name_value",
+            source_uri="source_uri_value",
+            ad_tag_uri="ad_tag_uri_value",
+            state=live_configs.LiveConfig.State.CREATING,
+            ad_tracking=live_configs.AdTracking.CLIENT,
+            default_slate="default_slate_value",
+            stitching_policy=live_configs.LiveConfig.StitchingPolicy.CUT_CURRENT,
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = live_configs.LiveConfig.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_live_config(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, live_configs.LiveConfig)
+    assert response.name == "name_value"
+    assert response.source_uri == "source_uri_value"
+    assert response.ad_tag_uri == "ad_tag_uri_value"
+    assert response.state == live_configs.LiveConfig.State.CREATING
+    assert response.ad_tracking == live_configs.AdTracking.CLIENT
+    assert response.default_slate == "default_slate_value"
+    assert (
+        response.stitching_policy == live_configs.LiveConfig.StitchingPolicy.CUT_CURRENT
+    )
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_live_config_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_get_live_config"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_get_live_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_get_live_config"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.GetLiveConfigRequest.pb(
+            video_stitcher_service.GetLiveConfigRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = live_configs.LiveConfig.to_json(live_configs.LiveConfig())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.GetLiveConfigRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = live_configs.LiveConfig()
+        post_with_metadata.return_value = live_configs.LiveConfig(), metadata
+
+        client.get_live_config(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_delete_live_config_rest_bad_request(
+    request_type=video_stitcher_service.DeleteLiveConfigRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/liveConfigs/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.delete_live_config(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.DeleteLiveConfigRequest,
+        dict,
+    ],
+)
+def test_delete_live_config_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/liveConfigs/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.delete_live_config(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_delete_live_config_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_delete_live_config"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_delete_live_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_delete_live_config"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.DeleteLiveConfigRequest.pb(
+            video_stitcher_service.DeleteLiveConfigRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.DeleteLiveConfigRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.delete_live_config(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_update_live_config_rest_bad_request(
+    request_type=video_stitcher_service.UpdateLiveConfigRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "live_config": {
+            "name": "projects/sample1/locations/sample2/liveConfigs/sample3"
+        }
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.update_live_config(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.UpdateLiveConfigRequest,
+        dict,
+    ],
+)
+def test_update_live_config_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "live_config": {
+            "name": "projects/sample1/locations/sample2/liveConfigs/sample3"
+        }
+    }
+    request_init["live_config"] = {
+        "name": "projects/sample1/locations/sample2/liveConfigs/sample3",
+        "source_uri": "source_uri_value",
+        "ad_tag_uri": "ad_tag_uri_value",
+        "gam_live_config": {
+            "network_code": "network_code_value",
+            "asset_key": "asset_key_value",
+            "custom_asset_key": "custom_asset_key_value",
+        },
+        "state": 1,
+        "ad_tracking": 1,
+        "default_slate": "default_slate_value",
+        "stitching_policy": 1,
+        "prefetch_config": {
+            "enabled": True,
+            "initial_ad_request_duration": {"seconds": 751, "nanos": 543},
+        },
+        "source_fetch_options": {"headers": {}},
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = video_stitcher_service.UpdateLiveConfigRequest.meta.fields[
+        "live_config"
+    ]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["live_config"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["live_config"][field])):
+                    del request_init["live_config"][field][i][subfield]
+            else:
+                del request_init["live_config"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.update_live_config(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_update_live_config_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_update_live_config"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_update_live_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_update_live_config"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.UpdateLiveConfigRequest.pb(
+            video_stitcher_service.UpdateLiveConfigRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.UpdateLiveConfigRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.update_live_config(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_create_vod_config_rest_bad_request(
+    request_type=video_stitcher_service.CreateVodConfigRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.create_vod_config(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.CreateVodConfigRequest,
+        dict,
+    ],
+)
+def test_create_vod_config_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request_init["vod_config"] = {
+        "name": "name_value",
+        "source_uri": "source_uri_value",
+        "ad_tag_uri": "ad_tag_uri_value",
+        "gam_vod_config": {"network_code": "network_code_value"},
+        "state": 1,
+        "source_fetch_options": {"headers": {}},
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = video_stitcher_service.CreateVodConfigRequest.meta.fields["vod_config"]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["vod_config"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["vod_config"][field])):
+                    del request_init["vod_config"][field][i][subfield]
+            else:
+                del request_init["vod_config"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.create_vod_config(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_create_vod_config_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_create_vod_config"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_create_vod_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_create_vod_config"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.CreateVodConfigRequest.pb(
+            video_stitcher_service.CreateVodConfigRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.CreateVodConfigRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.create_vod_config(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_list_vod_configs_rest_bad_request(
+    request_type=video_stitcher_service.ListVodConfigsRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_vod_configs(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.ListVodConfigsRequest,
+        dict,
+    ],
+)
+def test_list_vod_configs_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = video_stitcher_service.ListVodConfigsResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = video_stitcher_service.ListVodConfigsResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_vod_configs(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListVodConfigsPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_vod_configs_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_list_vod_configs"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_list_vod_configs_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_list_vod_configs"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.ListVodConfigsRequest.pb(
+            video_stitcher_service.ListVodConfigsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = video_stitcher_service.ListVodConfigsResponse.to_json(
+            video_stitcher_service.ListVodConfigsResponse()
+        )
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.ListVodConfigsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = video_stitcher_service.ListVodConfigsResponse()
+        post_with_metadata.return_value = (
+            video_stitcher_service.ListVodConfigsResponse(),
+            metadata,
+        )
+
+        client.list_vod_configs(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_vod_config_rest_bad_request(
+    request_type=video_stitcher_service.GetVodConfigRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/vodConfigs/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_vod_config(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.GetVodConfigRequest,
+        dict,
+    ],
+)
+def test_get_vod_config_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/vodConfigs/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = vod_configs.VodConfig(
+            name="name_value",
+            source_uri="source_uri_value",
+            ad_tag_uri="ad_tag_uri_value",
+            state=vod_configs.VodConfig.State.CREATING,
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = vod_configs.VodConfig.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_vod_config(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, vod_configs.VodConfig)
+    assert response.name == "name_value"
+    assert response.source_uri == "source_uri_value"
+    assert response.ad_tag_uri == "ad_tag_uri_value"
+    assert response.state == vod_configs.VodConfig.State.CREATING
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_vod_config_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_get_vod_config"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_get_vod_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_get_vod_config"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.GetVodConfigRequest.pb(
+            video_stitcher_service.GetVodConfigRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = vod_configs.VodConfig.to_json(vod_configs.VodConfig())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.GetVodConfigRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = vod_configs.VodConfig()
+        post_with_metadata.return_value = vod_configs.VodConfig(), metadata
+
+        client.get_vod_config(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_delete_vod_config_rest_bad_request(
+    request_type=video_stitcher_service.DeleteVodConfigRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/vodConfigs/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.delete_vod_config(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.DeleteVodConfigRequest,
+        dict,
+    ],
+)
+def test_delete_vod_config_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/vodConfigs/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.delete_vod_config(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_delete_vod_config_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_delete_vod_config"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_delete_vod_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_delete_vod_config"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.DeleteVodConfigRequest.pb(
+            video_stitcher_service.DeleteVodConfigRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.DeleteVodConfigRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.delete_vod_config(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_update_vod_config_rest_bad_request(
+    request_type=video_stitcher_service.UpdateVodConfigRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "vod_config": {"name": "projects/sample1/locations/sample2/vodConfigs/sample3"}
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.update_vod_config(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        video_stitcher_service.UpdateVodConfigRequest,
+        dict,
+    ],
+)
+def test_update_vod_config_rest_call_success(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "vod_config": {"name": "projects/sample1/locations/sample2/vodConfigs/sample3"}
+    }
+    request_init["vod_config"] = {
+        "name": "projects/sample1/locations/sample2/vodConfigs/sample3",
+        "source_uri": "source_uri_value",
+        "ad_tag_uri": "ad_tag_uri_value",
+        "gam_vod_config": {"network_code": "network_code_value"},
+        "state": 1,
+        "source_fetch_options": {"headers": {}},
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = video_stitcher_service.UpdateVodConfigRequest.meta.fields["vod_config"]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["vod_config"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["vod_config"][field])):
+                    del request_init["vod_config"][field][i][subfield]
+            else:
+                del request_init["vod_config"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.update_vod_config(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_update_vod_config_rest_interceptors(null_interceptor):
+    transport = transports.VideoStitcherServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.VideoStitcherServiceRestInterceptor(),
+    )
+    client = VideoStitcherServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "post_update_vod_config"
+        ) as post,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor,
+            "post_update_vod_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VideoStitcherServiceRestInterceptor, "pre_update_vod_config"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = video_stitcher_service.UpdateVodConfigRequest.pb(
+            video_stitcher_service.UpdateVodConfigRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = video_stitcher_service.UpdateVodConfigRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.update_vod_config(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_cancel_operation_rest_bad_request(
+    request_type=operations_pb2.CancelOperationRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type()
+    request = json_format.ParseDict(
+        {"name": "projects/sample1/locations/sample2/operations/sample3"}, request
+    )
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = Request()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.cancel_operation(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        operations_pb2.CancelOperationRequest,
+        dict,
+    ],
+)
+def test_cancel_operation_rest(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    request_init = {"name": "projects/sample1/locations/sample2/operations/sample3"}
+    request = request_type(**request_init)
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = None
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = "{}"
+        response_value.content = json_return_value.encode("UTF-8")
+
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        response = client.cancel_operation(request)
+
+    # Establish that the response is the type that we expect.
+    assert response is None
+
+
+def test_delete_operation_rest_bad_request(
+    request_type=operations_pb2.DeleteOperationRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type()
+    request = json_format.ParseDict(
+        {"name": "projects/sample1/locations/sample2/operations/sample3"}, request
+    )
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = Request()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.delete_operation(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        operations_pb2.DeleteOperationRequest,
+        dict,
+    ],
+)
+def test_delete_operation_rest(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    request_init = {"name": "projects/sample1/locations/sample2/operations/sample3"}
+    request = request_type(**request_init)
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = None
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = "{}"
+        response_value.content = json_return_value.encode("UTF-8")
+
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        response = client.delete_operation(request)
+
+    # Establish that the response is the type that we expect.
+    assert response is None
+
+
+def test_get_operation_rest_bad_request(
+    request_type=operations_pb2.GetOperationRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type()
+    request = json_format.ParseDict(
+        {"name": "projects/sample1/locations/sample2/operations/sample3"}, request
+    )
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = Request()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_operation(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        operations_pb2.GetOperationRequest,
+        dict,
+    ],
+)
+def test_get_operation_rest(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    request_init = {"name": "projects/sample1/locations/sample2/operations/sample3"}
+    request = request_type(**request_init)
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation()
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        response = client.get_operation(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, operations_pb2.Operation)
+
+
+def test_list_operations_rest_bad_request(
+    request_type=operations_pb2.ListOperationsRequest,
+):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type()
+    request = json_format.ParseDict(
+        {"name": "projects/sample1/locations/sample2"}, request
+    )
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = Request()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_operations(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        operations_pb2.ListOperationsRequest,
+        dict,
+    ],
+)
+def test_list_operations_rest(request_type):
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    request_init = {"name": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.ListOperationsResponse()
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        response = client.list_operations(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, operations_pb2.ListOperationsResponse)
+
+
+def test_initialize_client_w_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    assert client is not None
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_cdn_key_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.create_cdn_key), "__call__") as call:
+        client.create_cdn_key(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.CreateCdnKeyRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_cdn_keys_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.list_cdn_keys), "__call__") as call:
+        client.list_cdn_keys(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.ListCdnKeysRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_cdn_key_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.get_cdn_key), "__call__") as call:
+        client.get_cdn_key(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.GetCdnKeyRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_delete_cdn_key_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.delete_cdn_key), "__call__") as call:
+        client.delete_cdn_key(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.DeleteCdnKeyRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_update_cdn_key_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.update_cdn_key), "__call__") as call:
+        client.update_cdn_key(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.UpdateCdnKeyRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_vod_session_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_vod_session), "__call__"
+    ) as call:
+        client.create_vod_session(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.CreateVodSessionRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_vod_session_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.get_vod_session), "__call__") as call:
+        client.get_vod_session(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.GetVodSessionRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_vod_stitch_details_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_vod_stitch_details), "__call__"
+    ) as call:
+        client.list_vod_stitch_details(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.ListVodStitchDetailsRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_vod_stitch_detail_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_vod_stitch_detail), "__call__"
+    ) as call:
+        client.get_vod_stitch_detail(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.GetVodStitchDetailRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_vod_ad_tag_details_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_vod_ad_tag_details), "__call__"
+    ) as call:
+        client.list_vod_ad_tag_details(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.ListVodAdTagDetailsRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_vod_ad_tag_detail_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_vod_ad_tag_detail), "__call__"
+    ) as call:
+        client.get_vod_ad_tag_detail(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.GetVodAdTagDetailRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_live_ad_tag_details_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_live_ad_tag_details), "__call__"
+    ) as call:
+        client.list_live_ad_tag_details(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.ListLiveAdTagDetailsRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_live_ad_tag_detail_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_live_ad_tag_detail), "__call__"
+    ) as call:
+        client.get_live_ad_tag_detail(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.GetLiveAdTagDetailRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_slate_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.create_slate), "__call__") as call:
+        client.create_slate(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.CreateSlateRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_slates_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.list_slates), "__call__") as call:
+        client.list_slates(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.ListSlatesRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_slate_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.get_slate), "__call__") as call:
+        client.get_slate(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.GetSlateRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_update_slate_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.update_slate), "__call__") as call:
+        client.update_slate(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.UpdateSlateRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_delete_slate_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.delete_slate), "__call__") as call:
+        client.delete_slate(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.DeleteSlateRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_live_session_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_live_session), "__call__"
+    ) as call:
+        client.create_live_session(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.CreateLiveSessionRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_live_session_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.get_live_session), "__call__") as call:
+        client.get_live_session(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.GetLiveSessionRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_live_config_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_live_config), "__call__"
+    ) as call:
+        client.create_live_config(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.CreateLiveConfigRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_live_configs_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_live_configs), "__call__"
+    ) as call:
+        client.list_live_configs(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.ListLiveConfigsRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_live_config_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.get_live_config), "__call__") as call:
+        client.get_live_config(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.GetLiveConfigRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_delete_live_config_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_live_config), "__call__"
+    ) as call:
+        client.delete_live_config(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.DeleteLiveConfigRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_update_live_config_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_live_config), "__call__"
+    ) as call:
+        client.update_live_config(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.UpdateLiveConfigRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_vod_config_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_vod_config), "__call__"
+    ) as call:
+        client.create_vod_config(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.CreateVodConfigRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_vod_configs_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.list_vod_configs), "__call__") as call:
+        client.list_vod_configs(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.ListVodConfigsRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_vod_config_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.get_vod_config), "__call__") as call:
+        client.get_vod_config(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.GetVodConfigRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_delete_vod_config_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_vod_config), "__call__"
+    ) as call:
+        client.delete_vod_config(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.DeleteVodConfigRequest()
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_update_vod_config_empty_call_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_vod_config), "__call__"
+    ) as call:
+        client.update_vod_config(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = video_stitcher_service.UpdateVodConfigRequest()
+        assert args[0] == request_msg
+
+
+def test_video_stitcher_service_rest_lro_client():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    transport = client.transport
+
+    # Ensure that we have an api-core operations client.
+    assert isinstance(
+        transport.operations_client,
+        operations_v1.AbstractOperationsClient,
+    )
+
+    # Ensure that subsequent calls to the property send the exact same object.
+    assert transport.operations_client is transport.operations_client
 
 
 def test_transport_grpc_default():
@@ -14611,11 +26757,14 @@ def test_video_stitcher_service_base_transport():
 
 def test_video_stitcher_service_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.video.stitcher_v1.services.video_stitcher_service.transports.VideoStitcherServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.video.stitcher_v1.services.video_stitcher_service.transports.VideoStitcherServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.VideoStitcherServiceTransport(
@@ -14632,9 +26781,12 @@ def test_video_stitcher_service_base_transport_with_credentials_file():
 
 def test_video_stitcher_service_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.video.stitcher_v1.services.video_stitcher_service.transports.VideoStitcherServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.video.stitcher_v1.services.video_stitcher_service.transports.VideoStitcherServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.VideoStitcherServiceTransport()
@@ -14678,6 +26830,7 @@ def test_video_stitcher_service_transport_auth_adc(transport_class):
     [
         transports.VideoStitcherServiceGrpcTransport,
         transports.VideoStitcherServiceGrpcAsyncIOTransport,
+        transports.VideoStitcherServiceRestTransport,
     ],
 )
 def test_video_stitcher_service_transport_auth_gdch_credentials(transport_class):
@@ -14705,11 +26858,12 @@ def test_video_stitcher_service_transport_auth_gdch_credentials(transport_class)
 def test_video_stitcher_service_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -14777,11 +26931,23 @@ def test_video_stitcher_service_grpc_transport_client_cert_source_for_mtls(
             )
 
 
+def test_video_stitcher_service_http_transport_client_cert_source_for_mtls():
+    cred = ga_credentials.AnonymousCredentials()
+    with mock.patch(
+        "google.auth.transport.requests.AuthorizedSession.configure_mtls_channel"
+    ) as mock_configure_mtls_channel:
+        transports.VideoStitcherServiceRestTransport(
+            credentials=cred, client_cert_source_for_mtls=client_cert_source_callback
+        )
+        mock_configure_mtls_channel.assert_called_once_with(client_cert_source_callback)
+
+
 @pytest.mark.parametrize(
     "transport_name",
     [
         "grpc",
         "grpc_asyncio",
+        "rest",
     ],
 )
 def test_video_stitcher_service_host_no_port(transport_name):
@@ -14792,7 +26958,11 @@ def test_video_stitcher_service_host_no_port(transport_name):
         ),
         transport=transport_name,
     )
-    assert client.transport._host == ("videostitcher.googleapis.com:443")
+    assert client.transport._host == (
+        "videostitcher.googleapis.com:443"
+        if transport_name in ["grpc", "grpc_asyncio"]
+        else "https://videostitcher.googleapis.com"
+    )
 
 
 @pytest.mark.parametrize(
@@ -14800,6 +26970,7 @@ def test_video_stitcher_service_host_no_port(transport_name):
     [
         "grpc",
         "grpc_asyncio",
+        "rest",
     ],
 )
 def test_video_stitcher_service_host_with_port(transport_name):
@@ -14810,7 +26981,120 @@ def test_video_stitcher_service_host_with_port(transport_name):
         ),
         transport=transport_name,
     )
-    assert client.transport._host == ("videostitcher.googleapis.com:8000")
+    assert client.transport._host == (
+        "videostitcher.googleapis.com:8000"
+        if transport_name in ["grpc", "grpc_asyncio"]
+        else "https://videostitcher.googleapis.com:8000"
+    )
+
+
+@pytest.mark.parametrize(
+    "transport_name",
+    [
+        "rest",
+    ],
+)
+def test_video_stitcher_service_client_transport_session_collision(transport_name):
+    creds1 = ga_credentials.AnonymousCredentials()
+    creds2 = ga_credentials.AnonymousCredentials()
+    client1 = VideoStitcherServiceClient(
+        credentials=creds1,
+        transport=transport_name,
+    )
+    client2 = VideoStitcherServiceClient(
+        credentials=creds2,
+        transport=transport_name,
+    )
+    session1 = client1.transport.create_cdn_key._session
+    session2 = client2.transport.create_cdn_key._session
+    assert session1 != session2
+    session1 = client1.transport.list_cdn_keys._session
+    session2 = client2.transport.list_cdn_keys._session
+    assert session1 != session2
+    session1 = client1.transport.get_cdn_key._session
+    session2 = client2.transport.get_cdn_key._session
+    assert session1 != session2
+    session1 = client1.transport.delete_cdn_key._session
+    session2 = client2.transport.delete_cdn_key._session
+    assert session1 != session2
+    session1 = client1.transport.update_cdn_key._session
+    session2 = client2.transport.update_cdn_key._session
+    assert session1 != session2
+    session1 = client1.transport.create_vod_session._session
+    session2 = client2.transport.create_vod_session._session
+    assert session1 != session2
+    session1 = client1.transport.get_vod_session._session
+    session2 = client2.transport.get_vod_session._session
+    assert session1 != session2
+    session1 = client1.transport.list_vod_stitch_details._session
+    session2 = client2.transport.list_vod_stitch_details._session
+    assert session1 != session2
+    session1 = client1.transport.get_vod_stitch_detail._session
+    session2 = client2.transport.get_vod_stitch_detail._session
+    assert session1 != session2
+    session1 = client1.transport.list_vod_ad_tag_details._session
+    session2 = client2.transport.list_vod_ad_tag_details._session
+    assert session1 != session2
+    session1 = client1.transport.get_vod_ad_tag_detail._session
+    session2 = client2.transport.get_vod_ad_tag_detail._session
+    assert session1 != session2
+    session1 = client1.transport.list_live_ad_tag_details._session
+    session2 = client2.transport.list_live_ad_tag_details._session
+    assert session1 != session2
+    session1 = client1.transport.get_live_ad_tag_detail._session
+    session2 = client2.transport.get_live_ad_tag_detail._session
+    assert session1 != session2
+    session1 = client1.transport.create_slate._session
+    session2 = client2.transport.create_slate._session
+    assert session1 != session2
+    session1 = client1.transport.list_slates._session
+    session2 = client2.transport.list_slates._session
+    assert session1 != session2
+    session1 = client1.transport.get_slate._session
+    session2 = client2.transport.get_slate._session
+    assert session1 != session2
+    session1 = client1.transport.update_slate._session
+    session2 = client2.transport.update_slate._session
+    assert session1 != session2
+    session1 = client1.transport.delete_slate._session
+    session2 = client2.transport.delete_slate._session
+    assert session1 != session2
+    session1 = client1.transport.create_live_session._session
+    session2 = client2.transport.create_live_session._session
+    assert session1 != session2
+    session1 = client1.transport.get_live_session._session
+    session2 = client2.transport.get_live_session._session
+    assert session1 != session2
+    session1 = client1.transport.create_live_config._session
+    session2 = client2.transport.create_live_config._session
+    assert session1 != session2
+    session1 = client1.transport.list_live_configs._session
+    session2 = client2.transport.list_live_configs._session
+    assert session1 != session2
+    session1 = client1.transport.get_live_config._session
+    session2 = client2.transport.get_live_config._session
+    assert session1 != session2
+    session1 = client1.transport.delete_live_config._session
+    session2 = client2.transport.delete_live_config._session
+    assert session1 != session2
+    session1 = client1.transport.update_live_config._session
+    session2 = client2.transport.update_live_config._session
+    assert session1 != session2
+    session1 = client1.transport.create_vod_config._session
+    session2 = client2.transport.create_vod_config._session
+    assert session1 != session2
+    session1 = client1.transport.list_vod_configs._session
+    session2 = client2.transport.list_vod_configs._session
+    assert session1 != session2
+    session1 = client1.transport.get_vod_config._session
+    session2 = client2.transport.get_vod_config._session
+    assert session1 != session2
+    session1 = client1.transport.delete_vod_config._session
+    session2 = client2.transport.delete_vod_config._session
+    assert session1 != session2
+    session1 = client1.transport.update_vod_config._session
+    session2 = client2.transport.update_vod_config._session
+    assert session1 != session2
 
 
 def test_video_stitcher_service_grpc_transport_channel():
@@ -14841,6 +27125,7 @@ def test_video_stitcher_service_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [
@@ -15495,6 +27780,38 @@ async def test_delete_operation_from_dict_async():
         call.assert_called()
 
 
+def test_delete_operation_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_flattened_async():
+    client = VideoStitcherServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
 def test_cancel_operation(transport: str = "grpc"):
     client = VideoStitcherServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -15632,6 +27949,38 @@ async def test_cancel_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_cancel_operation_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = VideoStitcherServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
 
 
 def test_get_operation(transport: str = "grpc"):
@@ -15779,6 +28128,40 @@ async def test_get_operation_from_dict_async():
         call.assert_called()
 
 
+def test_get_operation_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = VideoStitcherServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
 def test_list_operations(transport: str = "grpc"):
     client = VideoStitcherServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -15924,6 +28307,40 @@ async def test_list_operations_from_dict_async():
         call.assert_called()
 
 
+def test_list_operations_flattened():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = VideoStitcherServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
 def test_transport_close_grpc():
     client = VideoStitcherServiceClient(
         credentials=ga_credentials.AnonymousCredentials(), transport="grpc"
@@ -15949,8 +28366,21 @@ async def test_transport_close_grpc_asyncio():
         close.assert_called_once()
 
 
+def test_transport_close_rest():
+    client = VideoStitcherServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    with mock.patch.object(
+        type(getattr(client.transport, "_session")), "close"
+    ) as close:
+        with client:
+            close.assert_not_called()
+        close.assert_called_once()
+
+
 def test_client_ctx():
     transports = [
+        "rest",
         "grpc",
     ]
     for transport in transports:

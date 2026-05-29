@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,21 +38,26 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api_core import gapic_v1, grpc_helpers, grpc_helpers_async, path_template
-from google.api_core import client_options
+import google.auth
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.options_pb2 as options_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.type.expr_pb2 as expr_pb2  # type: ignore
+from google.api_core import (
+    client_options,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import options_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.type import expr_pb2  # type: ignore
 
 from google.cloud.iap_v1.services.identity_aware_proxy_admin_service import (
     IdentityAwareProxyAdminServiceAsyncClient,
@@ -115,12 +115,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert IdentityAwareProxyAdminServiceClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -149,6 +165,10 @@ def test__get_default_mtls_endpoint():
         IdentityAwareProxyAdminServiceClient._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
     )
+    assert (
+        IdentityAwareProxyAdminServiceClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
+    )
 
 
 def test__read_environment_variables():
@@ -175,12 +195,22 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            IdentityAwareProxyAdminServiceClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                IdentityAwareProxyAdminServiceClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert (
+                IdentityAwareProxyAdminServiceClient._read_environment_variables()
+                == (
+                    False,
+                    "auto",
+                    None,
+                )
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert IdentityAwareProxyAdminServiceClient._read_environment_variables() == (
@@ -217,6 +247,138 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert (
+                IdentityAwareProxyAdminServiceClient._use_client_cert_effective()
+                is True
+            )
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert (
+                IdentityAwareProxyAdminServiceClient._use_client_cert_effective()
+                is False
+            )
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert (
+                IdentityAwareProxyAdminServiceClient._use_client_cert_effective()
+                is True
+            )
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert (
+                IdentityAwareProxyAdminServiceClient._use_client_cert_effective()
+                is False
+            )
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert (
+                IdentityAwareProxyAdminServiceClient._use_client_cert_effective()
+                is True
+            )
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert (
+                IdentityAwareProxyAdminServiceClient._use_client_cert_effective()
+                is False
+            )
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert (
+                IdentityAwareProxyAdminServiceClient._use_client_cert_effective()
+                is True
+            )
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert (
+                IdentityAwareProxyAdminServiceClient._use_client_cert_effective()
+                is False
+            )
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert (
+                IdentityAwareProxyAdminServiceClient._use_client_cert_effective()
+                is False
+            )
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                IdentityAwareProxyAdminServiceClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert (
+                IdentityAwareProxyAdminServiceClient._use_client_cert_effective()
+                is False
+            )
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert (
+                    IdentityAwareProxyAdminServiceClient._use_client_cert_effective()
+                    is False
+                )
 
 
 def test__get_client_cert_source():
@@ -621,17 +783,6 @@ def test_identity_aware_proxy_admin_service_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -870,6 +1021,117 @@ def test_identity_aware_proxy_admin_service_client_get_mtls_endpoint_and_cert_so
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -902,10 +1164,9 @@ def test_identity_aware_proxy_admin_service_client_get_mtls_endpoint_and_cert_so
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -918,18 +1179,6 @@ def test_identity_aware_proxy_admin_service_client_get_mtls_endpoint_and_cert_so
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1178,13 +1427,13 @@ def test_identity_aware_proxy_admin_service_client_create_channel_credentials_fi
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1209,8 +1458,8 @@ def test_identity_aware_proxy_admin_service_client_create_channel_credentials_fi
 @pytest.mark.parametrize(
     "request_type",
     [
-        iam_policy_pb2.SetIamPolicyRequest,
-        dict,
+        iam_policy_pb2.SetIamPolicyRequest(),
+        {},
     ],
 )
 def test_set_iam_policy(request_type, transport: str = "grpc"):
@@ -1221,7 +1470,7 @@ def test_set_iam_policy(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
@@ -1267,9 +1516,10 @@ def test_set_iam_policy_non_empty_request_with_auto_populated_field():
         client.set_iam_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == iam_policy_pb2.SetIamPolicyRequest(
+        request_msg = iam_policy_pb2.SetIamPolicyRequest(
             resource="resource_value",
         )
+        assert args[0] == request_msg
 
 
 def test_set_iam_policy_use_cached_wrapped_rpc():
@@ -1350,9 +1600,14 @@ async def test_set_iam_policy_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_set_iam_policy_async(
-    transport: str = "grpc_asyncio", request_type=iam_policy_pb2.SetIamPolicyRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        iam_policy_pb2.SetIamPolicyRequest(),
+        {},
+    ],
+)
+async def test_set_iam_policy_async(request_type, transport: str = "grpc_asyncio"):
     client = IdentityAwareProxyAdminServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1360,7 +1615,7 @@ async def test_set_iam_policy_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
@@ -1383,11 +1638,6 @@ async def test_set_iam_policy_async(
     assert isinstance(response, policy_pb2.Policy)
     assert response.version == 774
     assert response.etag == b"etag_blob"
-
-
-@pytest.mark.asyncio
-async def test_set_iam_policy_async_from_dict():
-    await test_set_iam_policy_async(request_type=dict)
 
 
 def test_set_iam_policy_field_headers():
@@ -1470,8 +1720,8 @@ def test_set_iam_policy_from_dict_foreign():
 @pytest.mark.parametrize(
     "request_type",
     [
-        iam_policy_pb2.GetIamPolicyRequest,
-        dict,
+        iam_policy_pb2.GetIamPolicyRequest(),
+        {},
     ],
 )
 def test_get_iam_policy(request_type, transport: str = "grpc"):
@@ -1482,7 +1732,7 @@ def test_get_iam_policy(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
@@ -1528,9 +1778,10 @@ def test_get_iam_policy_non_empty_request_with_auto_populated_field():
         client.get_iam_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == iam_policy_pb2.GetIamPolicyRequest(
+        request_msg = iam_policy_pb2.GetIamPolicyRequest(
             resource="resource_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_iam_policy_use_cached_wrapped_rpc():
@@ -1611,9 +1862,14 @@ async def test_get_iam_policy_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_iam_policy_async(
-    transport: str = "grpc_asyncio", request_type=iam_policy_pb2.GetIamPolicyRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        iam_policy_pb2.GetIamPolicyRequest(),
+        {},
+    ],
+)
+async def test_get_iam_policy_async(request_type, transport: str = "grpc_asyncio"):
     client = IdentityAwareProxyAdminServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1621,7 +1877,7 @@ async def test_get_iam_policy_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
@@ -1644,11 +1900,6 @@ async def test_get_iam_policy_async(
     assert isinstance(response, policy_pb2.Policy)
     assert response.version == 774
     assert response.etag == b"etag_blob"
-
-
-@pytest.mark.asyncio
-async def test_get_iam_policy_async_from_dict():
-    await test_get_iam_policy_async(request_type=dict)
 
 
 def test_get_iam_policy_field_headers():
@@ -1730,8 +1981,8 @@ def test_get_iam_policy_from_dict_foreign():
 @pytest.mark.parametrize(
     "request_type",
     [
-        iam_policy_pb2.TestIamPermissionsRequest,
-        dict,
+        iam_policy_pb2.TestIamPermissionsRequest(),
+        {},
     ],
 )
 def test_test_iam_permissions(request_type, transport: str = "grpc"):
@@ -1742,7 +1993,7 @@ def test_test_iam_permissions(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1790,9 +2041,10 @@ def test_test_iam_permissions_non_empty_request_with_auto_populated_field():
         client.test_iam_permissions(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == iam_policy_pb2.TestIamPermissionsRequest(
+        request_msg = iam_policy_pb2.TestIamPermissionsRequest(
             resource="resource_value",
         )
+        assert args[0] == request_msg
 
 
 def test_test_iam_permissions_use_cached_wrapped_rpc():
@@ -1818,9 +2070,9 @@ def test_test_iam_permissions_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.test_iam_permissions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.test_iam_permissions] = (
+            mock_rpc
+        )
         request = {}
         client.test_iam_permissions(request)
 
@@ -1877,9 +2129,15 @@ async def test_test_iam_permissions_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        iam_policy_pb2.TestIamPermissionsRequest(),
+        {},
+    ],
+)
 async def test_test_iam_permissions_async(
-    transport: str = "grpc_asyncio",
-    request_type=iam_policy_pb2.TestIamPermissionsRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = IdentityAwareProxyAdminServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -1888,7 +2146,7 @@ async def test_test_iam_permissions_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1911,11 +2169,6 @@ async def test_test_iam_permissions_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, iam_policy_pb2.TestIamPermissionsResponse)
     assert response.permissions == ["permissions_value"]
-
-
-@pytest.mark.asyncio
-async def test_test_iam_permissions_async_from_dict():
-    await test_test_iam_permissions_async(request_type=dict)
 
 
 def test_test_iam_permissions_field_headers():
@@ -2005,8 +2258,8 @@ def test_test_iam_permissions_from_dict_foreign():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.GetIapSettingsRequest,
-        dict,
+        service.GetIapSettingsRequest(),
+        {},
     ],
 )
 def test_get_iap_settings(request_type, transport: str = "grpc"):
@@ -2017,7 +2270,7 @@ def test_get_iap_settings(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_iap_settings), "__call__") as call:
@@ -2061,9 +2314,10 @@ def test_get_iap_settings_non_empty_request_with_auto_populated_field():
         client.get_iap_settings(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.GetIapSettingsRequest(
+        request_msg = service.GetIapSettingsRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_iap_settings_use_cached_wrapped_rpc():
@@ -2087,9 +2341,9 @@ def test_get_iap_settings_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_iap_settings
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_iap_settings] = (
+            mock_rpc
+        )
         request = {}
         client.get_iap_settings(request)
 
@@ -2146,9 +2400,14 @@ async def test_get_iap_settings_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_iap_settings_async(
-    transport: str = "grpc_asyncio", request_type=service.GetIapSettingsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.GetIapSettingsRequest(),
+        {},
+    ],
+)
+async def test_get_iap_settings_async(request_type, transport: str = "grpc_asyncio"):
     client = IdentityAwareProxyAdminServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2156,7 +2415,7 @@ async def test_get_iap_settings_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_iap_settings), "__call__") as call:
@@ -2177,11 +2436,6 @@ async def test_get_iap_settings_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, service.IapSettings)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_iap_settings_async_from_dict():
-    await test_get_iap_settings_async(request_type=dict)
 
 
 def test_get_iap_settings_field_headers():
@@ -2246,8 +2500,8 @@ async def test_get_iap_settings_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.UpdateIapSettingsRequest,
-        dict,
+        service.UpdateIapSettingsRequest(),
+        {},
     ],
 )
 def test_update_iap_settings(request_type, transport: str = "grpc"):
@@ -2258,7 +2512,7 @@ def test_update_iap_settings(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2304,7 +2558,8 @@ def test_update_iap_settings_non_empty_request_with_auto_populated_field():
         client.update_iap_settings(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.UpdateIapSettingsRequest()
+        request_msg = service.UpdateIapSettingsRequest()
+        assert args[0] == request_msg
 
 
 def test_update_iap_settings_use_cached_wrapped_rpc():
@@ -2330,9 +2585,9 @@ def test_update_iap_settings_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_iap_settings
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_iap_settings] = (
+            mock_rpc
+        )
         request = {}
         client.update_iap_settings(request)
 
@@ -2389,9 +2644,14 @@ async def test_update_iap_settings_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_iap_settings_async(
-    transport: str = "grpc_asyncio", request_type=service.UpdateIapSettingsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.UpdateIapSettingsRequest(),
+        {},
+    ],
+)
+async def test_update_iap_settings_async(request_type, transport: str = "grpc_asyncio"):
     client = IdentityAwareProxyAdminServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2399,7 +2659,7 @@ async def test_update_iap_settings_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2422,11 +2682,6 @@ async def test_update_iap_settings_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, service.IapSettings)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_update_iap_settings_async_from_dict():
-    await test_update_iap_settings_async(request_type=dict)
 
 
 def test_update_iap_settings_field_headers():
@@ -2495,8 +2750,8 @@ async def test_update_iap_settings_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.ValidateIapAttributeExpressionRequest,
-        dict,
+        service.ValidateIapAttributeExpressionRequest(),
+        {},
     ],
 )
 def test_validate_iap_attribute_expression(request_type, transport: str = "grpc"):
@@ -2507,7 +2762,7 @@ def test_validate_iap_attribute_expression(request_type, transport: str = "grpc"
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2553,10 +2808,11 @@ def test_validate_iap_attribute_expression_non_empty_request_with_auto_populated
         client.validate_iap_attribute_expression(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.ValidateIapAttributeExpressionRequest(
+        request_msg = service.ValidateIapAttributeExpressionRequest(
             name="name_value",
             expression="expression_value",
         )
+        assert args[0] == request_msg
 
 
 def test_validate_iap_attribute_expression_use_cached_wrapped_rpc():
@@ -2642,9 +2898,15 @@ async def test_validate_iap_attribute_expression_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.ValidateIapAttributeExpressionRequest(),
+        {},
+    ],
+)
 async def test_validate_iap_attribute_expression_async(
-    transport: str = "grpc_asyncio",
-    request_type=service.ValidateIapAttributeExpressionRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = IdentityAwareProxyAdminServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -2653,7 +2915,7 @@ async def test_validate_iap_attribute_expression_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2673,11 +2935,6 @@ async def test_validate_iap_attribute_expression_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, service.ValidateIapAttributeExpressionResponse)
-
-
-@pytest.mark.asyncio
-async def test_validate_iap_attribute_expression_async_from_dict():
-    await test_validate_iap_attribute_expression_async(request_type=dict)
 
 
 def test_validate_iap_attribute_expression_field_headers():
@@ -2748,8 +3005,8 @@ async def test_validate_iap_attribute_expression_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.ListTunnelDestGroupsRequest,
-        dict,
+        service.ListTunnelDestGroupsRequest(),
+        {},
     ],
 )
 def test_list_tunnel_dest_groups(request_type, transport: str = "grpc"):
@@ -2760,7 +3017,7 @@ def test_list_tunnel_dest_groups(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2809,10 +3066,11 @@ def test_list_tunnel_dest_groups_non_empty_request_with_auto_populated_field():
         client.list_tunnel_dest_groups(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.ListTunnelDestGroupsRequest(
+        request_msg = service.ListTunnelDestGroupsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_tunnel_dest_groups_use_cached_wrapped_rpc():
@@ -2898,8 +3156,15 @@ async def test_list_tunnel_dest_groups_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.ListTunnelDestGroupsRequest(),
+        {},
+    ],
+)
 async def test_list_tunnel_dest_groups_async(
-    transport: str = "grpc_asyncio", request_type=service.ListTunnelDestGroupsRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = IdentityAwareProxyAdminServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -2908,7 +3173,7 @@ async def test_list_tunnel_dest_groups_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2931,11 +3196,6 @@ async def test_list_tunnel_dest_groups_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListTunnelDestGroupsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_tunnel_dest_groups_async_from_dict():
-    await test_list_tunnel_dest_groups_async(request_type=dict)
 
 
 def test_list_tunnel_dest_groups_field_headers():
@@ -3281,11 +3541,7 @@ async def test_list_tunnel_dest_groups_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_tunnel_dest_groups(request={})
-        ).pages:
+        async for page_ in (await client.list_tunnel_dest_groups(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -3294,8 +3550,8 @@ async def test_list_tunnel_dest_groups_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.CreateTunnelDestGroupRequest,
-        dict,
+        service.CreateTunnelDestGroupRequest(),
+        {},
     ],
 )
 def test_create_tunnel_dest_group(request_type, transport: str = "grpc"):
@@ -3306,7 +3562,7 @@ def test_create_tunnel_dest_group(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3359,10 +3615,11 @@ def test_create_tunnel_dest_group_non_empty_request_with_auto_populated_field():
         client.create_tunnel_dest_group(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.CreateTunnelDestGroupRequest(
+        request_msg = service.CreateTunnelDestGroupRequest(
             parent="parent_value",
             tunnel_dest_group_id="tunnel_dest_group_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_tunnel_dest_group_use_cached_wrapped_rpc():
@@ -3448,8 +3705,15 @@ async def test_create_tunnel_dest_group_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.CreateTunnelDestGroupRequest(),
+        {},
+    ],
+)
 async def test_create_tunnel_dest_group_async(
-    transport: str = "grpc_asyncio", request_type=service.CreateTunnelDestGroupRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = IdentityAwareProxyAdminServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -3458,7 +3722,7 @@ async def test_create_tunnel_dest_group_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3485,11 +3749,6 @@ async def test_create_tunnel_dest_group_async(
     assert response.name == "name_value"
     assert response.cidrs == ["cidrs_value"]
     assert response.fqdns == ["fqdns_value"]
-
-
-@pytest.mark.asyncio
-async def test_create_tunnel_dest_group_async_from_dict():
-    await test_create_tunnel_dest_group_async(request_type=dict)
 
 
 def test_create_tunnel_dest_group_field_headers():
@@ -3666,8 +3925,8 @@ async def test_create_tunnel_dest_group_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.GetTunnelDestGroupRequest,
-        dict,
+        service.GetTunnelDestGroupRequest(),
+        {},
     ],
 )
 def test_get_tunnel_dest_group(request_type, transport: str = "grpc"):
@@ -3678,7 +3937,7 @@ def test_get_tunnel_dest_group(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3730,9 +3989,10 @@ def test_get_tunnel_dest_group_non_empty_request_with_auto_populated_field():
         client.get_tunnel_dest_group(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.GetTunnelDestGroupRequest(
+        request_msg = service.GetTunnelDestGroupRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_tunnel_dest_group_use_cached_wrapped_rpc():
@@ -3759,9 +4019,9 @@ def test_get_tunnel_dest_group_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_tunnel_dest_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_tunnel_dest_group] = (
+            mock_rpc
+        )
         request = {}
         client.get_tunnel_dest_group(request)
 
@@ -3818,8 +4078,15 @@ async def test_get_tunnel_dest_group_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.GetTunnelDestGroupRequest(),
+        {},
+    ],
+)
 async def test_get_tunnel_dest_group_async(
-    transport: str = "grpc_asyncio", request_type=service.GetTunnelDestGroupRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = IdentityAwareProxyAdminServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -3828,7 +4095,7 @@ async def test_get_tunnel_dest_group_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3855,11 +4122,6 @@ async def test_get_tunnel_dest_group_async(
     assert response.name == "name_value"
     assert response.cidrs == ["cidrs_value"]
     assert response.fqdns == ["fqdns_value"]
-
-
-@pytest.mark.asyncio
-async def test_get_tunnel_dest_group_async_from_dict():
-    await test_get_tunnel_dest_group_async(request_type=dict)
 
 
 def test_get_tunnel_dest_group_field_headers():
@@ -4016,8 +4278,8 @@ async def test_get_tunnel_dest_group_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.DeleteTunnelDestGroupRequest,
-        dict,
+        service.DeleteTunnelDestGroupRequest(),
+        {},
     ],
 )
 def test_delete_tunnel_dest_group(request_type, transport: str = "grpc"):
@@ -4028,7 +4290,7 @@ def test_delete_tunnel_dest_group(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4073,9 +4335,10 @@ def test_delete_tunnel_dest_group_non_empty_request_with_auto_populated_field():
         client.delete_tunnel_dest_group(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.DeleteTunnelDestGroupRequest(
+        request_msg = service.DeleteTunnelDestGroupRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_tunnel_dest_group_use_cached_wrapped_rpc():
@@ -4161,8 +4424,15 @@ async def test_delete_tunnel_dest_group_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.DeleteTunnelDestGroupRequest(),
+        {},
+    ],
+)
 async def test_delete_tunnel_dest_group_async(
-    transport: str = "grpc_asyncio", request_type=service.DeleteTunnelDestGroupRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = IdentityAwareProxyAdminServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -4171,7 +4441,7 @@ async def test_delete_tunnel_dest_group_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4189,11 +4459,6 @@ async def test_delete_tunnel_dest_group_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_tunnel_dest_group_async_from_dict():
-    await test_delete_tunnel_dest_group_async(request_type=dict)
 
 
 def test_delete_tunnel_dest_group_field_headers():
@@ -4346,8 +4611,8 @@ async def test_delete_tunnel_dest_group_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.UpdateTunnelDestGroupRequest,
-        dict,
+        service.UpdateTunnelDestGroupRequest(),
+        {},
     ],
 )
 def test_update_tunnel_dest_group(request_type, transport: str = "grpc"):
@@ -4358,7 +4623,7 @@ def test_update_tunnel_dest_group(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4408,7 +4673,8 @@ def test_update_tunnel_dest_group_non_empty_request_with_auto_populated_field():
         client.update_tunnel_dest_group(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.UpdateTunnelDestGroupRequest()
+        request_msg = service.UpdateTunnelDestGroupRequest()
+        assert args[0] == request_msg
 
 
 def test_update_tunnel_dest_group_use_cached_wrapped_rpc():
@@ -4494,8 +4760,15 @@ async def test_update_tunnel_dest_group_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.UpdateTunnelDestGroupRequest(),
+        {},
+    ],
+)
 async def test_update_tunnel_dest_group_async(
-    transport: str = "grpc_asyncio", request_type=service.UpdateTunnelDestGroupRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = IdentityAwareProxyAdminServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -4504,7 +4777,7 @@ async def test_update_tunnel_dest_group_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4531,11 +4804,6 @@ async def test_update_tunnel_dest_group_async(
     assert response.name == "name_value"
     assert response.cidrs == ["cidrs_value"]
     assert response.fqdns == ["fqdns_value"]
-
-
-@pytest.mark.asyncio
-async def test_update_tunnel_dest_group_async_from_dict():
-    await test_update_tunnel_dest_group_async(request_type=dict)
 
 
 def test_update_tunnel_dest_group_field_headers():
@@ -4806,7 +5074,7 @@ def test_set_iam_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_iam_policy_rest_unset_required_fields():
@@ -4933,7 +5201,7 @@ def test_get_iam_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_iam_policy_rest_unset_required_fields():
@@ -4968,9 +5236,9 @@ def test_test_iam_permissions_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.test_iam_permissions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.test_iam_permissions] = (
+            mock_rpc
+        )
 
         request = {}
         client.test_iam_permissions(request)
@@ -5060,7 +5328,7 @@ def test_test_iam_permissions_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_test_iam_permissions_rest_unset_required_fields():
@@ -5101,9 +5369,9 @@ def test_get_iap_settings_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_iap_settings
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_iap_settings] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_iap_settings(request)
@@ -5190,7 +5458,7 @@ def test_get_iap_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_iap_settings_rest_unset_required_fields():
@@ -5225,9 +5493,9 @@ def test_update_iap_settings_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_iap_settings
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_iap_settings] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_iap_settings(request)
@@ -5312,7 +5580,7 @@ def test_update_iap_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_iap_settings_rest_unset_required_fields():
@@ -5454,7 +5722,7 @@ def test_validate_iap_attribute_expression_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_validate_iap_attribute_expression_rest_unset_required_fields():
@@ -5596,7 +5864,7 @@ def test_list_tunnel_dest_groups_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_tunnel_dest_groups_rest_unset_required_fields():
@@ -5868,7 +6136,7 @@ def test_create_tunnel_dest_group_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_tunnel_dest_group_rest_unset_required_fields():
@@ -5975,9 +6243,9 @@ def test_get_tunnel_dest_group_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_tunnel_dest_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_tunnel_dest_group] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_tunnel_dest_group(request)
@@ -6064,7 +6332,7 @@ def test_get_tunnel_dest_group_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_tunnel_dest_group_rest_unset_required_fields():
@@ -6246,7 +6514,7 @@ def test_delete_tunnel_dest_group_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_tunnel_dest_group_rest_unset_required_fields():
@@ -6427,7 +6695,7 @@ def test_update_tunnel_dest_group_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_tunnel_dest_group_rest_unset_required_fields():
@@ -6626,7 +6894,6 @@ def test_set_iam_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.SetIamPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -6647,7 +6914,6 @@ def test_get_iam_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.GetIamPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -6670,7 +6936,6 @@ def test_test_iam_permissions_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.TestIamPermissionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -6691,7 +6956,6 @@ def test_get_iap_settings_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetIapSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -6714,7 +6978,6 @@ def test_update_iap_settings_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateIapSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -6737,7 +7000,6 @@ def test_validate_iap_attribute_expression_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ValidateIapAttributeExpressionRequest()
-
         assert args[0] == request_msg
 
 
@@ -6760,7 +7022,6 @@ def test_list_tunnel_dest_groups_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListTunnelDestGroupsRequest()
-
         assert args[0] == request_msg
 
 
@@ -6783,7 +7044,6 @@ def test_create_tunnel_dest_group_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateTunnelDestGroupRequest()
-
         assert args[0] == request_msg
 
 
@@ -6806,7 +7066,6 @@ def test_get_tunnel_dest_group_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetTunnelDestGroupRequest()
-
         assert args[0] == request_msg
 
 
@@ -6829,7 +7088,6 @@ def test_delete_tunnel_dest_group_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteTunnelDestGroupRequest()
-
         assert args[0] == request_msg
 
 
@@ -6852,7 +7110,6 @@ def test_update_tunnel_dest_group_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateTunnelDestGroupRequest()
-
         assert args[0] == request_msg
 
 
@@ -6894,7 +7151,6 @@ async def test_set_iam_policy_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.SetIamPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -6922,7 +7178,6 @@ async def test_get_iam_policy_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.GetIamPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -6951,7 +7206,6 @@ async def test_test_iam_permissions_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.TestIamPermissionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -6978,7 +7232,6 @@ async def test_get_iap_settings_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetIapSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -7007,7 +7260,6 @@ async def test_update_iap_settings_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateIapSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -7034,7 +7286,6 @@ async def test_validate_iap_attribute_expression_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ValidateIapAttributeExpressionRequest()
-
         assert args[0] == request_msg
 
 
@@ -7063,7 +7314,6 @@ async def test_list_tunnel_dest_groups_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListTunnelDestGroupsRequest()
-
         assert args[0] == request_msg
 
 
@@ -7094,7 +7344,6 @@ async def test_create_tunnel_dest_group_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateTunnelDestGroupRequest()
-
         assert args[0] == request_msg
 
 
@@ -7125,7 +7374,6 @@ async def test_get_tunnel_dest_group_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetTunnelDestGroupRequest()
-
         assert args[0] == request_msg
 
 
@@ -7150,7 +7398,6 @@ async def test_delete_tunnel_dest_group_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteTunnelDestGroupRequest()
-
         assert args[0] == request_msg
 
 
@@ -7181,7 +7428,6 @@ async def test_update_tunnel_dest_group_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateTunnelDestGroupRequest()
-
         assert args[0] == request_msg
 
 
@@ -7203,8 +7449,9 @@ def test_set_iam_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7266,18 +7513,22 @@ def test_set_iam_policy_rest_interceptors(null_interceptor):
     )
     client = IdentityAwareProxyAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor, "post_set_iam_policy"
-    ) as post, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_set_iam_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor, "pre_set_iam_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_set_iam_policy",
+        ) as post,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_set_iam_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "pre_set_iam_policy",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7328,8 +7579,9 @@ def test_get_iam_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7391,18 +7643,22 @@ def test_get_iam_policy_rest_interceptors(null_interceptor):
     )
     client = IdentityAwareProxyAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor, "post_get_iam_policy"
-    ) as post, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_get_iam_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor, "pre_get_iam_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_get_iam_policy",
+        ) as post,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_get_iam_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "pre_get_iam_policy",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7453,8 +7709,9 @@ def test_test_iam_permissions_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7514,20 +7771,22 @@ def test_test_iam_permissions_rest_interceptors(null_interceptor):
     )
     client = IdentityAwareProxyAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_test_iam_permissions",
-    ) as post, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_test_iam_permissions_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "pre_test_iam_permissions",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_test_iam_permissions",
+        ) as post,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_test_iam_permissions_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "pre_test_iam_permissions",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7581,8 +7840,9 @@ def test_get_iap_settings_rest_bad_request(request_type=service.GetIapSettingsRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7645,19 +7905,22 @@ def test_get_iap_settings_rest_interceptors(null_interceptor):
     )
     client = IdentityAwareProxyAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_get_iap_settings",
-    ) as post, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_get_iap_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor, "pre_get_iap_settings"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_get_iap_settings",
+        ) as post,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_get_iap_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "pre_get_iap_settings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7708,8 +7971,9 @@ def test_update_iap_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7746,6 +8010,9 @@ def test_update_iap_settings_rest_call_success(request_type):
             "cors_settings": {"allow_http_options": {"value": True}},
             "oauth_settings": {
                 "login_hint": {},
+                "client_id": {},
+                "client_secret": {},
+                "client_secret_sha256": {},
                 "programmatic_clients": [
                     "programmatic_clients_value1",
                     "programmatic_clients_value2",
@@ -7888,20 +8155,22 @@ def test_update_iap_settings_rest_interceptors(null_interceptor):
     )
     client = IdentityAwareProxyAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_update_iap_settings",
-    ) as post, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_update_iap_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "pre_update_iap_settings",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_update_iap_settings",
+        ) as post,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_update_iap_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "pre_update_iap_settings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7954,8 +8223,9 @@ def test_validate_iap_attribute_expression_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8015,20 +8285,22 @@ def test_validate_iap_attribute_expression_rest_interceptors(null_interceptor):
     )
     client = IdentityAwareProxyAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_validate_iap_attribute_expression",
-    ) as post, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_validate_iap_attribute_expression_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "pre_validate_iap_attribute_expression",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_validate_iap_attribute_expression",
+        ) as post,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_validate_iap_attribute_expression_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "pre_validate_iap_attribute_expression",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8086,8 +8358,9 @@ def test_list_tunnel_dest_groups_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8150,20 +8423,22 @@ def test_list_tunnel_dest_groups_rest_interceptors(null_interceptor):
     )
     client = IdentityAwareProxyAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_list_tunnel_dest_groups",
-    ) as post, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_list_tunnel_dest_groups_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "pre_list_tunnel_dest_groups",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_list_tunnel_dest_groups",
+        ) as post,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_list_tunnel_dest_groups_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "pre_list_tunnel_dest_groups",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8221,8 +8496,9 @@ def test_create_tunnel_dest_group_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8361,20 +8637,22 @@ def test_create_tunnel_dest_group_rest_interceptors(null_interceptor):
     )
     client = IdentityAwareProxyAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_create_tunnel_dest_group",
-    ) as post, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_create_tunnel_dest_group_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "pre_create_tunnel_dest_group",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_create_tunnel_dest_group",
+        ) as post,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_create_tunnel_dest_group_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "pre_create_tunnel_dest_group",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8429,8 +8707,9 @@ def test_get_tunnel_dest_group_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8499,20 +8778,22 @@ def test_get_tunnel_dest_group_rest_interceptors(null_interceptor):
     )
     client = IdentityAwareProxyAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_get_tunnel_dest_group",
-    ) as post, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_get_tunnel_dest_group_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "pre_get_tunnel_dest_group",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_get_tunnel_dest_group",
+        ) as post,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_get_tunnel_dest_group_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "pre_get_tunnel_dest_group",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8567,8 +8848,9 @@ def test_delete_tunnel_dest_group_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8627,14 +8909,14 @@ def test_delete_tunnel_dest_group_rest_interceptors(null_interceptor):
     )
     client = IdentityAwareProxyAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "pre_delete_tunnel_dest_group",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "pre_delete_tunnel_dest_group",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = service.DeleteTunnelDestGroupRequest.pb(
             service.DeleteTunnelDestGroupRequest()
@@ -8683,8 +8965,9 @@ def test_update_tunnel_dest_group_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8827,20 +9110,22 @@ def test_update_tunnel_dest_group_rest_interceptors(null_interceptor):
     )
     client = IdentityAwareProxyAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_update_tunnel_dest_group",
-    ) as post, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "post_update_tunnel_dest_group_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.IdentityAwareProxyAdminServiceRestInterceptor,
-        "pre_update_tunnel_dest_group",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_update_tunnel_dest_group",
+        ) as post,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "post_update_tunnel_dest_group_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.IdentityAwareProxyAdminServiceRestInterceptor,
+            "pre_update_tunnel_dest_group",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8905,7 +9190,6 @@ def test_set_iam_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.SetIamPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -8925,7 +9209,6 @@ def test_get_iam_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.GetIamPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -8947,7 +9230,6 @@ def test_test_iam_permissions_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.TestIamPermissionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -8967,7 +9249,6 @@ def test_get_iap_settings_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetIapSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -8989,7 +9270,6 @@ def test_update_iap_settings_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateIapSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -9011,7 +9291,6 @@ def test_validate_iap_attribute_expression_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ValidateIapAttributeExpressionRequest()
-
         assert args[0] == request_msg
 
 
@@ -9033,7 +9312,6 @@ def test_list_tunnel_dest_groups_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListTunnelDestGroupsRequest()
-
         assert args[0] == request_msg
 
 
@@ -9055,7 +9333,6 @@ def test_create_tunnel_dest_group_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateTunnelDestGroupRequest()
-
         assert args[0] == request_msg
 
 
@@ -9077,7 +9354,6 @@ def test_get_tunnel_dest_group_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetTunnelDestGroupRequest()
-
         assert args[0] == request_msg
 
 
@@ -9099,7 +9375,6 @@ def test_delete_tunnel_dest_group_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteTunnelDestGroupRequest()
-
         assert args[0] == request_msg
 
 
@@ -9121,7 +9396,6 @@ def test_update_tunnel_dest_group_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateTunnelDestGroupRequest()
-
         assert args[0] == request_msg
 
 
@@ -9188,11 +9462,14 @@ def test_identity_aware_proxy_admin_service_base_transport():
 
 def test_identity_aware_proxy_admin_service_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.iap_v1.services.identity_aware_proxy_admin_service.transports.IdentityAwareProxyAdminServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.iap_v1.services.identity_aware_proxy_admin_service.transports.IdentityAwareProxyAdminServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.IdentityAwareProxyAdminServiceTransport(
@@ -9209,9 +9486,12 @@ def test_identity_aware_proxy_admin_service_base_transport_with_credentials_file
 
 def test_identity_aware_proxy_admin_service_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.iap_v1.services.identity_aware_proxy_admin_service.transports.IdentityAwareProxyAdminServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.iap_v1.services.identity_aware_proxy_admin_service.transports.IdentityAwareProxyAdminServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.IdentityAwareProxyAdminServiceTransport()
@@ -9290,11 +9570,12 @@ def test_identity_aware_proxy_admin_service_transport_create_channel(
 ):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -9499,6 +9780,7 @@ def test_identity_aware_proxy_admin_service_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [

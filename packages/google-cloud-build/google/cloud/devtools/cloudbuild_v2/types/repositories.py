@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.api import httpbody_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api.httpbody_pb2 as httpbody_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -236,6 +236,7 @@ class InstallationState(proto.Message):
             COMPLETE (10):
                 Installation process has been completed.
         """
+
         STAGE_UNSPECIFIED = 0
         PENDING_CREATE_APP = 1
         PENDING_USER_OAUTH = 2
@@ -739,7 +740,7 @@ class CreateConnectionRequest(proto.Message):
             Required. The ID to use for the Connection, which will
             become the final component of the Connection's resource
             name. Names must be unique per-project per-location. Allows
-            alphanumeric characters and any of -._~%!$&'()*+,;=@.
+            alphanumeric characters and any of -.\_~%!$&'()*+,;=@.
     """
 
     parent: str = proto.Field(
@@ -914,7 +915,7 @@ class CreateRepositoryRequest(proto.Message):
             Required. The ID to use for the repository, which will
             become the final component of the repository's resource
             name. This ID should be unique in the connection. Allows
-            alphanumeric characters and any of -._~%!$&'()*+,;=@.
+            alphanumeric characters and any of -.\_~%!$&'()*+,;=@.
     """
 
     parent: str = proto.Field(
@@ -938,10 +939,9 @@ class BatchCreateRepositoriesRequest(proto.Message):
     Attributes:
         parent (str):
             Required. The connection to contain all the repositories
-            being created. Format:
-            projects/\ */locations/*/connections/\* The parent field in
-            the CreateRepositoryRequest messages must either be empty or
-            match this field.
+            being created. Format: projects/*/locations/*/connections/\*
+            The parent field in the CreateRepositoryRequest messages
+            must either be empty or match this field.
         requests (MutableSequence[google.cloud.devtools.cloudbuild_v2.types.CreateRepositoryRequest]):
             Required. The request messages specifying the
             repositories to create.
@@ -1207,6 +1207,7 @@ class FetchGitRefsRequest(proto.Message):
             BRANCH (2):
                 To fetch branches.
         """
+
         REF_TYPE_UNSPECIFIED = 0
         TAG = 1
         BRANCH = 2

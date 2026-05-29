@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,18 +17,18 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
+from google.cloud.eventarc_v1.types import channel as gce_channel
 from google.cloud.eventarc_v1.types import channel_connection as gce_channel_connection
+from google.cloud.eventarc_v1.types import discovery
+from google.cloud.eventarc_v1.types import enrollment as gce_enrollment
 from google.cloud.eventarc_v1.types import google_api_source as gce_google_api_source
 from google.cloud.eventarc_v1.types import (
     google_channel_config as gce_google_channel_config,
 )
-from google.cloud.eventarc_v1.types import channel as gce_channel
-from google.cloud.eventarc_v1.types import discovery
-from google.cloud.eventarc_v1.types import enrollment as gce_enrollment
 from google.cloud.eventarc_v1.types import message_bus as gce_message_bus
 from google.cloud.eventarc_v1.types import pipeline as gce_pipeline
 from google.cloud.eventarc_v1.types import trigger as gce_trigger
@@ -238,7 +238,7 @@ class UpdateTriggerRequest(proto.Message):
             The fields to be updated; only fields explicitly provided
             are updated. If no field mask is provided, all provided
             fields in the request are updated. To update all fields,
-            provide a field mask of "*".
+            provide a field mask of "\*".
         allow_missing (bool):
             If set to true, and the trigger is not found, a new trigger
             will be created. In this situation, ``update_mask`` is
@@ -445,7 +445,7 @@ class UpdateChannelRequest(proto.Message):
             The fields to be updated; only fields explicitly provided
             are updated. If no field mask is provided, all provided
             fields in the request are updated. To update all fields,
-            provide a field mask of "*".
+            provide a field mask of "\*".
         validate_only (bool):
             Optional. If set, validate the request and
             preview the review, but do not post it.
@@ -656,12 +656,12 @@ class ListChannelConnectionsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    channel_connections: MutableSequence[
-        gce_channel_connection.ChannelConnection
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=gce_channel_connection.ChannelConnection,
+    channel_connections: MutableSequence[gce_channel_connection.ChannelConnection] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=gce_channel_connection.ChannelConnection,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -727,7 +727,7 @@ class UpdateGoogleChannelConfigRequest(proto.Message):
             The fields to be updated; only fields explicitly provided
             are updated. If no field mask is provided, all provided
             fields in the request are updated. To update all fields,
-            provide a field mask of "*".
+            provide a field mask of "\*".
     """
 
     google_channel_config: gce_google_channel_config.GoogleChannelConfig = proto.Field(
@@ -776,7 +776,7 @@ class ListMessageBusesRequest(proto.Message):
     Attributes:
         parent (str):
             Required. The parent collection to list
-            triggers on.
+            message buses on.
         page_size (int):
             Optional. The maximum number of results to
             return on each page.
@@ -935,7 +935,7 @@ class CreateMessageBusRequest(proto.Message):
         message_bus_id (str):
             Required. The user-provided ID to be assigned to the
             MessageBus. It should match the format
-            (^`a-z <[a-z0-9-]{0,61}[a-z0-9]>`__?$)
+            ``^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$``.
         validate_only (bool):
             Optional. If set, validate the request and
             preview the review, but do not post it.
@@ -970,7 +970,7 @@ class UpdateMessageBusRequest(proto.Message):
             Optional. The fields to be updated; only fields explicitly
             provided are updated. If no field mask is provided, all
             provided fields in the request are updated. To update all
-            fields, provide a field mask of "*".
+            fields, provide a field mask of "\*".
         allow_missing (bool):
             Optional. If set to true, and the MessageBus is not found, a
             new MessageBus will be created. In this situation,
@@ -1150,7 +1150,7 @@ class CreateEnrollmentRequest(proto.Message):
         enrollment_id (str):
             Required. The user-provided ID to be assigned to the
             Enrollment. It should match the format
-            (^`a-z <[a-z0-9-]{0,61}[a-z0-9]>`__?$).
+            ``^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$``.
         validate_only (bool):
             Optional. If set, validate the request and
             preview the review, but do not post it.
@@ -1185,7 +1185,7 @@ class UpdateEnrollmentRequest(proto.Message):
             Optional. The fields to be updated; only fields explicitly
             provided are updated. If no field mask is provided, all
             provided fields in the request are updated. To update all
-            fields, provide a field mask of "*".
+            fields, provide a field mask of "\*".
         allow_missing (bool):
             Optional. If set to true, and the Enrollment is not found, a
             new Enrollment will be created. In this situation,
@@ -1363,8 +1363,9 @@ class CreatePipelineRequest(proto.Message):
         pipeline (google.cloud.eventarc_v1.types.Pipeline):
             Required. The pipeline to create.
         pipeline_id (str):
-            Required. The user-provided ID to be assigned
-            to the Pipeline.
+            Required. The user-provided ID to be assigned to the
+            Pipeline. It should match the format
+            ``^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$``.
         validate_only (bool):
             Optional. If set, validate the request and
             preview the review, but do not post it.
@@ -1399,7 +1400,7 @@ class UpdatePipelineRequest(proto.Message):
             Optional. The fields to be updated; only fields explicitly
             provided are updated. If no field mask is provided, all
             provided fields in the request are updated. To update all
-            fields, provide a field mask of "*".
+            fields, provide a field mask of "\*".
         allow_missing (bool):
             Optional. If set to true, and the Pipeline is not found, a
             new Pipeline will be created. In this situation,
@@ -1553,12 +1554,12 @@ class ListGoogleApiSourcesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    google_api_sources: MutableSequence[
-        gce_google_api_source.GoogleApiSource
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=gce_google_api_source.GoogleApiSource,
+    google_api_sources: MutableSequence[gce_google_api_source.GoogleApiSource] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=gce_google_api_source.GoogleApiSource,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1582,7 +1583,7 @@ class CreateGoogleApiSourceRequest(proto.Message):
         google_api_source_id (str):
             Required. The user-provided ID to be assigned to the
             GoogleApiSource. It should match the format
-            (^`a-z <[a-z0-9-]{0,61}[a-z0-9]>`__?$).
+            ``^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$``.
         validate_only (bool):
             Optional. If set, validate the request and
             preview the review, but do not post it.
@@ -1617,7 +1618,7 @@ class UpdateGoogleApiSourceRequest(proto.Message):
             Optional. The fields to be updated; only fields explicitly
             provided are updated. If no field mask is provided, all
             provided fields in the request are updated. To update all
-            fields, provide a field mask of "*".
+            fields, provide a field mask of "\*".
         allow_missing (bool):
             Optional. If set to true, and the GoogleApiSource is not
             found, a new GoogleApiSource will be created. In this

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -98,6 +98,7 @@ class EntityType(proto.Message):
                 Regexp entity types allow to specify regular
                 expressions in entries values.
         """
+
         KIND_UNSPECIFIED = 0
         KIND_MAP = 1
         KIND_LIST = 2
@@ -116,6 +117,7 @@ class EntityType(proto.Message):
                 Allows an agent to recognize values that have
                 not been explicitly listed in the entity.
         """
+
         AUTO_EXPANSION_MODE_UNSPECIFIED = 0
         AUTO_EXPANSION_MODE_DEFAULT = 1
 
@@ -130,12 +132,12 @@ class EntityType(proto.Message):
 
                 For ``KIND_MAP`` entity types:
 
-                -  A reference value to be used in place of synonyms.
+                - A reference value to be used in place of synonyms.
 
                 For ``KIND_LIST`` entity types:
 
-                -  A string that can contain references to other entity
-                   types (with or without aliases).
+                - A string that can contain references to other entity types
+                  (with or without aliases).
             synonyms (MutableSequence[str]):
                 Required. A collection of value synonyms. For example, if
                 the entity type is *vegetable*, and ``value`` is
@@ -143,8 +145,8 @@ class EntityType(proto.Message):
 
                 For ``KIND_LIST`` entity types:
 
-                -  This collection must contain exactly one synonym equal to
-                   ``value``.
+                - This collection must contain exactly one synonym equal to
+                  ``value``.
         """
 
         value: str = proto.Field(

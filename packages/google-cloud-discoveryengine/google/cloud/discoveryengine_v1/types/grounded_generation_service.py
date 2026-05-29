@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -108,20 +108,20 @@ class GenerateGroundedContentRequest(proto.Message):
             The user labels applied to a resource must meet the
             following requirements:
 
-            -  Each resource can have multiple labels, up to a maximum
-               of 64.
-            -  Each label must be a key-value pair.
-            -  Keys have a minimum length of 1 character and a maximum
-               length of 63 characters and cannot be empty. Values can
-               be empty and have a maximum length of 63 characters.
-            -  Keys and values can contain only lowercase letters,
-               numeric characters, underscores, and dashes. All
-               characters must use UTF-8 encoding, and international
-               characters are allowed.
-            -  The key portion of a label must be unique. However, you
-               can use the same key with multiple resources.
-            -  Keys must start with a lowercase letter or international
-               character.
+            - Each resource can have multiple labels, up to a maximum of
+              64.
+            - Each label must be a key-value pair.
+            - Keys have a minimum length of 1 character and a maximum
+              length of 63 characters and cannot be empty. Values can be
+              empty and have a maximum length of 63 characters.
+            - Keys and values can contain only lowercase letters,
+              numeric characters, underscores, and dashes. All
+              characters must use UTF-8 encoding, and international
+              characters are allowed.
+            - The key portion of a label must be unique. However, you
+              can use the same key with multiple resources.
+            - Keys must start with a lowercase letter or international
+              character.
 
             See `Google Cloud
             Document <https://cloud.google.com/resource-manager/docs/creating-managing-labels#requirements>`__
@@ -258,6 +258,7 @@ class GenerateGroundedContentRequest(proto.Message):
                         The V1 model which is evaluating each source
                         independently.
                 """
+
                 VERSION_UNSPECIFIED = 0
                 V1_INDEPENDENT = 1
 
@@ -325,12 +326,12 @@ class GenerateGroundedContentRequest(proto.Message):
                     author of the content).
             """
 
-            grounding_facts: MutableSequence[
-                grounding.GroundingFact
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=1,
-                message=grounding.GroundingFact,
+            grounding_facts: MutableSequence[grounding.GroundingFact] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=1,
+                    message=grounding.GroundingFact,
+                )
             )
             attributes: MutableMapping[str, str] = proto.MapField(
                 proto.STRING,
@@ -558,6 +559,7 @@ class GenerateGroundedContentResponse(proto.Message):
                         GOOGLE_MAPS (4):
                             Google Maps.
                     """
+
                     SOURCE_UNSPECIFIED = 0
                     VERTEX_AI_SEARCH = 1
                     GOOGLE_SEARCH = 3
@@ -620,6 +622,7 @@ class GenerateGroundedContentResponse(proto.Message):
                             The V1 model which is evaluating each source
                             independently.
                     """
+
                     VERSION_UNSPECIFIED = 0
                     V1_INDEPENDENT = 1
 
@@ -842,11 +845,21 @@ class CheckGroundingSpec(proto.Message):
             default to 0.6.
 
             This field is a member of `oneof`_ ``_citation_threshold``.
+        enable_claim_level_score (bool):
+            The control flag that enables claim-level
+            grounding score in the response.
+
+            This field is a member of `oneof`_ ``_enable_claim_level_score``.
     """
 
     citation_threshold: float = proto.Field(
         proto.DOUBLE,
         number=1,
+        optional=True,
+    )
+    enable_claim_level_score: bool = proto.Field(
+        proto.BOOL,
+        number=4,
         optional=True,
     )
 
@@ -872,20 +885,20 @@ class CheckGroundingRequest(proto.Message):
             The user labels applied to a resource must meet the
             following requirements:
 
-            -  Each resource can have multiple labels, up to a maximum
-               of 64.
-            -  Each label must be a key-value pair.
-            -  Keys have a minimum length of 1 character and a maximum
-               length of 63 characters and cannot be empty. Values can
-               be empty and have a maximum length of 63 characters.
-            -  Keys and values can contain only lowercase letters,
-               numeric characters, underscores, and dashes. All
-               characters must use UTF-8 encoding, and international
-               characters are allowed.
-            -  The key portion of a label must be unique. However, you
-               can use the same key with multiple resources.
-            -  Keys must start with a lowercase letter or international
-               character.
+            - Each resource can have multiple labels, up to a maximum of
+              64.
+            - Each label must be a key-value pair.
+            - Keys have a minimum length of 1 character and a maximum
+              length of 63 characters and cannot be empty. Values can be
+              empty and have a maximum length of 63 characters.
+            - Keys and values can contain only lowercase letters,
+              numeric characters, underscores, and dashes. All
+              characters must use UTF-8 encoding, and international
+              characters are allowed.
+            - The key portion of a label must be unique. However, you
+              can use the same key with multiple resources.
+            - Keys must start with a lowercase letter or international
+              character.
 
             See `Google Cloud
             Document <https://cloud.google.com/resource-manager/docs/creating-managing-labels#requirements>`__
@@ -1015,6 +1028,13 @@ class CheckGroundingResponse(proto.Message):
                 should not be returned.
 
                 This field is a member of `oneof`_ ``_grounding_check_required``.
+            score (float):
+                Confidence score for the claim in the answer candidate, in
+                the range of [0, 1]. This is set only when
+                ``CheckGroundingRequest.grounding_spec.enable_claim_level_score``
+                is true.
+
+                This field is a member of `oneof`_ ``_score``.
         """
 
         start_pos: int = proto.Field(
@@ -1038,6 +1058,11 @@ class CheckGroundingResponse(proto.Message):
         grounding_check_required: bool = proto.Field(
             proto.BOOL,
             number=6,
+            optional=True,
+        )
+        score: float = proto.Field(
+            proto.DOUBLE,
+            number=7,
             optional=True,
         )
 

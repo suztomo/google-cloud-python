@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ class FirewallRule(proto.Message):
         source_range (str):
             IP address or range, defined using CIDR notation, of
             requests that this rule applies to. You can use the wildcard
-            character "*" to match all IPs equivalent to "0/0" and
+            character "\*" to match all IPs equivalent to "0/0" and
             "::/0" together. Examples: ``192.168.1.1`` or
             ``192.168.0.0/16`` or ``2001:db8::/32`` or
             ``2001:0db8:0000:0042:0000:8a2e:0370:7334``.
@@ -73,6 +73,7 @@ class FirewallRule(proto.Message):
             DENY (2):
                 Matching requests are denied.
         """
+
         UNSPECIFIED_ACTION = 0
         ALLOW = 1
         DENY = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_column_spec():
     client = automl_v1beta1.AutoMlAsyncClient()
 
     # Initialize request argument(s)
-    request = automl_v1beta1.UpdateColumnSpecRequest(
-    )
+    request = automl_v1beta1.UpdateColumnSpecRequest()
 
     # Make the request
     response = await client.update_column_spec(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END automl_v1beta1_generated_AutoMl_UpdateColumnSpec_async]

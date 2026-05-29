@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.type import latlng_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.maps.fleetengine_delivery_v1.types import common, delivery_vehicles, tasks
@@ -46,12 +46,12 @@ class TaskTrackingInfo(proto.Message):
         tracking_id (str):
             Immutable. The tracking ID of a Task.
 
-            -  Must be a valid Unicode string.
-            -  Limited to a maximum length of 64 characters.
-            -  Normalized according to [Unicode Normalization Form C]
-               (http://www.unicode.org/reports/tr15/).
-            -  May not contain any of the following ASCII characters:
-               '/', ':', '?', ',', or '#'.
+            - Must be a valid Unicode string.
+            - Limited to a maximum length of 64 characters.
+            - Normalized according to [Unicode Normalization Form C]
+              (http://www.unicode.org/reports/tr15/).
+            - May not contain any of the following ASCII characters:
+              '/', ':', '?', ',', or '#'.
         vehicle_location (google.maps.fleetengine_delivery_v1.types.DeliveryVehicleLocation):
             The vehicle's last location.
         route_polyline_points (MutableSequence[google.type.latlng_pb2.LatLng]):

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -122,6 +122,7 @@ class DisableServiceRequest(proto.Message):
                 If a service, or its dependents, has usage in the last 30
                 days, the request returns a FAILED_PRECONDITION error.
         """
+
         CHECK_IF_SERVICE_HAS_USAGE_UNSPECIFIED = 0
         SKIP = 1
         CHECK = 2

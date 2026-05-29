@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -48,10 +48,10 @@ class Version(proto.Message):
     custom environments. You can create a variety of custom environments
     for:
 
-    -  testing
-    -  development
-    -  production
-    -  etc.
+    - testing
+    - development
+    - production
+    - etc.
 
     For more information, see the `versions and environments
     guide <https://cloud.google.com/dialogflow/docs/agents-versions>`__.
@@ -61,8 +61,8 @@ class Version(proto.Message):
             Output only. The unique identifier of this agent version.
             Supported formats:
 
-            -  ``projects/<Project ID>/agent/versions/<Version ID>``
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/versions/<Version ID>``
+            - ``projects/<Project ID>/agent/versions/<Version ID>``
+            - ``projects/<Project ID>/locations/<Location ID>/agent/versions/<Version ID>``
         description (str):
             Optional. The developer-provided description
             of this version.
@@ -94,6 +94,7 @@ class Version(proto.Message):
             FAILED (3):
                 Version training failed.
         """
+
         VERSION_STATUS_UNSPECIFIED = 0
         IN_PROGRESS = 1
         READY = 2
@@ -132,8 +133,8 @@ class ListVersionsRequest(proto.Message):
             Required. The agent to list all versions from. Supported
             formats:
 
-            -  ``projects/<Project ID>/agent``
-            -  ``projects/<Project ID>/locations/<Location ID>/agent``
+            - ``projects/<Project ID>/agent``
+            - ``projects/<Project ID>/locations/<Location ID>/agent``
         page_size (int):
             Optional. The maximum number of items to
             return in a single page. By default 100 and at
@@ -195,8 +196,8 @@ class GetVersionRequest(proto.Message):
         name (str):
             Required. The name of the version. Supported formats:
 
-            -  ``projects/<Project ID>/agent/versions/<Version ID>``
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/versions/<Version ID>``
+            - ``projects/<Project ID>/agent/versions/<Version ID>``
+            - ``projects/<Project ID>/locations/<Location ID>/agent/versions/<Version ID>``
     """
 
     name: str = proto.Field(
@@ -214,8 +215,8 @@ class CreateVersionRequest(proto.Message):
             Required. The agent to create a version for. Supported
             formats:
 
-            -  ``projects/<Project ID>/agent``
-            -  ``projects/<Project ID>/locations/<Location ID>/agent``
+            - ``projects/<Project ID>/agent``
+            - ``projects/<Project ID>/locations/<Location ID>/agent``
         version (google.cloud.dialogflow_v2.types.Version):
             Required. The version to create.
     """
@@ -239,8 +240,8 @@ class UpdateVersionRequest(proto.Message):
         version (google.cloud.dialogflow_v2.types.Version):
             Required. The version to update. Supported formats:
 
-            -  ``projects/<Project ID>/agent/versions/<Version ID>``
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/versions/<Version ID>``
+            - ``projects/<Project ID>/agent/versions/<Version ID>``
+            - ``projects/<Project ID>/locations/<Location ID>/agent/versions/<Version ID>``
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             Required. The mask to control which fields
             get updated.
@@ -267,8 +268,8 @@ class DeleteVersionRequest(proto.Message):
             Required. The name of the version to delete. Supported
             formats:
 
-            -  ``projects/<Project ID>/agent/versions/<Version ID>``
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/versions/<Version ID>``
+            - ``projects/<Project ID>/agent/versions/<Version ID>``
+            - ``projects/<Project ID>/locations/<Location ID>/agent/versions/<Version ID>``
     """
 
     name: str = proto.Field(

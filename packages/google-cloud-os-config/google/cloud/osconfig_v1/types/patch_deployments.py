@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import datetime_pb2  # type: ignore
-from google.type import dayofweek_pb2  # type: ignore
-from google.type import timeofday_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.datetime_pb2 as datetime_pb2  # type: ignore
+import google.type.dayofweek_pb2 as dayofweek_pb2  # type: ignore
+import google.type.timeofday_pb2 as timeofday_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.osconfig_v1.types import patch_jobs
@@ -126,6 +126,7 @@ class PatchDeployment(proto.Message):
                 not generate Patch jobs. Requires user action to
                 move in and out from this state.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         PAUSED = 2
@@ -269,6 +270,7 @@ class RecurringSchedule(proto.Message):
                 Indicates that the frequency of recurrence
                 should be expressed in terms of days.
         """
+
         FREQUENCY_UNSPECIFIED = 0
         WEEKLY = 1
         MONTHLY = 2
@@ -428,12 +430,11 @@ class CreatePatchDeploymentRequest(proto.Message):
             Required. A name for the patch deployment in the project.
             When creating a name the following rules apply:
 
-            -  Must contain only lowercase letters, numbers, and
-               hyphens.
-            -  Must start with a letter.
-            -  Must be between 1-63 characters.
-            -  Must end with a number or a letter.
-            -  Must be unique within the project.
+            - Must contain only lowercase letters, numbers, and hyphens.
+            - Must start with a letter.
+            - Must be between 1-63 characters.
+            - Must end with a number or a letter.
+            - Must be unique within the project.
         patch_deployment (google.cloud.osconfig_v1.types.PatchDeployment):
             Required. The patch deployment to create.
     """

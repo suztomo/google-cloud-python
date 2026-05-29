@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,17 +17,17 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
 import proto  # type: ignore
 
+from google.analytics.admin_v1alpha.types import audience as gaa_audience
 from google.analytics.admin_v1alpha.types import channel_group as gaa_channel_group
+from google.analytics.admin_v1alpha.types import event_create_and_edit
 from google.analytics.admin_v1alpha.types import (
     expanded_data_set as gaa_expanded_data_set,
 )
-from google.analytics.admin_v1alpha.types import audience as gaa_audience
-from google.analytics.admin_v1alpha.types import event_create_and_edit
 
 __protobuf__ = proto.module(
     package="google.analytics.admin.v1alpha",
@@ -74,11 +74,13 @@ __protobuf__ = proto.module(
         "AccessBinding",
         "BigQueryLink",
         "EnhancedMeasurementSettings",
-        "ConnectedSiteTag",
         "DataRedactionSettings",
         "AdSenseLink",
         "RollupPropertySourceLink",
         "ReportingDataAnnotation",
+        "SubpropertySyncConfig",
+        "ReportingIdentitySettings",
+        "UserProvidedDataSettings",
     },
 )
 
@@ -143,6 +145,7 @@ class IndustryCategory(proto.Enum):
         SHOPPING (26):
             Shopping
     """
+
     INDUSTRY_CATEGORY_UNSPECIFIED = 0
     AUTOMOTIVE = 1
     BUSINESS_AND_INDUSTRIAL_MARKETS = 2
@@ -184,6 +187,7 @@ class ServiceLevel(proto.Enum):
             The paid, premium version of Google
             Analytics.
     """
+
     SERVICE_LEVEL_UNSPECIFIED = 0
     GOOGLE_ANALYTICS_STANDARD = 1
     GOOGLE_ANALYTICS_360 = 2
@@ -204,6 +208,7 @@ class ActorType(proto.Enum):
             Changes made by Google Analytics support team
             staff.
     """
+
     ACTOR_TYPE_UNSPECIFIED = 0
     USER = 1
     SYSTEM = 2
@@ -223,6 +228,7 @@ class ActionType(proto.Enum):
         DELETED (3):
             Resource was deleted in this change.
     """
+
     ACTION_TYPE_UNSPECIFIED = 0
     CREATED = 1
     UPDATED = 2
@@ -291,7 +297,14 @@ class ChangeHistoryResourceType(proto.Enum):
             CalculatedMetric resource
         REPORTING_DATA_ANNOTATION (32):
             ReportingDataAnnotation resource
+        SUBPROPERTY_SYNC_CONFIG (33):
+            SubpropertySyncConfig resource
+        REPORTING_IDENTITY_SETTINGS (34):
+            ReportingIdentitySettings resource
+        USER_PROVIDED_DATA_SETTINGS (35):
+            UserProvidedDataSettings resource
     """
+
     CHANGE_HISTORY_RESOURCE_TYPE_UNSPECIFIED = 0
     ACCOUNT = 1
     PROPERTY = 2
@@ -320,6 +333,9 @@ class ChangeHistoryResourceType(proto.Enum):
     KEY_EVENT = 30
     CALCULATED_METRIC = 31
     REPORTING_DATA_ANNOTATION = 32
+    SUBPROPERTY_SYNC_CONFIG = 33
+    REPORTING_IDENTITY_SETTINGS = 34
+    USER_PROVIDED_DATA_SETTINGS = 35
 
 
 class GoogleSignalsState(proto.Enum):
@@ -335,6 +351,7 @@ class GoogleSignalsState(proto.Enum):
         GOOGLE_SIGNALS_DISABLED (2):
             Google Signals is disabled.
     """
+
     GOOGLE_SIGNALS_STATE_UNSPECIFIED = 0
     GOOGLE_SIGNALS_ENABLED = 1
     GOOGLE_SIGNALS_DISABLED = 2
@@ -353,6 +370,7 @@ class GoogleSignalsConsent(proto.Enum):
         GOOGLE_SIGNALS_CONSENT_NOT_CONSENTED (1):
             Terms of service have not been accepted
     """
+
     GOOGLE_SIGNALS_CONSENT_UNSPECIFIED = 0
     GOOGLE_SIGNALS_CONSENT_CONSENTED = 2
     GOOGLE_SIGNALS_CONSENT_NOT_CONSENTED = 1
@@ -372,6 +390,7 @@ class LinkProposalInitiatingProduct(proto.Enum):
             This proposal was created by a user from a
             linked product (not Google Analytics).
     """
+
     LINK_PROPOSAL_INITIATING_PRODUCT_UNSPECIFIED = 0
     GOOGLE_ANALYTICS = 1
     LINKED_PRODUCT = 2
@@ -411,6 +430,7 @@ class LinkProposalState(proto.Enum):
             This proposal will be automatically deleted
             after some time.
     """
+
     LINK_PROPOSAL_STATE_UNSPECIFIED = 0
     AWAITING_REVIEW_FROM_GOOGLE_ANALYTICS = 1
     AWAITING_REVIEW_FROM_LINKED_PRODUCT = 2
@@ -433,6 +453,7 @@ class PropertyType(proto.Enum):
         PROPERTY_TYPE_ROLLUP (3):
             Google Analytics rollup property
     """
+
     PROPERTY_TYPE_UNSPECIFIED = 0
     PROPERTY_TYPE_ORDINARY = 1
     PROPERTY_TYPE_SUBPROPERTY = 2
@@ -455,6 +476,7 @@ class CoarseValue(proto.Enum):
         COARSE_VALUE_HIGH (3):
             Coarse value of high.
     """
+
     COARSE_VALUE_UNSPECIFIED = 0
     COARSE_VALUE_LOW = 1
     COARSE_VALUE_MEDIUM = 2
@@ -466,7 +488,7 @@ class Account(proto.Message):
 
     Attributes:
         name (str):
-            Output only. Resource name of this account.
+            Identifier. Resource name of this account.
             Format: accounts/{account}
             Example: "accounts/100".
         create_time (google.protobuf.timestamp_pb2.Timestamp):
@@ -530,7 +552,7 @@ class Property(proto.Message):
 
     Attributes:
         name (str):
-            Output only. Resource name of this property. Format:
+            Identifier. Resource name of this property. Format:
             properties/{property_id} Example: "properties/1000".
         property_type (google.analytics.admin_v1alpha.types.PropertyType):
             Immutable. The property type for this Property resource.
@@ -679,7 +701,7 @@ class DataStream(proto.Message):
 
             This field is a member of `oneof`_ ``stream_data``.
         name (str):
-            Output only. Resource name of this Data Stream. Format:
+            Identifier. Resource name of this Data Stream. Format:
             properties/{property_id}/dataStreams/{stream_id} Example:
             "properties/1000/dataStreams/2000".
         type_ (google.analytics.admin_v1alpha.types.DataStream.DataStreamType):
@@ -713,6 +735,7 @@ class DataStream(proto.Message):
             IOS_APP_DATA_STREAM (3):
                 iOS app data stream.
         """
+
         DATA_STREAM_TYPE_UNSPECIFIED = 0
         WEB_DATA_STREAM = 1
         ANDROID_APP_DATA_STREAM = 2
@@ -843,7 +866,7 @@ class FirebaseLink(proto.Message):
 
     Attributes:
         name (str):
-            Output only. Example format:
+            Identifier. Example format:
             properties/1234/firebaseLinks/5678
         project (str):
             Immutable. Firebase project resource name. When creating a
@@ -880,7 +903,7 @@ class GlobalSiteTag(proto.Message):
 
     Attributes:
         name (str):
-            Output only. Resource name for this GlobalSiteTag resource.
+            Identifier. Resource name for this GlobalSiteTag resource.
             Format:
             properties/{property_id}/dataStreams/{stream_id}/globalSiteTag
             Example: "properties/123/dataStreams/456/globalSiteTag".
@@ -906,7 +929,7 @@ class GoogleAdsLink(proto.Message):
 
     Attributes:
         name (str):
-            Output only. Format:
+            Identifier. Format:
 
             properties/{propertyId}/googleAdsLinks/{googleAdsLinkId}
 
@@ -977,7 +1000,7 @@ class DataSharingSettings(proto.Message):
 
     Attributes:
         name (str):
-            Output only. Resource name.
+            Identifier. Resource name.
             Format: accounts/{account}/dataSharingSettings
             Example: "accounts/1000/dataSharingSettings".
         sharing_with_google_support_enabled (bool):
@@ -1058,7 +1081,7 @@ class AccountSummary(proto.Message):
 
     Attributes:
         name (str):
-            Resource name for this account summary. Format:
+            Identifier. Resource name for this account summary. Format:
             accountSummaries/{account_id} Example:
             "accountSummaries/1000".
         account (str):
@@ -1138,7 +1161,7 @@ class MeasurementProtocolSecret(proto.Message):
 
     Attributes:
         name (str):
-            Output only. Resource name of this secret.
+            Identifier. Resource name of this secret.
             This secret may be a child of any type of
             stream. Format:
 
@@ -1172,9 +1195,9 @@ class SKAdNetworkConversionValueSchema(proto.Message):
 
     Attributes:
         name (str):
-            Output only. Resource name of the schema.
-            This will be child of ONLY an iOS stream, and
-            there can be at most one such child under an iOS
+            Identifier. Resource name of the schema. This
+            will be child of ONLY an iOS stream, and there
+            can be at most one such child under an iOS
             stream. Format:
 
             properties/{property}/dataStreams/{dataStream}/sKAdNetworkConversionValueSchema
@@ -1636,6 +1659,21 @@ class ChangeHistoryChange(proto.Message):
                 resource in change history.
 
                 This field is a member of `oneof`_ ``resource``.
+            subproperty_sync_config (google.analytics.admin_v1alpha.types.SubpropertySyncConfig):
+                A snapshot of a SubpropertySyncConfig
+                resource in change history.
+
+                This field is a member of `oneof`_ ``resource``.
+            reporting_identity_settings (google.analytics.admin_v1alpha.types.ReportingIdentitySettings):
+                A snapshot of a ReportingIdentitySettings
+                resource in change history.
+
+                This field is a member of `oneof`_ ``resource``.
+            user_provided_data_settings (google.analytics.admin_v1alpha.types.UserProvidedDataSettings):
+                A snapshot of a UserProvidedDataSettings
+                resource in change history.
+
+                This field is a member of `oneof`_ ``resource``.
         """
 
         account: "Account" = proto.Field(
@@ -1804,6 +1842,24 @@ class ChangeHistoryChange(proto.Message):
             oneof="resource",
             message="ReportingDataAnnotation",
         )
+        subproperty_sync_config: "SubpropertySyncConfig" = proto.Field(
+            proto.MESSAGE,
+            number=33,
+            oneof="resource",
+            message="SubpropertySyncConfig",
+        )
+        reporting_identity_settings: "ReportingIdentitySettings" = proto.Field(
+            proto.MESSAGE,
+            number=34,
+            oneof="resource",
+            message="ReportingIdentitySettings",
+        )
+        user_provided_data_settings: "UserProvidedDataSettings" = proto.Field(
+            proto.MESSAGE,
+            number=35,
+            oneof="resource",
+            message="UserProvidedDataSettings",
+        )
 
     resource: str = proto.Field(
         proto.STRING,
@@ -1832,7 +1888,7 @@ class DisplayVideo360AdvertiserLink(proto.Message):
 
     Attributes:
         name (str):
-            Output only. The resource name for this
+            Identifier. The resource name for this
             DisplayVideo360AdvertiserLink resource. Format:
 
             properties/{propertyId}/displayVideo360AdvertiserLinks/{linkId}
@@ -1904,7 +1960,7 @@ class DisplayVideo360AdvertiserLinkProposal(proto.Message):
 
     Attributes:
         name (str):
-            Output only. The resource name for this
+            Identifier. The resource name for this
             DisplayVideo360AdvertiserLinkProposal resource.
             Format:
 
@@ -1991,7 +2047,7 @@ class SearchAds360Link(proto.Message):
 
     Attributes:
         name (str):
-            Output only. The resource name for this
+            Identifier. The resource name for this
             SearchAds360Link resource. Format:
             properties/{propertyId}/searchAds360Links/{linkId}
 
@@ -2099,7 +2155,7 @@ class ConversionEvent(proto.Message):
 
     Attributes:
         name (str):
-            Output only. Resource name of this conversion event. Format:
+            Identifier. Resource name of this conversion event. Format:
             properties/{property}/conversionEvents/{conversion_event}
         event_name (str):
             Immutable. The event name for this conversion
@@ -2146,6 +2202,7 @@ class ConversionEvent(proto.Message):
                 An Event instance is considered a Conversion
                 at most once per session per user.
         """
+
         CONVERSION_COUNTING_METHOD_UNSPECIFIED = 0
         ONCE_PER_EVENT = 1
         ONCE_PER_SESSION = 2
@@ -2267,6 +2324,7 @@ class KeyEvent(proto.Message):
                 An Event instance is considered a Key Event
                 at most once per session per user.
         """
+
         COUNTING_METHOD_UNSPECIFIED = 0
         ONCE_PER_EVENT = 1
         ONCE_PER_SESSION = 2
@@ -2367,7 +2425,7 @@ class CustomDimension(proto.Message):
 
     Attributes:
         name (str):
-            Output only. Resource name for this
+            Identifier. Resource name for this
             CustomDimension resource. Format:
             properties/{property}/customDimensions/{customDimension}
         parameter_name (str):
@@ -2421,6 +2479,7 @@ class CustomDimension(proto.Message):
             ITEM (3):
                 Dimension scoped to eCommerce items
         """
+
         DIMENSION_SCOPE_UNSPECIFIED = 0
         EVENT = 1
         USER = 2
@@ -2458,7 +2517,7 @@ class CustomMetric(proto.Message):
 
     Attributes:
         name (str):
-            Output only. Resource name for this
+            Identifier. Resource name for this
             CustomMetric resource. Format:
             properties/{property}/customMetrics/{customMetric}
         parameter_name (str):
@@ -2524,6 +2583,7 @@ class CustomMetric(proto.Message):
             HOURS (10):
                 This metric measures hours.
         """
+
         MEASUREMENT_UNIT_UNSPECIFIED = 0
         STANDARD = 1
         CURRENCY = 2
@@ -2545,6 +2605,7 @@ class CustomMetric(proto.Message):
             EVENT (1):
                 Metric scoped to an event.
         """
+
         METRIC_SCOPE_UNSPECIFIED = 0
         EVENT = 1
 
@@ -2560,6 +2621,7 @@ class CustomMetric(proto.Message):
             REVENUE_DATA (2):
                 Metric reports revenue data.
         """
+
         RESTRICTED_METRIC_TYPE_UNSPECIFIED = 0
         COST_DATA = 1
         REVENUE_DATA = 2
@@ -2602,8 +2664,7 @@ class CalculatedMetric(proto.Message):
 
     Attributes:
         name (str):
-            Output only. Resource name for this CalculatedMetric.
-            Format:
+            Identifier. Resource name for this CalculatedMetric. Format:
             'properties/{property_id}/calculatedMetrics/{calculated_metric_id}'
         description (str):
             Optional. Description for this calculated
@@ -2630,12 +2691,12 @@ class CalculatedMetric(proto.Message):
             of unique referenced custom metrics is 5. Formulas supports
             the following operations:
 
-            -  (addition), - (subtraction), - (negative), \*
-               (multiplication), / (division), () (parenthesis). Any
-               valid real numbers are acceptable that fit in a Long
-               (64bit integer) or a Double (64 bit floating point
-               number). Example formula: "( customEvent:parameter_name +
-               cartPurchaseQuantity ) / 2.0".
+            - (addition), - (subtraction), - (negative), \*
+              (multiplication), / (division), () (parenthesis). Any
+              valid real numbers are acceptable that fit in a Long
+              (64bit integer) or a Double (64 bit floating point
+              number). Example formula: "( customEvent:parameter_name +
+              cartPurchaseQuantity ) / 2.0".
         invalid_metric_reference (bool):
             Output only. If true, this calculated metric has a invalid
             metric reference. Anything using a calculated metric with
@@ -2670,6 +2731,7 @@ class CalculatedMetric(proto.Message):
             HOURS (10):
                 This metric measures hours.
         """
+
         METRIC_UNIT_UNSPECIFIED = 0
         STANDARD = 1
         CURRENCY = 2
@@ -2695,6 +2757,7 @@ class CalculatedMetric(proto.Message):
             REVENUE_DATA (2):
                 Metric reports revenue data.
         """
+
         RESTRICTED_METRIC_TYPE_UNSPECIFIED = 0
         COST_DATA = 1
         REVENUE_DATA = 2
@@ -2741,7 +2804,7 @@ class DataRetentionSettings(proto.Message):
 
     Attributes:
         name (str):
-            Output only. Resource name for this
+            Identifier. Resource name for this
             DataRetentionSetting resource. Format:
             properties/{property}/dataRetentionSettings
         event_data_retention (google.analytics.admin_v1alpha.types.DataRetentionSettings.RetentionDuration):
@@ -2780,6 +2843,7 @@ class DataRetentionSettings(proto.Message):
                 months. Available to 360 properties only.
                 Available for event data only.
         """
+
         RETENTION_DURATION_UNSPECIFIED = 0
         TWO_MONTHS = 1
         FOURTEEN_MONTHS = 3
@@ -2853,6 +2917,7 @@ class AttributionSettings(proto.Message):
             ACQUISITION_CONVERSION_EVENT_LOOKBACK_WINDOW_30_DAYS (2):
                 30-day lookback window.
         """
+
         ACQUISITION_CONVERSION_EVENT_LOOKBACK_WINDOW_UNSPECIFIED = 0
         ACQUISITION_CONVERSION_EVENT_LOOKBACK_WINDOW_7_DAYS = 1
         ACQUISITION_CONVERSION_EVENT_LOOKBACK_WINDOW_30_DAYS = 2
@@ -2872,6 +2937,7 @@ class AttributionSettings(proto.Message):
             OTHER_CONVERSION_EVENT_LOOKBACK_WINDOW_90_DAYS (3):
                 90-day lookback window.
         """
+
         OTHER_CONVERSION_EVENT_LOOKBACK_WINDOW_UNSPECIFIED = 0
         OTHER_CONVERSION_EVENT_LOOKBACK_WINDOW_30_DAYS = 1
         OTHER_CONVERSION_EVENT_LOOKBACK_WINDOW_60_DAYS = 2
@@ -2899,6 +2965,7 @@ class AttributionSettings(proto.Message):
                 Paid channel that the customer clicked through before
                 converting. Previously ADS_PREFERRED_LAST_CLICK
         """
+
         REPORTING_ATTRIBUTION_MODEL_UNSPECIFIED = 0
         PAID_AND_ORGANIC_CHANNELS_DATA_DRIVEN = 1
         PAID_AND_ORGANIC_CHANNELS_LAST_CLICK = 2
@@ -2926,6 +2993,7 @@ class AttributionSettings(proto.Message):
                 conversion credit. To learn more, see `Google Paid
                 channels <https://support.google.com/analytics/answer/10632359>`__.
         """
+
         ADS_WEB_CONVERSION_DATA_EXPORT_SCOPE_UNSPECIFIED = 0
         NOT_SELECTED_YET = 1
         PAID_AND_ORGANIC_CHANNELS = 2
@@ -3201,30 +3269,6 @@ class EnhancedMeasurementSettings(proto.Message):
     )
 
 
-class ConnectedSiteTag(proto.Message):
-    r"""Configuration for a specific Connected Site Tag.
-
-    Attributes:
-        display_name (str):
-            Required. User-provided display name for the
-            connected site tag. Must be less than 256
-            characters.
-        tag_id (str):
-            Required. "Tag ID to forward events to. Also
-            known as the Measurement ID, or the "G-ID"  (For
-            example: G-12345).
-    """
-
-    display_name: str = proto.Field(
-        proto.STRING,
-        number=1,
-    )
-    tag_id: str = proto.Field(
-        proto.STRING,
-        number=2,
-    )
-
-
 class DataRedactionSettings(proto.Message):
     r"""Settings for client-side data redaction. Singleton resource
     under a Web Stream.
@@ -3395,6 +3439,7 @@ class ReportingDataAnnotation(proto.Message):
                 Orange color. (Only used for system-generated
                 annotations)
         """
+
         COLOR_UNSPECIFIED = 0
         PURPLE = 1
         BROWN = 2
@@ -3464,6 +3509,152 @@ class ReportingDataAnnotation(proto.Message):
     system_generated: bool = proto.Field(
         proto.BOOL,
         number=7,
+    )
+
+
+class SubpropertySyncConfig(proto.Message):
+    r"""Subproperty synchronization configuration controls how
+    ordinary property configurations are synchronized to
+    subproperties. This resource is provisioned automatically for
+    each subproperty.
+
+    Attributes:
+        name (str):
+            Output only. Identifier. Format:
+            properties/{ordinary_property_id}/subpropertySyncConfigs/{subproperty_id}
+            Example: properties/1234/subpropertySyncConfigs/5678
+        apply_to_property (str):
+            Output only. Immutable. Resource name of the
+            subproperty that these settings apply to.
+        custom_dimension_and_metric_sync_mode (google.analytics.admin_v1alpha.types.SubpropertySyncConfig.SynchronizationMode):
+            Required. Specifies the Custom Dimension /
+            Metric synchronization mode for the subproperty.
+
+            If set to ALL, Custom Dimension / Metric
+            synchronization will be immediately enabled.
+            Local configuration of Custom Dimensions /
+            Metrics will not be allowed on the subproperty
+            so long as the synchronization mode is set to
+            ALL.
+
+            If set to NONE, Custom Dimensions / Metric
+            synchronization is disabled. Custom Dimensions /
+            Metrics must be configured explicitly on the
+            Subproperty.
+    """
+
+    class SynchronizationMode(proto.Enum):
+        r"""Synchronization modes for a subproperty
+
+        Values:
+            SYNCHRONIZATION_MODE_UNSPECIFIED (0):
+                Synchronization mode unknown or not
+                specified.
+            NONE (1):
+                Entities are not synchronized.
+                Local edits are allowed on the subproperty.
+            ALL (2):
+                Entities are synchronized from parent
+                property. Local mutations are not allowed on the
+                subproperty (Create / Update / Delete)
+        """
+
+        SYNCHRONIZATION_MODE_UNSPECIFIED = 0
+        NONE = 1
+        ALL = 2
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    apply_to_property: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    custom_dimension_and_metric_sync_mode: SynchronizationMode = proto.Field(
+        proto.ENUM,
+        number=3,
+        enum=SynchronizationMode,
+    )
+
+
+class ReportingIdentitySettings(proto.Message):
+    r"""A resource containing settings related to reporting identity.
+
+    Attributes:
+        name (str):
+            Output only. Identifier. Resource name for this reporting
+            identity settings singleton resource. Format:
+            properties/{property_id}/reportingIdentitySettings Example:
+            "properties/1234/reportingIdentitySettings".
+        reporting_identity (google.analytics.admin_v1alpha.types.ReportingIdentitySettings.ReportingIdentity):
+            The strategy used for identifying user
+            identities in reports.
+    """
+
+    class ReportingIdentity(proto.Enum):
+        r"""Various strategies for identifying user identities in
+        reports.
+
+        Values:
+            IDENTITY_BLENDING_STRATEGY_UNSPECIFIED (0):
+                Unspecified blending strategy.
+            BLENDED (1):
+                Blended reporting identity strategy.
+            OBSERVED (2):
+                Observed reporting identity strategy.
+            DEVICE_BASED (3):
+                Device-based reporting identity strategy.
+        """
+
+        IDENTITY_BLENDING_STRATEGY_UNSPECIFIED = 0
+        BLENDED = 1
+        OBSERVED = 2
+        DEVICE_BASED = 3
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    reporting_identity: ReportingIdentity = proto.Field(
+        proto.ENUM,
+        number=2,
+        enum=ReportingIdentity,
+    )
+
+
+class UserProvidedDataSettings(proto.Message):
+    r"""Configuration for user-provided data collection. This is a
+    singleton resource for a Google Analytics property.
+
+    Attributes:
+        name (str):
+            Identifier. Resource name of this setting.
+            Format:
+            properties/{property}/userProvidedDataSettings
+            Example:
+            "properties/1000/userProvidedDataSettings".
+        user_provided_data_collection_enabled (bool):
+            Optional. Whether this property accepts
+            user-provided data sent to it.
+        automatically_detected_data_collection_enabled (bool):
+            Optional. Whether this property allows a Google Tag to
+            automatically collect user-provided data from your website.
+            This setting only takes effect if
+            ``user_provided_data_collection_enabled`` is also true.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    user_provided_data_collection_enabled: bool = proto.Field(
+        proto.BOOL,
+        number=2,
+    )
+    automatically_detected_data_collection_enabled: bool = proto.Field(
+        proto.BOOL,
+        number=3,
     )
 
 

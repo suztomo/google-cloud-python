@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.type import expr_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.type.expr_pb2 as expr_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -52,6 +52,7 @@ class AccessState(proto.Enum):
             have access to all of the policies that Policy Simulator
             needs to evaluate.
     """
+
     ACCESS_STATE_UNSPECIFIED = 0
     GRANTED = 1
     NOT_GRANTED = 2
@@ -76,6 +77,7 @@ class HeuristicRelevance(proto.Enum):
             result. Changing the data point is likely to
             affect the overall determination.
     """
+
     HEURISTIC_RELEVANCE_UNSPECIFIED = 0
     NORMAL = 1
     HIGH = 2
@@ -143,7 +145,7 @@ class ExplainedPolicy(proto.Message):
             another policy that overrides this policy. To determine
             whether the principal actually has the permission, use the
             ``access`` field in the
-            [TroubleshootIamPolicyResponse][IamChecker.TroubleshootIamPolicyResponse].
+            [TroubleshootIamPolicyResponse][google.cloud.policytroubleshooter.v3.TroubleshootIamPolicyResponse].
         full_resource_name (str):
             The full resource name that identifies the resource. For
             example,
@@ -173,7 +175,7 @@ class ExplainedPolicy(proto.Message):
         relevance (google.cloud.policysimulator_v1.types.HeuristicRelevance):
             The relevance of this policy to the overall determination in
             the
-            [TroubleshootIamPolicyResponse][IamChecker.TroubleshootIamPolicyResponse].
+            [TroubleshootIamPolicyResponse][google.cloud.policytroubleshooter.v3.TroubleshootIamPolicyResponse].
 
             If the user who created the
             [Replay][google.cloud.policysimulator.v1.Replay] does not
@@ -221,7 +223,7 @@ class BindingExplanation(proto.Message):
             another binding that overrides this binding. To determine
             whether the principal actually has the permission, use the
             ``access`` field in the
-            [TroubleshootIamPolicyResponse][IamChecker.TroubleshootIamPolicyResponse].
+            [TroubleshootIamPolicyResponse][google.cloud.policytroubleshooter.v3.TroubleshootIamPolicyResponse].
         role (str):
             The role that this binding grants. For example,
             ``roles/compute.serviceAgent``.
@@ -246,8 +248,8 @@ class BindingExplanation(proto.Message):
             For example, suppose that a binding includes the following
             principals:
 
-            -  ``user:alice@example.com``
-            -  ``group:product-eng@example.com``
+            - ``user:alice@example.com``
+            - ``group:product-eng@example.com``
 
             The principal in the replayed access tuple is
             ``user:bob@example.com``. This user is a principal of the
@@ -286,6 +288,7 @@ class BindingExplanation(proto.Message):
                 [Replay][google.cloud.policysimulator.v1.Replay] is not
                 allowed to access the binding.
         """
+
         ROLE_PERMISSION_UNSPECIFIED = 0
         ROLE_PERMISSION_INCLUDED = 1
         ROLE_PERMISSION_NOT_INCLUDED = 2
@@ -301,11 +304,11 @@ class BindingExplanation(proto.Message):
                 The binding includes the principal. The principal can be
                 included directly or indirectly. For example:
 
-                -  A principal is included directly if that principal is
-                   listed in the binding.
-                -  A principal is included indirectly if that principal is
-                   in a Google group or Google Workspace domain that is
-                   listed in the binding.
+                - A principal is included directly if that principal is
+                  listed in the binding.
+                - A principal is included indirectly if that principal is in
+                  a Google group or Google Workspace domain that is listed
+                  in the binding.
             MEMBERSHIP_NOT_INCLUDED (2):
                 The binding does not include the principal.
             MEMBERSHIP_UNKNOWN_INFO_DENIED (3):
@@ -317,6 +320,7 @@ class BindingExplanation(proto.Message):
                 Google Accounts and service accounts are
                 supported.
         """
+
         MEMBERSHIP_UNSPECIFIED = 0
         MEMBERSHIP_INCLUDED = 1
         MEMBERSHIP_NOT_INCLUDED = 2

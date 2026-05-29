@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_update_node_pool():
     client = edgecontainer_v1.EdgeContainerClient()
 
     # Initialize request argument(s)
-    request = edgecontainer_v1.UpdateNodePoolRequest(
-    )
+    request = edgecontainer_v1.UpdateNodePoolRequest()
 
     # Make the request
     operation = client.update_node_pool(request=request)
@@ -51,5 +50,6 @@ def sample_update_node_pool():
 
     # Handle the response
     print(response)
+
 
 # [END edgecontainer_v1_generated_EdgeContainer_UpdateNodePool_sync]

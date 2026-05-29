@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.retail_v2.types import product, user_event
@@ -67,31 +67,31 @@ class GcsSource(proto.Message):
 
             Supported values for product imports:
 
-            -  ``product`` (default): One JSON
-               [Product][google.cloud.retail.v2.Product] per line. Each
-               product must have a valid
-               [Product.id][google.cloud.retail.v2.Product.id].
-            -  ``product_merchant_center``: See `Importing catalog data
-               from Merchant
-               Center <https://cloud.google.com/retail/recommendations-ai/docs/upload-catalog#mc>`__.
+            - ``product`` (default): One JSON
+              [Product][google.cloud.retail.v2.Product] per line. Each
+              product must have a valid
+              [Product.id][google.cloud.retail.v2.Product.id].
+            - ``product_merchant_center``: See `Importing catalog data
+              from Merchant
+              Center <https://cloud.google.com/retail/recommendations-ai/docs/upload-catalog#mc>`__.
 
             Supported values for user events imports:
 
-            -  ``user_event`` (default): One JSON
-               [UserEvent][google.cloud.retail.v2.UserEvent] per line.
-            -  ``user_event_ga360``: Using
-               https://support.google.com/analytics/answer/3437719.
+            - ``user_event`` (default): One JSON
+              [UserEvent][google.cloud.retail.v2.UserEvent] per line.
+            - ``user_event_ga360``: Using
+              https://support.google.com/analytics/answer/3437719.
 
             Supported values for control imports:
 
-            -  ``control`` (default): One JSON
-               [Control][google.cloud.retail.v2.Control] per line.
+            - ``control`` (default): One JSON
+              [Control][google.cloud.retail.v2.Control] per line.
 
             Supported values for catalog attribute imports:
 
-            -  ``catalog_attribute`` (default): One CSV
-               [CatalogAttribute][google.cloud.retail.v2.CatalogAttribute]
-               per line.
+            - ``catalog_attribute`` (default): One CSV
+              [CatalogAttribute][google.cloud.retail.v2.CatalogAttribute]
+              per line.
     """
 
     input_uris: MutableSequence[str] = proto.RepeatedField(
@@ -138,29 +138,29 @@ class BigQuerySource(proto.Message):
 
             Supported values for product imports:
 
-            -  ``product`` (default): One JSON
-               [Product][google.cloud.retail.v2.Product] per line. Each
-               product must have a valid
-               [Product.id][google.cloud.retail.v2.Product.id].
-            -  ``product_merchant_center``: See `Importing catalog data
-               from Merchant
-               Center <https://cloud.google.com/retail/recommendations-ai/docs/upload-catalog#mc>`__.
+            - ``product`` (default): One JSON
+              [Product][google.cloud.retail.v2.Product] per line. Each
+              product must have a valid
+              [Product.id][google.cloud.retail.v2.Product.id].
+            - ``product_merchant_center``: See `Importing catalog data
+              from Merchant
+              Center <https://cloud.google.com/retail/recommendations-ai/docs/upload-catalog#mc>`__.
 
             Supported values for user events imports:
 
-            -  ``user_event`` (default): One JSON
-               [UserEvent][google.cloud.retail.v2.UserEvent] per line.
-            -  ``user_event_ga360``: The schema is available here:
-               https://support.google.com/analytics/answer/3437719.
-            -  ``user_event_ga4``: The schema is available here:
-               https://support.google.com/analytics/answer/7029846.
+            - ``user_event`` (default): One JSON
+              [UserEvent][google.cloud.retail.v2.UserEvent] per line.
+            - ``user_event_ga360``: The schema is available here:
+              https://support.google.com/analytics/answer/3437719.
+            - ``user_event_ga4``: The schema is available here:
+              https://support.google.com/analytics/answer/7029846.
 
             Supported values for autocomplete imports:
 
-            -  ``suggestions`` (default): One JSON completion suggestion
-               per line.
-            -  ``denylist``: One JSON deny suggestion per line.
-            -  ``allowlist``: One JSON allow suggestion per line.
+            - ``suggestions`` (default): One JSON completion suggestion
+              per line.
+            - ``denylist``: One JSON deny suggestion per line.
+            - ``allowlist``: One JSON allow suggestion per line.
     """
 
     partition_date: date_pb2.Date = proto.Field(
@@ -315,6 +315,7 @@ class ImportProductsRequest(proto.Message):
                 deleted if they are not present in the source
                 location.
         """
+
         RECONCILIATION_MODE_UNSPECIFIED = 0
         INCREMENTAL = 1
         FULL = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.gke_backup_v1.types import common
@@ -59,8 +59,8 @@ class BackupPlanBinding(proto.Message):
             Output only. Immutable. The fully qualified name of the
             cluster that is being backed up Valid formats:
 
-            -  ``projects/*/locations/*/clusters/*``
-            -  ``projects/*/zones/*/clusters/*``
+            - ``projects/*/locations/*/clusters/*``
+            - ``projects/*/zones/*/clusters/*``
         backup_plan_details (google.cloud.gke_backup_v1.types.BackupPlanBinding.BackupPlanDetails):
             Output only. Contains details about the
             backup plan/backup.
@@ -137,6 +137,7 @@ class BackupPlanBinding(proto.Message):
                     The BackupPlan is in the process of being
                     deleted.
             """
+
             STATE_UNSPECIFIED = 0
             CLUSTER_PENDING = 1
             PROVISIONING = 2

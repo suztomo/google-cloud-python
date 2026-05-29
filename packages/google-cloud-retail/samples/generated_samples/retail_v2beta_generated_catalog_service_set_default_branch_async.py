@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ async def sample_set_default_branch():
     client = retail_v2beta.CatalogServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = retail_v2beta.SetDefaultBranchRequest(
-    )
+    request = retail_v2beta.SetDefaultBranchRequest()
 
     # Make the request
     await client.set_default_branch(request=request)

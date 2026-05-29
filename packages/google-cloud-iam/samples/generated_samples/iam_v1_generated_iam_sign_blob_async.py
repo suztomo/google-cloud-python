@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ async def sample_sign_blob():
     # Initialize request argument(s)
     request = iam_admin_v1.SignBlobRequest(
         name="name_value",
-        bytes_to_sign=b'bytes_to_sign_blob',
+        bytes_to_sign=b"bytes_to_sign_blob",
     )
 
     # Make the request
@@ -49,5 +49,6 @@ async def sample_sign_blob():
 
     # Handle the response
     print(response)
+
 
 # [END iam_v1_generated_IAM_SignBlob_async]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_list_associations():
     client = compute_v1.FirewallPoliciesClient()
 
     # Initialize request argument(s)
-    request = compute_v1.ListAssociationsFirewallPolicyRequest(
-    )
+    request = compute_v1.ListAssociationsFirewallPolicyRequest()
 
     # Make the request
     response = client.list_associations(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END compute_v1_generated_FirewallPolicies_ListAssociations_sync]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.osconfig_v1alpha.types import config_common
@@ -67,18 +67,18 @@ class InstanceOSPoliciesCompliance(proto.Message):
 
             It may contain one of the following values:
 
-            -  ``no-compliance-data``: Compliance data is not available
-               for this VM.
-            -  ``no-agent-detected``: OS Config agent is not detected
-               for this VM.
-            -  ``config-not-supported-by-agent``: The version of the OS
-               Config agent running on this VM does not support
-               configuration management.
-            -  ``inactive``: VM is not running.
-            -  ``internal-service-errors``: There were internal service
-               errors encountered while enforcing compliance.
-            -  ``agent-errors``: OS config agent encountered errors
-               while enforcing compliance.
+            - ``no-compliance-data``: Compliance data is not available
+              for this VM.
+            - ``no-agent-detected``: OS Config agent is not detected for
+              this VM.
+            - ``config-not-supported-by-agent``: The version of the OS
+              Config agent running on this VM does not support
+              configuration management.
+            - ``inactive``: VM is not running.
+            - ``internal-service-errors``: There were internal service
+              errors encountered while enforcing compliance.
+            - ``agent-errors``: OS config agent encountered errors while
+              enforcing compliance.
         detailed_state_reason (str):
             Output only. The reason for the ``detailed_state`` of the VM
             (if any).

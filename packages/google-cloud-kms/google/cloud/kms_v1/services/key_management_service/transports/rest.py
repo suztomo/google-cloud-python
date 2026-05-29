@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,19 +16,21 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
-from google.api_core import gapic_v1, rest_helpers, rest_streaming
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -124,11 +126,35 @@ class KeyManagementServiceRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_decapsulate(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_decapsulate(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_decrypt(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
 
             def post_decrypt(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_delete_crypto_key(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_delete_crypto_key(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_delete_crypto_key_version(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_delete_crypto_key_version(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -196,6 +222,14 @@ class KeyManagementServiceRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_get_retired_resource(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_retired_resource(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_import_crypto_key_version(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
@@ -233,6 +267,14 @@ class KeyManagementServiceRestInterceptor:
                 return request, metadata
 
             def post_list_key_rings(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_list_retired_resources(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_list_retired_resources(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -586,6 +628,52 @@ class KeyManagementServiceRestInterceptor:
         """
         return response, metadata
 
+    def pre_decapsulate(
+        self,
+        request: service.DecapsulateRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[service.DecapsulateRequest, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Pre-rpc interceptor for decapsulate
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the KeyManagementService server.
+        """
+        return request, metadata
+
+    def post_decapsulate(
+        self, response: service.DecapsulateResponse
+    ) -> service.DecapsulateResponse:
+        """Post-rpc interceptor for decapsulate
+
+        DEPRECATED. Please use the `post_decapsulate_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the KeyManagementService server but before
+        it is returned to user code. This `post_decapsulate` interceptor runs
+        before the `post_decapsulate_with_metadata` interceptor.
+        """
+        return response
+
+    def post_decapsulate_with_metadata(
+        self,
+        response: service.DecapsulateResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[service.DecapsulateResponse, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for decapsulate
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the KeyManagementService server but before it is returned to user code.
+
+        We recommend only using this `post_decapsulate_with_metadata`
+        interceptor in new development instead of the `post_decapsulate` interceptor.
+        When both interceptors are used, this `post_decapsulate_with_metadata` interceptor runs after the
+        `post_decapsulate` interceptor. The (possibly modified) response returned by
+        `post_decapsulate` will be passed to
+        `post_decapsulate_with_metadata`.
+        """
+        return response, metadata
+
     def pre_decrypt(
         self,
         request: service.DecryptRequest,
@@ -629,6 +717,100 @@ class KeyManagementServiceRestInterceptor:
         `post_decrypt` interceptor. The (possibly modified) response returned by
         `post_decrypt` will be passed to
         `post_decrypt_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_delete_crypto_key(
+        self,
+        request: service.DeleteCryptoKeyRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[service.DeleteCryptoKeyRequest, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Pre-rpc interceptor for delete_crypto_key
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the KeyManagementService server.
+        """
+        return request, metadata
+
+    def post_delete_crypto_key(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for delete_crypto_key
+
+        DEPRECATED. Please use the `post_delete_crypto_key_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the KeyManagementService server but before
+        it is returned to user code. This `post_delete_crypto_key` interceptor runs
+        before the `post_delete_crypto_key_with_metadata` interceptor.
+        """
+        return response
+
+    def post_delete_crypto_key_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for delete_crypto_key
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the KeyManagementService server but before it is returned to user code.
+
+        We recommend only using this `post_delete_crypto_key_with_metadata`
+        interceptor in new development instead of the `post_delete_crypto_key` interceptor.
+        When both interceptors are used, this `post_delete_crypto_key_with_metadata` interceptor runs after the
+        `post_delete_crypto_key` interceptor. The (possibly modified) response returned by
+        `post_delete_crypto_key` will be passed to
+        `post_delete_crypto_key_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_delete_crypto_key_version(
+        self,
+        request: service.DeleteCryptoKeyVersionRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        service.DeleteCryptoKeyVersionRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for delete_crypto_key_version
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the KeyManagementService server.
+        """
+        return request, metadata
+
+    def post_delete_crypto_key_version(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for delete_crypto_key_version
+
+        DEPRECATED. Please use the `post_delete_crypto_key_version_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the KeyManagementService server but before
+        it is returned to user code. This `post_delete_crypto_key_version` interceptor runs
+        before the `post_delete_crypto_key_version_with_metadata` interceptor.
+        """
+        return response
+
+    def post_delete_crypto_key_version_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for delete_crypto_key_version
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the KeyManagementService server but before it is returned to user code.
+
+        We recommend only using this `post_delete_crypto_key_version_with_metadata`
+        interceptor in new development instead of the `post_delete_crypto_key_version` interceptor.
+        When both interceptors are used, this `post_delete_crypto_key_version_with_metadata` interceptor runs after the
+        `post_delete_crypto_key_version` interceptor. The (possibly modified) response returned by
+        `post_delete_crypto_key_version` will be passed to
+        `post_delete_crypto_key_version_with_metadata`.
         """
         return response, metadata
 
@@ -1000,6 +1182,54 @@ class KeyManagementServiceRestInterceptor:
         """
         return response, metadata
 
+    def pre_get_retired_resource(
+        self,
+        request: service.GetRetiredResourceRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        service.GetRetiredResourceRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for get_retired_resource
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the KeyManagementService server.
+        """
+        return request, metadata
+
+    def post_get_retired_resource(
+        self, response: resources.RetiredResource
+    ) -> resources.RetiredResource:
+        """Post-rpc interceptor for get_retired_resource
+
+        DEPRECATED. Please use the `post_get_retired_resource_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the KeyManagementService server but before
+        it is returned to user code. This `post_get_retired_resource` interceptor runs
+        before the `post_get_retired_resource_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_retired_resource_with_metadata(
+        self,
+        response: resources.RetiredResource,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[resources.RetiredResource, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for get_retired_resource
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the KeyManagementService server but before it is returned to user code.
+
+        We recommend only using this `post_get_retired_resource_with_metadata`
+        interceptor in new development instead of the `post_get_retired_resource` interceptor.
+        When both interceptors are used, this `post_get_retired_resource_with_metadata` interceptor runs after the
+        `post_get_retired_resource` interceptor. The (possibly modified) response returned by
+        `post_get_retired_resource` will be passed to
+        `post_get_retired_resource_with_metadata`.
+        """
+        return response, metadata
+
     def pre_import_crypto_key_version(
         self,
         request: service.ImportCryptoKeyVersionRequest,
@@ -1233,6 +1463,56 @@ class KeyManagementServiceRestInterceptor:
         `post_list_key_rings` interceptor. The (possibly modified) response returned by
         `post_list_key_rings` will be passed to
         `post_list_key_rings_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_list_retired_resources(
+        self,
+        request: service.ListRetiredResourcesRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        service.ListRetiredResourcesRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for list_retired_resources
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the KeyManagementService server.
+        """
+        return request, metadata
+
+    def post_list_retired_resources(
+        self, response: service.ListRetiredResourcesResponse
+    ) -> service.ListRetiredResourcesResponse:
+        """Post-rpc interceptor for list_retired_resources
+
+        DEPRECATED. Please use the `post_list_retired_resources_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the KeyManagementService server but before
+        it is returned to user code. This `post_list_retired_resources` interceptor runs
+        before the `post_list_retired_resources_with_metadata` interceptor.
+        """
+        return response
+
+    def post_list_retired_resources_with_metadata(
+        self,
+        response: service.ListRetiredResourcesResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        service.ListRetiredResourcesResponse, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Post-rpc interceptor for list_retired_resources
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the KeyManagementService server but before it is returned to user code.
+
+        We recommend only using this `post_list_retired_resources_with_metadata`
+        interceptor in new development instead of the `post_list_retired_resources` interceptor.
+        When both interceptors are used, this `post_list_retired_resources_with_metadata` interceptor runs after the
+        `post_list_retired_resources` interceptor. The (possibly modified) response returned by
+        `post_list_retired_resources` will be passed to
+        `post_list_retired_resources_with_metadata`.
         """
         return response, metadata
 
@@ -1774,10 +2054,10 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
     Manages cryptographic keys and operations using those keys.
     Implements a REST model with the following objects:
 
-    -  [KeyRing][google.cloud.kms.v1.KeyRing]
-    -  [CryptoKey][google.cloud.kms.v1.CryptoKey]
-    -  [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion]
-    -  [ImportJob][google.cloud.kms.v1.ImportJob]
+    - [KeyRing][google.cloud.kms.v1.KeyRing]
+    - [CryptoKey][google.cloud.kms.v1.CryptoKey]
+    - [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion]
+    - [ImportJob][google.cloud.kms.v1.ImportJob]
 
     If you are using manual gRPC libraries, see `Using gRPC with Cloud
     KMS <https://cloud.google.com/kms/docs/grpc>`__.
@@ -1815,9 +2095,10 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -1835,6 +2116,12 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[KeyManagementServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -1851,10 +2138,45 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
         self._session = AuthorizedSession(
             self._credentials, default_host=self.DEFAULT_HOST
         )
+        self._operations_client: Optional[operations_v1.AbstractOperationsClient] = None
         if client_cert_source_for_mtls:
             self._session.configure_mtls_channel(client_cert_source_for_mtls)
         self._interceptor = interceptor or KeyManagementServiceRestInterceptor()
         self._prep_wrapped_messages(client_info)
+
+    @property
+    def operations_client(self) -> operations_v1.AbstractOperationsClient:
+        """Create the client designed to process long-running operations.
+
+        This property caches on the instance; repeated calls return the same
+        client.
+        """
+        # Only create a new client if we do not already have one.
+        if self._operations_client is None:
+            http_options: Dict[str, List[Dict[str, str]]] = {
+                "google.longrunning.Operations.GetOperation": [
+                    {
+                        "method": "get",
+                        "uri": "/v1/{name=projects/*/locations/*/operations/*}",
+                    },
+                ],
+            }
+
+            rest_transport = operations_v1.OperationsRestTransport(
+                host=self._host,
+                # use the credentials which are saved
+                credentials=self._credentials,
+                scopes=self._scopes,
+                http_options=http_options,
+                path_prefix="v1",
+            )
+
+            self._operations_client = operations_v1.AbstractOperationsClient(
+                transport=rest_transport
+            )
+
+        # Return the client from cache.
+        return self._operations_client
 
     class _AsymmetricDecrypt(
         _BaseKeyManagementServiceRestTransport._BaseAsymmetricDecrypt,
@@ -1915,9 +2237,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseAsymmetricDecrypt._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseAsymmetricDecrypt._get_http_options()
 
             request, metadata = self._interceptor.pre_asymmetric_decrypt(
                 request, metadata
@@ -2075,9 +2395,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseAsymmetricSign._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseAsymmetricSign._get_http_options()
 
             request, metadata = self._interceptor.pre_asymmetric_sign(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseAsymmetricSign._get_transcoded_request(
@@ -2236,9 +2554,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseCreateCryptoKey._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseCreateCryptoKey._get_http_options()
 
             request, metadata = self._interceptor.pre_create_crypto_key(
                 request, metadata
@@ -2405,9 +2721,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseCreateCryptoKeyVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseCreateCryptoKeyVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_create_crypto_key_version(
                 request, metadata
@@ -2606,9 +2920,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseCreateImportJob._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseCreateImportJob._get_http_options()
 
             request, metadata = self._interceptor.pre_create_import_job(
                 request, metadata
@@ -2763,9 +3075,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseCreateKeyRing._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseCreateKeyRing._get_http_options()
 
             request, metadata = self._interceptor.pre_create_key_ring(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseCreateKeyRing._get_transcoded_request(
@@ -2852,6 +3162,158 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                     extra={
                         "serviceName": "google.cloud.kms.v1.KeyManagementService",
                         "rpcName": "CreateKeyRing",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _Decapsulate(
+        _BaseKeyManagementServiceRestTransport._BaseDecapsulate,
+        KeyManagementServiceRestStub,
+    ):
+        def __hash__(self):
+            return hash("KeyManagementServiceRestTransport.Decapsulate")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: service.DecapsulateRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> service.DecapsulateResponse:
+            r"""Call the decapsulate method over HTTP.
+
+            Args:
+                request (~.service.DecapsulateRequest):
+                    The request object. Request message for
+                [KeyManagementService.Decapsulate][google.cloud.kms.v1.KeyManagementService.Decapsulate].
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.service.DecapsulateResponse:
+                    Response message for
+                [KeyManagementService.Decapsulate][google.cloud.kms.v1.KeyManagementService.Decapsulate].
+
+            """
+
+            http_options = _BaseKeyManagementServiceRestTransport._BaseDecapsulate._get_http_options()
+
+            request, metadata = self._interceptor.pre_decapsulate(request, metadata)
+            transcoded_request = _BaseKeyManagementServiceRestTransport._BaseDecapsulate._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseKeyManagementServiceRestTransport._BaseDecapsulate._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseKeyManagementServiceRestTransport._BaseDecapsulate._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.kms_v1.KeyManagementServiceClient.Decapsulate",
+                    extra={
+                        "serviceName": "google.cloud.kms.v1.KeyManagementService",
+                        "rpcName": "Decapsulate",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = KeyManagementServiceRestTransport._Decapsulate._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = service.DecapsulateResponse()
+            pb_resp = service.DecapsulateResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_decapsulate(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_decapsulate_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = service.DecapsulateResponse.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.kms_v1.KeyManagementServiceClient.decapsulate",
+                    extra={
+                        "serviceName": "google.cloud.kms.v1.KeyManagementService",
+                        "rpcName": "Decapsulate",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -3012,6 +3474,302 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 )
             return resp
 
+    class _DeleteCryptoKey(
+        _BaseKeyManagementServiceRestTransport._BaseDeleteCryptoKey,
+        KeyManagementServiceRestStub,
+    ):
+        def __hash__(self):
+            return hash("KeyManagementServiceRestTransport.DeleteCryptoKey")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: service.DeleteCryptoKeyRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the delete crypto key method over HTTP.
+
+            Args:
+                request (~.service.DeleteCryptoKeyRequest):
+                    The request object. Request message for
+                [KeyManagementService.DeleteCryptoKey][google.cloud.kms.v1.KeyManagementService.DeleteCryptoKey].
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseKeyManagementServiceRestTransport._BaseDeleteCryptoKey._get_http_options()
+
+            request, metadata = self._interceptor.pre_delete_crypto_key(
+                request, metadata
+            )
+            transcoded_request = _BaseKeyManagementServiceRestTransport._BaseDeleteCryptoKey._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseKeyManagementServiceRestTransport._BaseDeleteCryptoKey._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.kms_v1.KeyManagementServiceClient.DeleteCryptoKey",
+                    extra={
+                        "serviceName": "google.cloud.kms.v1.KeyManagementService",
+                        "rpcName": "DeleteCryptoKey",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = KeyManagementServiceRestTransport._DeleteCryptoKey._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_delete_crypto_key(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_delete_crypto_key_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.kms_v1.KeyManagementServiceClient.delete_crypto_key",
+                    extra={
+                        "serviceName": "google.cloud.kms.v1.KeyManagementService",
+                        "rpcName": "DeleteCryptoKey",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _DeleteCryptoKeyVersion(
+        _BaseKeyManagementServiceRestTransport._BaseDeleteCryptoKeyVersion,
+        KeyManagementServiceRestStub,
+    ):
+        def __hash__(self):
+            return hash("KeyManagementServiceRestTransport.DeleteCryptoKeyVersion")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: service.DeleteCryptoKeyVersionRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the delete crypto key version method over HTTP.
+
+            Args:
+                request (~.service.DeleteCryptoKeyVersionRequest):
+                    The request object. Request message for
+                [KeyManagementService.DeleteCryptoKeyVersion][google.cloud.kms.v1.KeyManagementService.DeleteCryptoKeyVersion].
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseKeyManagementServiceRestTransport._BaseDeleteCryptoKeyVersion._get_http_options()
+
+            request, metadata = self._interceptor.pre_delete_crypto_key_version(
+                request, metadata
+            )
+            transcoded_request = _BaseKeyManagementServiceRestTransport._BaseDeleteCryptoKeyVersion._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseKeyManagementServiceRestTransport._BaseDeleteCryptoKeyVersion._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.kms_v1.KeyManagementServiceClient.DeleteCryptoKeyVersion",
+                    extra={
+                        "serviceName": "google.cloud.kms.v1.KeyManagementService",
+                        "rpcName": "DeleteCryptoKeyVersion",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = (
+                KeyManagementServiceRestTransport._DeleteCryptoKeyVersion._get_response(
+                    self._host,
+                    metadata,
+                    query_params,
+                    self._session,
+                    timeout,
+                    transcoded_request,
+                )
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_delete_crypto_key_version(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_delete_crypto_key_version_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.kms_v1.KeyManagementServiceClient.delete_crypto_key_version",
+                    extra={
+                        "serviceName": "google.cloud.kms.v1.KeyManagementService",
+                        "rpcName": "DeleteCryptoKeyVersion",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     class _DestroyCryptoKeyVersion(
         _BaseKeyManagementServiceRestTransport._BaseDestroyCryptoKeyVersion,
         KeyManagementServiceRestStub,
@@ -3085,9 +3843,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseDestroyCryptoKeyVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseDestroyCryptoKeyVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_destroy_crypto_key_version(
                 request, metadata
@@ -3395,9 +4151,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGenerateRandomBytes._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGenerateRandomBytes._get_http_options()
 
             request, metadata = self._interceptor.pre_generate_random_bytes(
                 request, metadata
@@ -3561,9 +4315,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetCryptoKey._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetCryptoKey._get_http_options()
 
             request, metadata = self._interceptor.pre_get_crypto_key(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetCryptoKey._get_transcoded_request(
@@ -3722,9 +4474,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetCryptoKeyVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetCryptoKeyVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_get_crypto_key_version(
                 request, metadata
@@ -3917,9 +4667,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetImportJob._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetImportJob._get_http_options()
 
             request, metadata = self._interceptor.pre_get_import_job(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetImportJob._get_transcoded_request(
@@ -4066,9 +4814,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetKeyRing._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetKeyRing._get_http_options()
 
             request, metadata = self._interceptor.pre_get_key_ring(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetKeyRing._get_transcoded_request(
@@ -4216,9 +4962,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetPublicKey._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetPublicKey._get_http_options()
 
             request, metadata = self._interceptor.pre_get_public_key(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetPublicKey._get_transcoded_request(
@@ -4306,6 +5050,159 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 )
             return resp
 
+    class _GetRetiredResource(
+        _BaseKeyManagementServiceRestTransport._BaseGetRetiredResource,
+        KeyManagementServiceRestStub,
+    ):
+        def __hash__(self):
+            return hash("KeyManagementServiceRestTransport.GetRetiredResource")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: service.GetRetiredResourceRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> resources.RetiredResource:
+            r"""Call the get retired resource method over HTTP.
+
+            Args:
+                request (~.service.GetRetiredResourceRequest):
+                    The request object. Request message for
+                [KeyManagementService.GetRetiredResource][google.cloud.kms.v1.KeyManagementService.GetRetiredResource].
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.resources.RetiredResource:
+                    A RetiredResource resource represents the record of a
+                deleted [CryptoKey][google.cloud.kms.v1.CryptoKey]. Its
+                purpose is to provide visibility into retained user data
+                and to prevent reuse of these names for new
+                [CryptoKeys][google.cloud.kms.v1.CryptoKey].
+
+            """
+
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetRetiredResource._get_http_options()
+
+            request, metadata = self._interceptor.pre_get_retired_resource(
+                request, metadata
+            )
+            transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetRetiredResource._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseKeyManagementServiceRestTransport._BaseGetRetiredResource._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.kms_v1.KeyManagementServiceClient.GetRetiredResource",
+                    extra={
+                        "serviceName": "google.cloud.kms.v1.KeyManagementService",
+                        "rpcName": "GetRetiredResource",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = (
+                KeyManagementServiceRestTransport._GetRetiredResource._get_response(
+                    self._host,
+                    metadata,
+                    query_params,
+                    self._session,
+                    timeout,
+                    transcoded_request,
+                )
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = resources.RetiredResource()
+            pb_resp = resources.RetiredResource.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_retired_resource(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_get_retired_resource_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = resources.RetiredResource.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.kms_v1.KeyManagementServiceClient.get_retired_resource",
+                    extra={
+                        "serviceName": "google.cloud.kms.v1.KeyManagementService",
+                        "rpcName": "GetRetiredResource",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     class _ImportCryptoKeyVersion(
         _BaseKeyManagementServiceRestTransport._BaseImportCryptoKeyVersion,
         KeyManagementServiceRestStub,
@@ -4378,9 +5275,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseImportCryptoKeyVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseImportCryptoKeyVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_import_crypto_key_version(
                 request, metadata
@@ -4535,9 +5430,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseListCryptoKeys._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseListCryptoKeys._get_http_options()
 
             request, metadata = self._interceptor.pre_list_crypto_keys(
                 request, metadata
@@ -4685,9 +5578,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseListCryptoKeyVersions._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseListCryptoKeyVersions._get_http_options()
 
             request, metadata = self._interceptor.pre_list_crypto_key_versions(
                 request, metadata
@@ -4839,9 +5730,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseListImportJobs._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseListImportJobs._get_http_options()
 
             request, metadata = self._interceptor.pre_list_import_jobs(
                 request, metadata
@@ -4989,9 +5878,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseListKeyRings._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseListKeyRings._get_http_options()
 
             request, metadata = self._interceptor.pre_list_key_rings(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseListKeyRings._get_transcoded_request(
@@ -5073,6 +5960,158 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                     extra={
                         "serviceName": "google.cloud.kms.v1.KeyManagementService",
                         "rpcName": "ListKeyRings",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _ListRetiredResources(
+        _BaseKeyManagementServiceRestTransport._BaseListRetiredResources,
+        KeyManagementServiceRestStub,
+    ):
+        def __hash__(self):
+            return hash("KeyManagementServiceRestTransport.ListRetiredResources")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: service.ListRetiredResourcesRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> service.ListRetiredResourcesResponse:
+            r"""Call the list retired resources method over HTTP.
+
+            Args:
+                request (~.service.ListRetiredResourcesRequest):
+                    The request object. Request message for
+                [KeyManagementService.ListRetiredResources][google.cloud.kms.v1.KeyManagementService.ListRetiredResources].
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.service.ListRetiredResourcesResponse:
+                    Response message for
+                [KeyManagementService.ListRetiredResources][google.cloud.kms.v1.KeyManagementService.ListRetiredResources].
+
+            """
+
+            http_options = _BaseKeyManagementServiceRestTransport._BaseListRetiredResources._get_http_options()
+
+            request, metadata = self._interceptor.pre_list_retired_resources(
+                request, metadata
+            )
+            transcoded_request = _BaseKeyManagementServiceRestTransport._BaseListRetiredResources._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseKeyManagementServiceRestTransport._BaseListRetiredResources._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.kms_v1.KeyManagementServiceClient.ListRetiredResources",
+                    extra={
+                        "serviceName": "google.cloud.kms.v1.KeyManagementService",
+                        "rpcName": "ListRetiredResources",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = (
+                KeyManagementServiceRestTransport._ListRetiredResources._get_response(
+                    self._host,
+                    metadata,
+                    query_params,
+                    self._session,
+                    timeout,
+                    transcoded_request,
+                )
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = service.ListRetiredResourcesResponse()
+            pb_resp = service.ListRetiredResourcesResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_list_retired_resources(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_list_retired_resources_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = service.ListRetiredResourcesResponse.to_json(
+                        response
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.kms_v1.KeyManagementServiceClient.list_retired_resources",
+                    extra={
+                        "serviceName": "google.cloud.kms.v1.KeyManagementService",
+                        "rpcName": "ListRetiredResources",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -5292,9 +6331,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseMacVerify._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseMacVerify._get_http_options()
 
             request, metadata = self._interceptor.pre_mac_verify(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseMacVerify._get_transcoded_request(
@@ -5446,9 +6483,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseRawDecrypt._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseRawDecrypt._get_http_options()
 
             request, metadata = self._interceptor.pre_raw_decrypt(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseRawDecrypt._get_transcoded_request(
@@ -5600,9 +6635,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseRawEncrypt._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseRawEncrypt._get_http_options()
 
             request, metadata = self._interceptor.pre_raw_encrypt(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseRawEncrypt._get_transcoded_request(
@@ -5768,9 +6801,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseRestoreCryptoKeyVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseRestoreCryptoKeyVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_restore_crypto_key_version(
                 request, metadata
@@ -5931,9 +6962,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseUpdateCryptoKey._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseUpdateCryptoKey._get_http_options()
 
             request, metadata = self._interceptor.pre_update_crypto_key(
                 request, metadata
@@ -6097,9 +7126,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseUpdateCryptoKeyPrimaryVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseUpdateCryptoKeyPrimaryVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_update_crypto_key_primary_version(
                 request, metadata
@@ -6168,11 +7195,10 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             resp = self._interceptor.post_update_crypto_key_primary_version(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_update_crypto_key_primary_version_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_update_crypto_key_primary_version_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -6269,9 +7295,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseUpdateCryptoKeyVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseUpdateCryptoKeyVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_update_crypto_key_version(
                 request, metadata
@@ -6400,7 +7424,9 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
     ) -> Callable[[service.CreateCryptoKeyVersionRequest], resources.CryptoKeyVersion]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateCryptoKeyVersion(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateCryptoKeyVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_import_job(
@@ -6419,10 +7445,36 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
         return self._CreateKeyRing(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def decapsulate(
+        self,
+    ) -> Callable[[service.DecapsulateRequest], service.DecapsulateResponse]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._Decapsulate(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
     def decrypt(self) -> Callable[[service.DecryptRequest], service.DecryptResponse]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._Decrypt(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def delete_crypto_key(
+        self,
+    ) -> Callable[[service.DeleteCryptoKeyRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._DeleteCryptoKey(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def delete_crypto_key_version(
+        self,
+    ) -> Callable[[service.DeleteCryptoKeyVersionRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._DeleteCryptoKeyVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def destroy_crypto_key_version(
@@ -6430,7 +7482,9 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
     ) -> Callable[[service.DestroyCryptoKeyVersionRequest], resources.CryptoKeyVersion]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DestroyCryptoKeyVersion(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DestroyCryptoKeyVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def encrypt(self) -> Callable[[service.EncryptRequest], service.EncryptResponse]:
@@ -6487,12 +7541,22 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
         return self._GetPublicKey(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def get_retired_resource(
+        self,
+    ) -> Callable[[service.GetRetiredResourceRequest], resources.RetiredResource]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetRetiredResource(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
     def import_crypto_key_version(
         self,
     ) -> Callable[[service.ImportCryptoKeyVersionRequest], resources.CryptoKeyVersion]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ImportCryptoKeyVersion(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ImportCryptoKeyVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_crypto_keys(
@@ -6527,6 +7591,16 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._ListKeyRings(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def list_retired_resources(
+        self,
+    ) -> Callable[
+        [service.ListRetiredResourcesRequest], service.ListRetiredResourcesResponse
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ListRetiredResources(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def mac_sign(self) -> Callable[[service.MacSignRequest], service.MacSignResponse]:
@@ -6564,7 +7638,9 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
     ) -> Callable[[service.RestoreCryptoKeyVersionRequest], resources.CryptoKeyVersion]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._RestoreCryptoKeyVersion(self._session, self._host, self._interceptor)  # type: ignore
+        return self._RestoreCryptoKeyVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_crypto_key(
@@ -6580,7 +7656,9 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
     ) -> Callable[[service.UpdateCryptoKeyPrimaryVersionRequest], resources.CryptoKey]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateCryptoKeyPrimaryVersion(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateCryptoKeyPrimaryVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_crypto_key_version(
@@ -6588,7 +7666,9 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
     ) -> Callable[[service.UpdateCryptoKeyVersionRequest], resources.CryptoKeyVersion]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateCryptoKeyVersion(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateCryptoKeyVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_location(self):
@@ -6648,9 +7728,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 locations_pb2.Location: Response from GetLocation method.
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetLocation._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetLocation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_location(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetLocation._get_transcoded_request(
@@ -6789,9 +7867,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 locations_pb2.ListLocationsResponse: Response from ListLocations method.
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseListLocations._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseListLocations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_locations(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseListLocations._get_transcoded_request(
@@ -6930,9 +8006,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 policy_pb2.Policy: Response from GetIamPolicy method.
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetIamPolicy._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetIamPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_get_iam_policy(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetIamPolicy._get_transcoded_request(
@@ -7072,9 +8146,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 policy_pb2.Policy: Response from SetIamPolicy method.
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseSetIamPolicy._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseSetIamPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_set_iam_policy(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseSetIamPolicy._get_transcoded_request(
@@ -7219,9 +8291,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 iam_policy_pb2.TestIamPermissionsResponse: Response from TestIamPermissions method.
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseTestIamPermissions._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseTestIamPermissions._get_http_options()
 
             request, metadata = self._interceptor.pre_test_iam_permissions(
                 request, metadata
@@ -7369,9 +8439,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 operations_pb2.Operation: Response from GetOperation method.
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetOperation._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_operation(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetOperation._get_transcoded_request(

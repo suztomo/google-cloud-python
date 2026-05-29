@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -191,10 +191,10 @@ class ProductCatalogItem(proto.Message):
             For example: {"manufacturing": 45.5} The profit of selling
             this item is computed like so:
 
-            -  If 'exactPrice' is provided, profit = displayPrice -
-               sum(costs)
-            -  If 'priceRange' is provided, profit = minPrice -
-               sum(costs)
+            - If 'exactPrice' is provided, profit = displayPrice -
+              sum(costs)
+            - If 'priceRange' is provided, profit = minPrice -
+              sum(costs)
         currency_code (str):
             Optional. Only required if the price is set.
             Currency code for price/costs. Use
@@ -231,6 +231,7 @@ class ProductCatalogItem(proto.Message):
                 Item that is back-ordered (i.e. temporarily
                 out of stock).
         """
+
         _pb_options = {"allow_alias": True}
         STOCK_STATE_UNSPECIFIED = 0
         IN_STOCK = 0

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -54,6 +54,7 @@ class ReferenceListSyntaxType(proto.Enum):
         REFERENCE_LIST_SYNTAX_TYPE_CIDR (3):
             List contains only CIDR patterns.
     """
+
     REFERENCE_LIST_SYNTAX_TYPE_UNSPECIFIED = 0
     REFERENCE_LIST_SYNTAX_TYPE_PLAIN_TEXT_STRING = 1
     REFERENCE_LIST_SYNTAX_TYPE_REGEX = 2
@@ -79,6 +80,7 @@ class ReferenceListView(proto.Enum):
             metadata, content lines, associated rule counts.
             This is the default view for GetReferenceList.
     """
+
     REFERENCE_LIST_VIEW_UNSPECIFIED = 0
     REFERENCE_LIST_VIEW_BASIC = 1
     REFERENCE_LIST_VIEW_FULL = 2
@@ -265,7 +267,7 @@ class UpdateReferenceListRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             The list of fields to update. When no field mask is
             supplied, all non-empty fields will be updated. A field mask
-            of "*" will update all fields, whether empty or not.
+            of "\*" will update all fields, whether empty or not.
     """
 
     reference_list: "ReferenceList" = proto.Field(

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,17 +17,17 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflowcx_v3.types import (
     advanced_settings as gcdc_advanced_settings,
 )
+from google.cloud.dialogflowcx_v3.types import audio_config, flow
 from google.cloud.dialogflowcx_v3.types import (
     generative_settings as gcdc_generative_settings,
 )
-from google.cloud.dialogflowcx_v3.types import audio_config, flow
 
 __protobuf__ = proto.module(
     package="google.cloud.dialogflow.cx.v3",
@@ -82,6 +82,10 @@ class Agent(proto.Message):
     [TransitionRouteGroups][google.cloud.dialogflow.cx.v3.TransitionRouteGroup]
     and so on to manage the conversation flows.
 
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
 
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
@@ -123,11 +127,23 @@ class Agent(proto.Message):
         speech_to_text_settings (google.cloud.dialogflowcx_v3.types.SpeechToTextSettings):
             Speech recognition related settings.
         start_flow (str):
-            Immutable. Name of the start flow in this agent. A start
-            flow will be automatically created when the agent is
-            created, and can only be deleted by deleting the agent.
-            Format:
+            Name of the start flow in this agent. A start flow will be
+            automatically created when the agent is created, and can
+            only be deleted by deleting the agent. Format:
             ``projects/<ProjectID>/locations/<LocationID>/agents/<AgentID>/flows/<FlowID>``.
+            Currently only the default start flow with id
+            "00000000-0000-0000-0000-000000000000" is allowed.
+
+            This field is a member of `oneof`_ ``session_entry_resource``.
+        start_playbook (str):
+            Name of the start playbook in this agent. A start playbook
+            will be automatically created when the agent is created, and
+            can only be deleted by deleting the agent. Format:
+            ``projects/<ProjectID>/locations/<LocationID>/agents/<AgentID>/playbooks/<PlaybookID>``.
+            Currently only the default playbook with id
+            "00000000-0000-0000-0000-000000000000" is allowed.
+
+            This field is a member of `oneof`_ ``session_entry_resource``.
         security_settings (str):
             Name of the
             [SecuritySettings][google.cloud.dialogflow.cx.v3.SecuritySettings]
@@ -371,6 +387,12 @@ class Agent(proto.Message):
     start_flow: str = proto.Field(
         proto.STRING,
         number=16,
+        oneof="session_entry_resource",
+    )
+    start_playbook: str = proto.Field(
+        proto.STRING,
+        number=39,
+        oneof="session_entry_resource",
     )
     security_settings: str = proto.Field(
         proto.STRING,
@@ -626,6 +648,7 @@ class ExportAgentRequest(proto.Message):
                 Agent content will be exported in JSON
                 Package format.
         """
+
         DATA_FORMAT_UNSPECIFIED = 0
         BLOB = 1
         JSON_PACKAGE = 4
@@ -782,6 +805,7 @@ class RestoreAgentRequest(proto.Message):
                 Fallback to default settings if some settings
                 are not supported in the target agent.
         """
+
         RESTORE_OPTION_UNSPECIFIED = 0
         KEEP = 1
         FALLBACK = 2
@@ -889,12 +913,12 @@ class AgentValidationResult(proto.Message):
         proto.STRING,
         number=1,
     )
-    flow_validation_results: MutableSequence[
-        flow.FlowValidationResult
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message=flow.FlowValidationResult,
+    flow_validation_results: MutableSequence[flow.FlowValidationResult] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=flow.FlowValidationResult,
+        )
     )
 
 

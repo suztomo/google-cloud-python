@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_get_operation():
     client = container_v1.ClusterManagerClient()
 
     # Initialize request argument(s)
-    request = container_v1.GetOperationRequest(
-    )
+    request = container_v1.GetOperationRequest()
 
     # Make the request
     response = client.get_operation(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END container_v1_generated_ClusterManager_GetOperation_sync]

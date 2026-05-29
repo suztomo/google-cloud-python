@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,9 @@ def sample_update_connect_cluster():
 
     # Initialize request argument(s)
     connect_cluster = managedkafka_v1.ConnectCluster()
-    connect_cluster.gcp_config.access_config.network_configs.primary_subnet = "primary_subnet_value"
+    connect_cluster.gcp_config.access_config.network_configs.primary_subnet = (
+        "primary_subnet_value"
+    )
     connect_cluster.kafka_cluster = "kafka_cluster_value"
     connect_cluster.capacity_config.vcpu_count = 1094
     connect_cluster.capacity_config.memory_bytes = 1311
@@ -58,5 +60,6 @@ def sample_update_connect_cluster():
 
     # Handle the response
     print(response)
+
 
 # [END managedkafka_v1_generated_ManagedKafkaConnect_UpdateConnectCluster_sync]

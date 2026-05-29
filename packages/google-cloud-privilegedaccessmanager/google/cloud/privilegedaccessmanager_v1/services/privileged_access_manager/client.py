@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.privilegedaccessmanager_v1 import gapic_version as package_version
 
@@ -61,13 +61,13 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.privilegedaccessmanager_v1.services.privileged_access_manager import (
     pagers,
@@ -88,9 +88,7 @@ class PrivilegedAccessManagerClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[PrivilegedAccessManagerTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[PrivilegedAccessManagerTransport]]
     _transport_registry["grpc"] = PrivilegedAccessManagerGrpcTransport
     _transport_registry["grpc_asyncio"] = PrivilegedAccessManagerGrpcAsyncIOTransport
     _transport_registry["rest"] = PrivilegedAccessManagerRestTransport
@@ -123,28 +121,27 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
 
     It defines the following resource model:
 
-    -  A collection of ``Entitlement`` resources. An entitlement allows
-       configuring (among other things):
+    - A collection of ``Entitlement`` resources. An entitlement allows
+      configuring (among other things):
 
-       -  Some kind of privileged access that users can request.
-       -  A set of users called *requesters* who can request this
-          access.
-       -  A maximum duration for which the access can be requested.
-       -  An optional approval workflow which must be satisfied before
-          access is granted.
+      - Some kind of privileged access that users can request.
+      - A set of users called *requesters* who can request this access.
+      - A maximum duration for which the access can be requested.
+      - An optional approval workflow which must be satisfied before
+        access is granted.
 
-    -  A collection of ``Grant`` resources. A grant is a request by a
-       requester to get the privileged access specified in an
-       entitlement for some duration.
+    - A collection of ``Grant`` resources. A grant is a request by a
+      requester to get the privileged access specified in an entitlement
+      for some duration.
 
-       After the approval workflow as specified in the entitlement is
-       satisfied, the specified access is given to the requester. The
-       access is automatically taken back after the requested duration
-       is over.
+      After the approval workflow as specified in the entitlement is
+      satisfied, the specified access is given to the requester. The
+      access is automatically taken back after the requested duration is
+      over.
     """
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -152,7 +149,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -162,6 +159,10 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -181,6 +182,34 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
 
     _DEFAULT_ENDPOINT_TEMPLATE = "privilegedaccessmanager.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -395,12 +424,8 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = PrivilegedAccessManagerClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -408,7 +433,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -440,20 +465,14 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = PrivilegedAccessManagerClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -477,7 +496,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -576,7 +595,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -667,11 +686,9 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = PrivilegedAccessManagerClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            PrivilegedAccessManagerClient._read_environment_variables()
+        )
         self._client_cert_source = (
             PrivilegedAccessManagerClient._get_client_cert_source(
                 self._client_options.client_cert_source, self._use_client_cert
@@ -680,7 +697,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         self._universe_domain = PrivilegedAccessManagerClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -708,8 +725,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(PrivilegedAccessManagerTransport, transport)
             self._api_endpoint = self._transport.host
@@ -1256,9 +1272,9 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
                 Required. Name of the parent resource for the
                 entitlement. Possible formats:
 
-                -  ``organizations/{organization-number}/locations/{region}``
-                -  ``folders/{folder-number}/locations/{region}``
-                -  ``projects/{project-id|project-number}/locations/{region}``
+                - ``organizations/{organization-number}/locations/{region}``
+                - ``folders/{folder-number}/locations/{region}``
+                - ``projects/{project-id|project-number}/locations/{region}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1503,15 +1519,15 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
 
         The following fields are not supported for updates:
 
-        -  All immutable fields
-        -  Entitlement name
-        -  Resource name
-        -  Resource type
-        -  Adding an approval workflow in an entitlement which
-           previously had no approval workflow.
-        -  Deleting the approval workflow from an entitlement.
-        -  Adding or deleting a step in the approval workflow (only one
-           step is supported)
+        - All immutable fields
+        - Entitlement name
+        - Resource name
+        - Resource type
+        - Adding an approval workflow in an entitlement which previously
+          had no approval workflow.
+        - Deleting the approval workflow from an entitlement.
+        - Adding or deleting a step in the approval workflow (only one
+          step is supported)
 
         Note that updates are allowed on the list of approvers in an
         approval workflow step.
@@ -1566,7 +1582,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
                 fields specified in the update_mask are relative to the
                 resource and not to the request. (e.g.
                 ``MaxRequestDuration``; *not*
-                ``entitlement.MaxRequestDuration``) A value of '*' for
+                ``entitlement.MaxRequestDuration``) A value of '\*' for
                 this field refers to full replacement of the resource.
 
                 This corresponds to the ``update_mask`` field
@@ -2389,7 +2405,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
 
     def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2415,8 +2431,12 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2425,7 +2445,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2434,7 +2454,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -2448,7 +2468,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
 
     def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2474,8 +2494,12 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2484,7 +2508,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2493,7 +2517,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -2507,7 +2531,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
 
     def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2537,8 +2561,12 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2547,7 +2575,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2555,7 +2583,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
 
         # Send the request.
         rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -2563,7 +2591,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
 
     def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2589,8 +2617,12 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2599,7 +2631,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2608,7 +2640,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -2622,7 +2654,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
 
     def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2648,8 +2680,12 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2658,7 +2694,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2667,7 +2703,7 @@ class PrivilegedAccessManagerClient(metaclass=PrivilegedAccessManagerClientMeta)
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,

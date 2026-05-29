@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ def sample_update_key():
 
     # Initialize request argument(s)
     key = recaptchaenterprise_v1.Key()
-    key.web_settings.integration_type = "INVISIBLE"
+    key.web_settings.integration_type = "POLICY_BASED_CHALLENGE"
     key.display_name = "display_name_value"
 
     request = recaptchaenterprise_v1.UpdateKeyRequest(
@@ -52,5 +52,6 @@ def sample_update_key():
 
     # Handle the response
     print(response)
+
 
 # [END recaptchaenterprise_v1_generated_RecaptchaEnterpriseService_UpdateKey_sync]

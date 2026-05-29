@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -166,11 +166,11 @@ class Company(proto.Message):
         proto.STRING,
         number=10,
     )
-    keyword_searchable_job_custom_attributes: MutableSequence[
-        str
-    ] = proto.RepeatedField(
-        proto.STRING,
-        number=11,
+    keyword_searchable_job_custom_attributes: MutableSequence[str] = (
+        proto.RepeatedField(
+            proto.STRING,
+            number=11,
+        )
     )
     derived_info: DerivedInfo = proto.Field(
         proto.MESSAGE,

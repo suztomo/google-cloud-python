@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,17 +17,19 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
-from google.cloud.video.stitcher_v1.types import live_configs as gcvs_live_configs
-from google.cloud.video.stitcher_v1.types import vod_configs as gcvs_vod_configs
-from google.cloud.video.stitcher_v1.types import ad_tag_details
+from google.cloud.video.stitcher_v1.types import (
+    ad_tag_details,
+    sessions,
+    stitch_details,
+)
 from google.cloud.video.stitcher_v1.types import cdn_keys as gcvs_cdn_keys
-from google.cloud.video.stitcher_v1.types import sessions
+from google.cloud.video.stitcher_v1.types import live_configs as gcvs_live_configs
 from google.cloud.video.stitcher_v1.types import slates as gcvs_slates
-from google.cloud.video.stitcher_v1.types import stitch_details
+from google.cloud.video.stitcher_v1.types import vod_configs as gcvs_vod_configs
 
 __protobuf__ = proto.module(
     package="google.cloud.video.stitcher.v1",
@@ -327,12 +329,12 @@ class ListVodStitchDetailsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    vod_stitch_details: MutableSequence[
-        stitch_details.VodStitchDetail
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=stitch_details.VodStitchDetail,
+    vod_stitch_details: MutableSequence[stitch_details.VodStitchDetail] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=stitch_details.VodStitchDetail,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -400,12 +402,12 @@ class ListVodAdTagDetailsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    vod_ad_tag_details: MutableSequence[
-        ad_tag_details.VodAdTagDetail
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=ad_tag_details.VodAdTagDetail,
+    vod_ad_tag_details: MutableSequence[ad_tag_details.VodAdTagDetail] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=ad_tag_details.VodAdTagDetail,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -473,12 +475,12 @@ class ListLiveAdTagDetailsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    live_ad_tag_details: MutableSequence[
-        ad_tag_details.LiveAdTagDetail
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=ad_tag_details.LiveAdTagDetail,
+    live_ad_tag_details: MutableSequence[ad_tag_details.LiveAdTagDetail] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=ad_tag_details.LiveAdTagDetail,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

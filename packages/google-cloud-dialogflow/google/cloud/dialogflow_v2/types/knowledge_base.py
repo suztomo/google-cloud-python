@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -97,24 +97,24 @@ class ListKnowledgeBasesRequest(proto.Message):
             returned by the list method. The expression has the
             following syntax:
 
-             [AND ] ...
+            [AND ] ...
 
             The following fields and operators are supported:
 
-            -  display_name with has(:) operator
-            -  language_code with equals(=) operator
+            - display_name with has(:) operator
+            - language_code with equals(=) operator
 
             Examples:
 
-            -  'language_code=en-us' matches knowledge bases with en-us
-               language code.
-            -  'display_name:articles' matches knowledge bases whose
-               display name contains "articles".
-            -  'display_name:"Best Articles"' matches knowledge bases
-               whose display name contains "Best Articles".
-            -  'language_code=en-gb AND display_name=articles' matches
-               all knowledge bases whose display name contains
-               "articles" and whose language code is "en-gb".
+            - 'language_code=en-us' matches knowledge bases with en-us
+              language code.
+            - 'display_name:articles' matches knowledge bases whose
+              display name contains "articles".
+            - 'display_name:"Best Articles"' matches knowledge bases
+              whose display name contains "Best Articles".
+            - 'language_code=en-gb AND display_name=articles' matches
+              all knowledge bases whose display name contains "articles"
+              and whose language code is "en-gb".
 
             Note: An empty filter string (i.e. "") is a no-op and will
             result in no filtering.

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.security.privateca_v1.types import resources
@@ -83,8 +83,9 @@ class CreateCertificateRequest(proto.Message):
             regular expression ``[a-zA-Z0-9_-]{1,63}``. This field is
             required when using a
             [CertificateAuthority][google.cloud.security.privateca.v1.CertificateAuthority]
-            in the Enterprise [CertificateAuthority.Tier][], but is
-            optional and its value is ignored otherwise.
+            in the Enterprise
+            [CertificateAuthority.tier][google.cloud.security.privateca.v1.CertificateAuthority.tier],
+            but is optional and its value is ignored otherwise.
         certificate (google.cloud.security.privateca_v1.types.Certificate):
             Required. A
             [Certificate][google.cloud.security.privateca.v1.Certificate]
@@ -258,8 +259,8 @@ class ListCertificatesResponse(proto.Message):
             [Certificates][google.cloud.security.privateca.v1.Certificate].
         next_page_token (str):
             A token to retrieve next page of results. Pass this value in
-            [ListCertificatesRequest.next_page_token][] to retrieve the
-            next page of results.
+            [ListCertificatesRequest.page_token][google.cloud.security.privateca.v1.ListCertificatesRequest.page_token]
+            to retrieve the next page of results.
         unreachable (MutableSequence[str]):
             A list of locations (e.g. "us-west1") that
             could not be reached.
@@ -713,8 +714,8 @@ class ListCertificateAuthoritiesResponse(proto.Message):
             [CertificateAuthorities][google.cloud.security.privateca.v1.CertificateAuthority].
         next_page_token (str):
             A token to retrieve next page of results. Pass this value in
-            [ListCertificateAuthoritiesRequest.next_page_token][] to
-            retrieve the next page of results.
+            [ListCertificateAuthoritiesRequest.page_token][google.cloud.security.privateca.v1.ListCertificateAuthoritiesRequest.page_token]
+            to retrieve the next page of results.
         unreachable (MutableSequence[str]):
             A list of locations (e.g. "us-west1") that
             could not be reached.
@@ -724,12 +725,12 @@ class ListCertificateAuthoritiesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    certificate_authorities: MutableSequence[
-        resources.CertificateAuthority
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=resources.CertificateAuthority,
+    certificate_authorities: MutableSequence[resources.CertificateAuthority] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=resources.CertificateAuthority,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1218,8 +1219,8 @@ class ListCaPoolsResponse(proto.Message):
             [CaPools][google.cloud.security.privateca.v1.CaPool].
         next_page_token (str):
             A token to retrieve next page of results. Pass this value in
-            [ListCertificateAuthoritiesRequest.next_page_token][] to
-            retrieve the next page of results.
+            [ListCertificateAuthoritiesRequest.page_token][google.cloud.security.privateca.v1.ListCertificateAuthoritiesRequest.page_token]
+            to retrieve the next page of results.
         unreachable (MutableSequence[str]):
             A list of locations (e.g. "us-west1") that
             could not be reached.
@@ -1326,8 +1327,8 @@ class ListCertificateRevocationListsResponse(proto.Message):
             [CertificateRevocationLists][google.cloud.security.privateca.v1.CertificateRevocationList].
         next_page_token (str):
             A token to retrieve next page of results. Pass this value in
-            [ListCertificateRevocationListsRequest.next_page_token][] to
-            retrieve the next page of results.
+            [ListCertificateRevocationListsRequest.page_token][google.cloud.security.privateca.v1.ListCertificateRevocationListsRequest.page_token]
+            to retrieve the next page of results.
         unreachable (MutableSequence[str]):
             A list of locations (e.g. "us-west1") that
             could not be reached.
@@ -1585,8 +1586,8 @@ class ListCertificateTemplatesResponse(proto.Message):
             [CertificateTemplates][google.cloud.security.privateca.v1.CertificateTemplate].
         next_page_token (str):
             A token to retrieve next page of results. Pass this value in
-            [ListCertificateTemplatesRequest.next_page_token][] to
-            retrieve the next page of results.
+            [ListCertificateTemplatesRequest.page_token][google.cloud.security.privateca.v1.ListCertificateTemplatesRequest.page_token]
+            to retrieve the next page of results.
         unreachable (MutableSequence[str]):
             A list of locations (e.g. "us-west1") that
             could not be reached.
@@ -1596,12 +1597,12 @@ class ListCertificateTemplatesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    certificate_templates: MutableSequence[
-        resources.CertificateTemplate
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=resources.CertificateTemplate,
+    certificate_templates: MutableSequence[resources.CertificateTemplate] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=resources.CertificateTemplate,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1685,9 +1686,11 @@ class OperationMetadata(proto.Message):
         requested_cancellation (bool):
             Output only. Identifies whether the user has requested
             cancellation of the operation. Operations that have
-            successfully been cancelled have [Operation.error][] value
-            with a [google.rpc.Status.code][google.rpc.Status.code] of
-            1, corresponding to ``Code.CANCELLED``.
+            successfully been cancelled have
+            [google.longrunning.Operation.error][google.longrunning.Operation.error]
+            value with a
+            [google.rpc.Status.code][google.rpc.Status.code] of 1,
+            corresponding to ``Code.CANCELLED``.
         api_version (str):
             Output only. API version used to start the
             operation.

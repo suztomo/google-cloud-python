@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+import warnings
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -28,15 +29,14 @@ from typing import (
     Type,
     Union,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.container_v1 import gapic_version as package_version
 
@@ -45,7 +45,7 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.rpc import status_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 
 from google.cloud.container_v1.services.cluster_manager import pagers
 from google.cloud.container_v1.types import cluster_service
@@ -82,6 +82,8 @@ class ClusterManagerAsyncClient:
     parse_crypto_key_version_path = staticmethod(
         ClusterManagerClient.parse_crypto_key_version_path
     )
+    subnetwork_path = staticmethod(ClusterManagerClient.subnetwork_path)
+    parse_subnetwork_path = staticmethod(ClusterManagerClient.parse_subnetwork_path)
     topic_path = staticmethod(ClusterManagerClient.topic_path)
     parse_topic_path = staticmethod(ClusterManagerClient.parse_topic_path)
     common_billing_account_path = staticmethod(
@@ -122,7 +124,10 @@ class ClusterManagerAsyncClient:
         Returns:
             ClusterManagerAsyncClient: The constructed client.
         """
-        return ClusterManagerClient.from_service_account_info.__func__(ClusterManagerAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ClusterManagerClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ClusterManagerAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -138,7 +143,10 @@ class ClusterManagerAsyncClient:
         Returns:
             ClusterManagerAsyncClient: The constructed client.
         """
-        return ClusterManagerClient.from_service_account_file.__func__(ClusterManagerAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ClusterManagerClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(ClusterManagerAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -188,7 +196,7 @@ class ClusterManagerAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -599,7 +607,7 @@ class ClusterManagerAsyncClient:
         network <https://cloud.google.com/compute/docs/networks-and-firewalls#networks>`__.
 
         One firewall is added for the cluster. After cluster creation,
-        the Kubelet creates routes for each node to allow the containers
+        the kubelet creates routes for each node to allow the containers
         on that node to communicate with all other instances in the
         cluster.
 
@@ -1157,12 +1165,12 @@ class ClusterManagerAsyncClient:
                 Required. The logging service the cluster should use to
                 write logs. Currently available options:
 
-                -  ``logging.googleapis.com/kubernetes`` - The Cloud
-                   Logging service with a Kubernetes-native resource
-                   model
-                -  ``logging.googleapis.com`` - The legacy Cloud Logging
-                   service (no longer available as of GKE 1.15).
-                -  ``none`` - no logs will be exported from the cluster.
+                - ``logging.googleapis.com/kubernetes`` - The Cloud
+                  Logging service with a Kubernetes-native resource
+                  model
+                - ``logging.googleapis.com`` - The legacy Cloud Logging
+                  service (no longer available as of GKE 1.15).
+                - ``none`` - no logs will be exported from the cluster.
 
                 If left as an empty
                 string,\ ``logging.googleapis.com/kubernetes`` will be
@@ -1332,14 +1340,14 @@ class ClusterManagerAsyncClient:
                 Required. The monitoring service the cluster should use
                 to write metrics. Currently available options:
 
-                -  ``monitoring.googleapis.com/kubernetes`` - The Cloud
-                   Monitoring service with a Kubernetes-native resource
-                   model
-                -  ``monitoring.googleapis.com`` - The legacy Cloud
-                   Monitoring service (no longer available as of GKE
-                   1.15).
-                -  ``none`` - No metrics will be exported from the
-                   cluster.
+                - ``monitoring.googleapis.com/kubernetes`` - The Cloud
+                  Monitoring service with a Kubernetes-native resource
+                  model
+                - ``monitoring.googleapis.com`` - The legacy Cloud
+                  Monitoring service (no longer available as of GKE
+                  1.15).
+                - ``none`` - No metrics will be exported from the
+                  cluster.
 
                 If left as an empty
                 string,\ ``monitoring.googleapis.com/kubernetes`` will
@@ -5098,7 +5106,7 @@ class ClusterManagerAsyncClient:
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> cluster_service.NodePoolUpgradeInfo:
-        r"""Fetch upgrade information of a specific nodepool.
+        r"""Fetch upgrade information of a specific node pool.
 
         .. code-block:: python
 
@@ -5130,12 +5138,12 @@ class ClusterManagerAsyncClient:
             request (Optional[Union[google.cloud.container_v1.types.FetchNodePoolUpgradeInfoRequest, dict]]):
                 The request object. FetchNodePoolUpgradeInfoRequest
                 fetches the upgrade information of a
-                nodepool.
+                node pool.
             name (:class:`str`):
-                Required. The name (project, location, cluster,
-                nodepool) of the nodepool to get. Specified in the
-                format ``projects/*/locations/*/clusters/*/nodePools/*``
-                or ``projects/*/zones/*/clusters/*/nodePools/*``.
+                Required. The name (project, location, cluster, node
+                pool) of the node pool to get. Specified in the format
+                ``projects/*/locations/*/clusters/*/nodePools/*`` or
+                ``projects/*/zones/*/clusters/*/nodePools/*``.
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -5151,7 +5159,7 @@ class ClusterManagerAsyncClient:
         Returns:
             google.cloud.container_v1.types.NodePoolUpgradeInfo:
                 NodePoolUpgradeInfo contains the
-                upgrade information of a nodepool.
+                upgrade information of a node pool.
 
         """
         # Create or coerce a protobuf request object.

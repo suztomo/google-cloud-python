@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_recommender_config():
     client = recommender_v1beta1.RecommenderClient()
 
     # Initialize request argument(s)
-    request = recommender_v1beta1.UpdateRecommenderConfigRequest(
-    )
+    request = recommender_v1beta1.UpdateRecommenderConfigRequest()
 
     # Make the request
     response = client.update_recommender_config(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END recommender_v1beta1_generated_Recommender_UpdateRecommenderConfig_sync]

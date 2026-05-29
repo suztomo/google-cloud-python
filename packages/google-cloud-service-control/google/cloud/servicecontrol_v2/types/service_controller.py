@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.rpc import status_pb2  # type: ignore
-from google.rpc.context import attribute_context_pb2  # type: ignore
+import google.rpc.context.attribute_context_pb2 as attribute_context_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -105,16 +105,16 @@ class ResourceInfo(proto.Message):
             For Google Cloud APIs, the resource container must be one of
             the following formats: -
             ``projects/<project-id or project-number>`` -
-            ``folders/<folder-id>`` -
-            ``organizations/<organization-id>`` For the policy
-            enforcement on the container level (VPCSC and Location
-            Policy check), this field takes precedence on the container
-            extracted from name when presents.
+            ``folders/<folder-number>`` -
+            ``organizations/<organization-number>`` Required for the
+            policy enforcement on the container level (e.g. VPCSC,
+            Location Policy check, Org Policy check).
         location (str):
-            Optional. The location of the resource. The
-            value must be a valid zone, region or
-            multiregion. For example: "europe-west4" or
-            "northamerica-northeast1-a".
+            Optional. The location of the resource, it
+            must be a valid zone, region or multiregion, for
+            example: "europe-west4",
+            "northamerica-northeast1-a". Required for
+            location policy check.
     """
 
     name: str = proto.Field(
@@ -197,12 +197,12 @@ class ReportRequest(proto.Message):
         proto.STRING,
         number=2,
     )
-    operations: MutableSequence[
-        attribute_context_pb2.AttributeContext
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=attribute_context_pb2.AttributeContext,
+    operations: MutableSequence[attribute_context_pb2.AttributeContext] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=attribute_context_pb2.AttributeContext,
+        )
     )
 
 

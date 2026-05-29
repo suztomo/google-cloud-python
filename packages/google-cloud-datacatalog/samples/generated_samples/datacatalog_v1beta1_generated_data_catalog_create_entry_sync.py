@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,10 @@ def sample_create_entry():
     entry = datacatalog_v1beta1.Entry()
     entry.type_ = "FILESET"
     entry.integrated_system = "CLOUD_PUBSUB"
-    entry.gcs_fileset_spec.file_patterns = ['file_patterns_value1', 'file_patterns_value2']
+    entry.gcs_fileset_spec.file_patterns = [
+        "file_patterns_value1",
+        "file_patterns_value2",
+    ]
 
     request = datacatalog_v1beta1.CreateEntryRequest(
         parent="parent_value",
@@ -55,5 +58,6 @@ def sample_create_entry():
 
     # Handle the response
     print(response)
+
 
 # [END datacatalog_v1beta1_generated_DataCatalog_CreateEntry_sync]

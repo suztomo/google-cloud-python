@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.type import postal_address_pb2  # type: ignore
+import google.type.postal_address_pb2 as postal_address_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.maps.addressvalidation_v1.types import address as gma_address
@@ -95,22 +95,21 @@ class ValidateAddressRequest(proto.Message):
             string with at most 36 ASCII characters in length. Otherwise
             an INVALID_ARGUMENT error is returned.
 
-            The session begins when the user starts typing a query, and
-            concludes when they select a place and a call to Place
-            Details or Address Validation is made. Each session can have
-            multiple autocomplete queries, followed by one Place Details
-            or Address Validation request. The credentials used for each
-            request within a session must belong to the same Google
-            Cloud Console project. Once a session has concluded, the
-            token is no longer valid; your app must generate a fresh
-            token for each session. If the ``session_token`` parameter
-            is omitted, or if you reuse a session token, the session is
-            charged as if no session token was provided (each request is
-            billed separately).
+            The session begins when the user makes an Autocomplete
+            query, and concludes when they select a place and a call to
+            Place Details or Address Validation is made. Each session
+            can have multiple Autocomplete queries, followed by one
+            Place Details or Address Validation request. The credentials
+            used for each request within a session must belong to the
+            same Google Cloud Console project. Once a session has
+            concluded, the token is no longer valid; your app must
+            generate a fresh token for each session. If the
+            ``sessionToken`` parameter is omitted, or if you reuse a
+            session token, the session is charged as if no session token
+            was provided (each request is billed separately).
 
             Note: Address Validation can only be used in sessions with
-            the Autocomplete (New) API, not the old Autocomplete API.
-            See
+            the Autocomplete (New) API, not the Autocomplete API. See
             https://developers.google.com/maps/documentation/places/web-service/session-pricing
             for more details.
     """
@@ -201,6 +200,7 @@ class ProvideValidationFeedbackRequest(proto.Message):
                 The transaction was abandoned and the address
                 was not used.
         """
+
         VALIDATION_CONCLUSION_UNSPECIFIED = 0
         VALIDATED_VERSION_USED = 1
         USER_VERSION_USED = 2
@@ -287,15 +287,16 @@ class Verdict(proto.Message):
 
             For example, if the input address includes a specific
             apartment number, then the ``input_granularity`` here will
-            be ``SUB_PREMISE``. If we cannot match the apartment number
-            in the databases or the apartment number is invalid, the
-            ``validation_granularity`` will likely be ``PREMISE`` or
-            below.
+            be ``SUB_PREMISE``. If the address validation service cannot
+            match the apartment number in the databases or the apartment
+            number is invalid, the ``validation_granularity`` will
+            likely be ``PREMISE`` or more coarse.
         validation_granularity (google.maps.addressvalidation_v1.types.Verdict.Granularity):
-            The granularity level that the API can fully **validate**
-            the address to. For example, an ``validation_granularity``
-            of ``PREMISE`` indicates all address components at the level
-            of ``PREMISE`` or more coarse can be validated.
+            The level of granularity for the post-processed address that
+            the API can fully validate. For example, a
+            ``validation_granularity`` of ``PREMISE`` indicates all
+            address components at the level of ``PREMISE`` or more
+            coarse can be validated.
 
             Per address component validation result can be found in
             [google.maps.addressvalidation.v1.Address.address_components].
@@ -313,9 +314,10 @@ class Verdict(proto.Message):
             ``SUB_PREMISE`` but the ``geocode_granularity`` will be
             ``PREMISE``.
         address_complete (bool):
-            The address is considered complete if there are no
-            unresolved tokens, no unexpected or missing address
-            components. See
+            The post-processed address is considered complete if there
+            are no unresolved tokens, no unexpected or missing address
+            components. If unset, indicates that the value is ``false``.
+            See
             [``missing_component_types``][google.maps.addressvalidation.v1.Address.missing_component_types],
             [``unresolved_tokens``][google.maps.addressvalidation.v1.Address.unresolved_tokens]
             or
@@ -333,6 +335,10 @@ class Verdict(proto.Message):
             for details.
         has_replaced_components (bool):
             At least one address component was replaced, see
+            [google.maps.addressvalidation.v1.Address.address_components]
+            for details.
+        has_spell_corrected_components (bool):
+            At least one address component was spell-corrected, see
             [google.maps.addressvalidation.v1.Address.address_components]
             for details.
     """
@@ -370,6 +376,7 @@ class Verdict(proto.Message):
                 All other granularities, which are bucketed
                 together since they are not deliverable.
         """
+
         GRANULARITY_UNSPECIFIED = 0
         SUB_PREMISE = 1
         PREMISE = 2
@@ -408,6 +415,10 @@ class Verdict(proto.Message):
     has_replaced_components: bool = proto.Field(
         proto.BOOL,
         number=7,
+    )
+    has_spell_corrected_components: bool = proto.Field(
+        proto.BOOL,
+        number=9,
     )
 
 

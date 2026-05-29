@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,24 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
+import asyncio
 import json
 import math
+import os
+from collections.abc import Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
-from google.api_core import api_core_version
 import grpc
+import pytest
+from google.api_core import api_core_version
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 
 try:
     from google.auth.aio import credentials as ga_credentials_async
@@ -39,20 +35,25 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api import label_pb2  # type: ignore
-from google.api import launch_stage_pb2  # type: ignore
-from google.api_core import gapic_v1, grpc_helpers, grpc_helpers_async, path_template
-from google.api_core import client_options
+import google.api.label_pb2 as label_pb2  # type: ignore
+import google.api.launch_stage_pb2 as launch_stage_pb2  # type: ignore
+import google.auth
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+from google.api_core import (
+    client_options,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
 
 from google.cloud.monitoring_v3.services.notification_channel_service import (
     NotificationChannelServiceAsyncClient,
@@ -115,12 +116,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert NotificationChannelServiceClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -144,6 +161,10 @@ def test__get_default_mtls_endpoint():
     assert (
         NotificationChannelServiceClient._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
+    )
+    assert (
+        NotificationChannelServiceClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -171,12 +192,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            NotificationChannelServiceClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                NotificationChannelServiceClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert NotificationChannelServiceClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert NotificationChannelServiceClient._read_environment_variables() == (
@@ -213,6 +241,120 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert NotificationChannelServiceClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert (
+                NotificationChannelServiceClient._use_client_cert_effective() is False
+            )
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert NotificationChannelServiceClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert (
+                NotificationChannelServiceClient._use_client_cert_effective() is False
+            )
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert NotificationChannelServiceClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert (
+                NotificationChannelServiceClient._use_client_cert_effective() is False
+            )
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert NotificationChannelServiceClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert (
+                NotificationChannelServiceClient._use_client_cert_effective() is False
+            )
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert (
+                NotificationChannelServiceClient._use_client_cert_effective() is False
+            )
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                NotificationChannelServiceClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert (
+                NotificationChannelServiceClient._use_client_cert_effective() is False
+            )
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert (
+                    NotificationChannelServiceClient._use_client_cert_effective()
+                    is False
+                )
 
 
 def test__get_client_cert_source():
@@ -593,17 +735,6 @@ def test_notification_channel_service_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -830,6 +961,117 @@ def test_notification_channel_service_client_get_mtls_endpoint_and_cert_source(
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -862,10 +1104,9 @@ def test_notification_channel_service_client_get_mtls_endpoint_and_cert_source(
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -878,18 +1119,6 @@ def test_notification_channel_service_client_get_mtls_endpoint_and_cert_source(
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1125,13 +1354,13 @@ def test_notification_channel_service_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1160,8 +1389,8 @@ def test_notification_channel_service_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        notification_service.ListNotificationChannelDescriptorsRequest,
-        dict,
+        notification_service.ListNotificationChannelDescriptorsRequest(),
+        {},
     ],
 )
 def test_list_notification_channel_descriptors(request_type, transport: str = "grpc"):
@@ -1172,7 +1401,7 @@ def test_list_notification_channel_descriptors(request_type, transport: str = "g
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1223,12 +1452,11 @@ def test_list_notification_channel_descriptors_non_empty_request_with_auto_popul
         client.list_notification_channel_descriptors(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == notification_service.ListNotificationChannelDescriptorsRequest(
+        request_msg = notification_service.ListNotificationChannelDescriptorsRequest(
             name="name_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_notification_channel_descriptors_use_cached_wrapped_rpc():
@@ -1314,9 +1542,15 @@ async def test_list_notification_channel_descriptors_async_use_cached_wrapped_rp
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        notification_service.ListNotificationChannelDescriptorsRequest(),
+        {},
+    ],
+)
 async def test_list_notification_channel_descriptors_async(
-    transport: str = "grpc_asyncio",
-    request_type=notification_service.ListNotificationChannelDescriptorsRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NotificationChannelServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -1325,7 +1559,7 @@ async def test_list_notification_channel_descriptors_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1348,11 +1582,6 @@ async def test_list_notification_channel_descriptors_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListNotificationChannelDescriptorsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_notification_channel_descriptors_async_from_dict():
-    await test_list_notification_channel_descriptors_async(request_type=dict)
 
 
 def test_list_notification_channel_descriptors_field_headers():
@@ -1710,9 +1939,7 @@ async def test_list_notification_channel_descriptors_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_notification_channel_descriptors(request={})
         ).pages:
             pages.append(page_)
@@ -1723,8 +1950,8 @@ async def test_list_notification_channel_descriptors_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        notification_service.GetNotificationChannelDescriptorRequest,
-        dict,
+        notification_service.GetNotificationChannelDescriptorRequest(),
+        {},
     ],
 )
 def test_get_notification_channel_descriptor(request_type, transport: str = "grpc"):
@@ -1735,7 +1962,7 @@ def test_get_notification_channel_descriptor(request_type, transport: str = "grp
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1793,9 +2020,10 @@ def test_get_notification_channel_descriptor_non_empty_request_with_auto_populat
         client.get_notification_channel_descriptor(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == notification_service.GetNotificationChannelDescriptorRequest(
+        request_msg = notification_service.GetNotificationChannelDescriptorRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_notification_channel_descriptor_use_cached_wrapped_rpc():
@@ -1881,9 +2109,15 @@ async def test_get_notification_channel_descriptor_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        notification_service.GetNotificationChannelDescriptorRequest(),
+        {},
+    ],
+)
 async def test_get_notification_channel_descriptor_async(
-    transport: str = "grpc_asyncio",
-    request_type=notification_service.GetNotificationChannelDescriptorRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NotificationChannelServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -1892,7 +2126,7 @@ async def test_get_notification_channel_descriptor_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1925,11 +2159,6 @@ async def test_get_notification_channel_descriptor_async(
     assert response.description == "description_value"
     assert response.supported_tiers == [common.ServiceTier.SERVICE_TIER_BASIC]
     assert response.launch_stage == launch_stage_pb2.LaunchStage.UNIMPLEMENTED
-
-
-@pytest.mark.asyncio
-async def test_get_notification_channel_descriptor_async_from_dict():
-    await test_get_notification_channel_descriptor_async(request_type=dict)
 
 
 def test_get_notification_channel_descriptor_field_headers():
@@ -2086,8 +2315,8 @@ async def test_get_notification_channel_descriptor_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        notification_service.ListNotificationChannelsRequest,
-        dict,
+        notification_service.ListNotificationChannelsRequest(),
+        {},
     ],
 )
 def test_list_notification_channels(request_type, transport: str = "grpc"):
@@ -2098,7 +2327,7 @@ def test_list_notification_channels(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2151,12 +2380,13 @@ def test_list_notification_channels_non_empty_request_with_auto_populated_field(
         client.list_notification_channels(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == notification_service.ListNotificationChannelsRequest(
+        request_msg = notification_service.ListNotificationChannelsRequest(
             name="name_value",
             filter="filter_value",
             order_by="order_by_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_notification_channels_use_cached_wrapped_rpc():
@@ -2242,9 +2472,15 @@ async def test_list_notification_channels_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        notification_service.ListNotificationChannelsRequest(),
+        {},
+    ],
+)
 async def test_list_notification_channels_async(
-    transport: str = "grpc_asyncio",
-    request_type=notification_service.ListNotificationChannelsRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NotificationChannelServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -2253,7 +2489,7 @@ async def test_list_notification_channels_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2278,11 +2514,6 @@ async def test_list_notification_channels_async(
     assert isinstance(response, pagers.ListNotificationChannelsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.total_size == 1086
-
-
-@pytest.mark.asyncio
-async def test_list_notification_channels_async_from_dict():
-    await test_list_notification_channels_async(request_type=dict)
 
 
 def test_list_notification_channels_field_headers():
@@ -2630,11 +2861,7 @@ async def test_list_notification_channels_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_notification_channels(request={})
-        ).pages:
+        async for page_ in (await client.list_notification_channels(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -2643,8 +2870,8 @@ async def test_list_notification_channels_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        notification_service.GetNotificationChannelRequest,
-        dict,
+        notification_service.GetNotificationChannelRequest(),
+        {},
     ],
 )
 def test_get_notification_channel(request_type, transport: str = "grpc"):
@@ -2655,7 +2882,7 @@ def test_get_notification_channel(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2714,9 +2941,10 @@ def test_get_notification_channel_non_empty_request_with_auto_populated_field():
         client.get_notification_channel(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == notification_service.GetNotificationChannelRequest(
+        request_msg = notification_service.GetNotificationChannelRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_notification_channel_use_cached_wrapped_rpc():
@@ -2802,9 +3030,15 @@ async def test_get_notification_channel_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        notification_service.GetNotificationChannelRequest(),
+        {},
+    ],
+)
 async def test_get_notification_channel_async(
-    transport: str = "grpc_asyncio",
-    request_type=notification_service.GetNotificationChannelRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NotificationChannelServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -2813,7 +3047,7 @@ async def test_get_notification_channel_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2847,11 +3081,6 @@ async def test_get_notification_channel_async(
         response.verification_status
         == notification.NotificationChannel.VerificationStatus.UNVERIFIED
     )
-
-
-@pytest.mark.asyncio
-async def test_get_notification_channel_async_from_dict():
-    await test_get_notification_channel_async(request_type=dict)
 
 
 def test_get_notification_channel_field_headers():
@@ -3008,8 +3237,8 @@ async def test_get_notification_channel_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        notification_service.CreateNotificationChannelRequest,
-        dict,
+        notification_service.CreateNotificationChannelRequest(),
+        {},
     ],
 )
 def test_create_notification_channel(request_type, transport: str = "grpc"):
@@ -3020,7 +3249,7 @@ def test_create_notification_channel(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3079,9 +3308,10 @@ def test_create_notification_channel_non_empty_request_with_auto_populated_field
         client.create_notification_channel(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == notification_service.CreateNotificationChannelRequest(
+        request_msg = notification_service.CreateNotificationChannelRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_notification_channel_use_cached_wrapped_rpc():
@@ -3167,9 +3397,15 @@ async def test_create_notification_channel_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        notification_service.CreateNotificationChannelRequest(),
+        {},
+    ],
+)
 async def test_create_notification_channel_async(
-    transport: str = "grpc_asyncio",
-    request_type=notification_service.CreateNotificationChannelRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NotificationChannelServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -3178,7 +3414,7 @@ async def test_create_notification_channel_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3212,11 +3448,6 @@ async def test_create_notification_channel_async(
         response.verification_status
         == notification.NotificationChannel.VerificationStatus.UNVERIFIED
     )
-
-
-@pytest.mark.asyncio
-async def test_create_notification_channel_async_from_dict():
-    await test_create_notification_channel_async(request_type=dict)
 
 
 def test_create_notification_channel_field_headers():
@@ -3383,8 +3614,8 @@ async def test_create_notification_channel_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        notification_service.UpdateNotificationChannelRequest,
-        dict,
+        notification_service.UpdateNotificationChannelRequest(),
+        {},
     ],
 )
 def test_update_notification_channel(request_type, transport: str = "grpc"):
@@ -3395,7 +3626,7 @@ def test_update_notification_channel(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3452,7 +3683,8 @@ def test_update_notification_channel_non_empty_request_with_auto_populated_field
         client.update_notification_channel(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == notification_service.UpdateNotificationChannelRequest()
+        request_msg = notification_service.UpdateNotificationChannelRequest()
+        assert args[0] == request_msg
 
 
 def test_update_notification_channel_use_cached_wrapped_rpc():
@@ -3538,9 +3770,15 @@ async def test_update_notification_channel_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        notification_service.UpdateNotificationChannelRequest(),
+        {},
+    ],
+)
 async def test_update_notification_channel_async(
-    transport: str = "grpc_asyncio",
-    request_type=notification_service.UpdateNotificationChannelRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NotificationChannelServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -3549,7 +3787,7 @@ async def test_update_notification_channel_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3583,11 +3821,6 @@ async def test_update_notification_channel_async(
         response.verification_status
         == notification.NotificationChannel.VerificationStatus.UNVERIFIED
     )
-
-
-@pytest.mark.asyncio
-async def test_update_notification_channel_async_from_dict():
-    await test_update_notification_channel_async(request_type=dict)
 
 
 def test_update_notification_channel_field_headers():
@@ -3754,8 +3987,8 @@ async def test_update_notification_channel_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        notification_service.DeleteNotificationChannelRequest,
-        dict,
+        notification_service.DeleteNotificationChannelRequest(),
+        {},
     ],
 )
 def test_delete_notification_channel(request_type, transport: str = "grpc"):
@@ -3766,7 +3999,7 @@ def test_delete_notification_channel(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3811,9 +4044,10 @@ def test_delete_notification_channel_non_empty_request_with_auto_populated_field
         client.delete_notification_channel(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == notification_service.DeleteNotificationChannelRequest(
+        request_msg = notification_service.DeleteNotificationChannelRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_notification_channel_use_cached_wrapped_rpc():
@@ -3899,9 +4133,15 @@ async def test_delete_notification_channel_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        notification_service.DeleteNotificationChannelRequest(),
+        {},
+    ],
+)
 async def test_delete_notification_channel_async(
-    transport: str = "grpc_asyncio",
-    request_type=notification_service.DeleteNotificationChannelRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NotificationChannelServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -3910,7 +4150,7 @@ async def test_delete_notification_channel_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3928,11 +4168,6 @@ async def test_delete_notification_channel_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_notification_channel_async_from_dict():
-    await test_delete_notification_channel_async(request_type=dict)
 
 
 def test_delete_notification_channel_field_headers():
@@ -4095,8 +4330,8 @@ async def test_delete_notification_channel_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        notification_service.SendNotificationChannelVerificationCodeRequest,
-        dict,
+        notification_service.SendNotificationChannelVerificationCodeRequest(),
+        {},
     ],
 )
 def test_send_notification_channel_verification_code(
@@ -4109,7 +4344,7 @@ def test_send_notification_channel_verification_code(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4154,11 +4389,12 @@ def test_send_notification_channel_verification_code_non_empty_request_with_auto
         client.send_notification_channel_verification_code(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == notification_service.SendNotificationChannelVerificationCodeRequest(
-            name="name_value",
+        request_msg = (
+            notification_service.SendNotificationChannelVerificationCodeRequest(
+                name="name_value",
+            )
         )
+        assert args[0] == request_msg
 
 
 def test_send_notification_channel_verification_code_use_cached_wrapped_rpc():
@@ -4244,9 +4480,15 @@ async def test_send_notification_channel_verification_code_async_use_cached_wrap
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        notification_service.SendNotificationChannelVerificationCodeRequest(),
+        {},
+    ],
+)
 async def test_send_notification_channel_verification_code_async(
-    transport: str = "grpc_asyncio",
-    request_type=notification_service.SendNotificationChannelVerificationCodeRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NotificationChannelServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -4255,7 +4497,7 @@ async def test_send_notification_channel_verification_code_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4273,11 +4515,6 @@ async def test_send_notification_channel_verification_code_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_send_notification_channel_verification_code_async_from_dict():
-    await test_send_notification_channel_verification_code_async(request_type=dict)
 
 
 def test_send_notification_channel_verification_code_field_headers():
@@ -4430,8 +4667,8 @@ async def test_send_notification_channel_verification_code_flattened_error_async
 @pytest.mark.parametrize(
     "request_type",
     [
-        notification_service.GetNotificationChannelVerificationCodeRequest,
-        dict,
+        notification_service.GetNotificationChannelVerificationCodeRequest(),
+        {},
     ],
 )
 def test_get_notification_channel_verification_code(
@@ -4444,7 +4681,7 @@ def test_get_notification_channel_verification_code(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4496,11 +4733,12 @@ def test_get_notification_channel_verification_code_non_empty_request_with_auto_
         client.get_notification_channel_verification_code(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == notification_service.GetNotificationChannelVerificationCodeRequest(
-            name="name_value",
+        request_msg = (
+            notification_service.GetNotificationChannelVerificationCodeRequest(
+                name="name_value",
+            )
         )
+        assert args[0] == request_msg
 
 
 def test_get_notification_channel_verification_code_use_cached_wrapped_rpc():
@@ -4586,9 +4824,15 @@ async def test_get_notification_channel_verification_code_async_use_cached_wrapp
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        notification_service.GetNotificationChannelVerificationCodeRequest(),
+        {},
+    ],
+)
 async def test_get_notification_channel_verification_code_async(
-    transport: str = "grpc_asyncio",
-    request_type=notification_service.GetNotificationChannelVerificationCodeRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NotificationChannelServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -4597,7 +4841,7 @@ async def test_get_notification_channel_verification_code_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4622,11 +4866,6 @@ async def test_get_notification_channel_verification_code_async(
         response, notification_service.GetNotificationChannelVerificationCodeResponse
     )
     assert response.code == "code_value"
-
-
-@pytest.mark.asyncio
-async def test_get_notification_channel_verification_code_async_from_dict():
-    await test_get_notification_channel_verification_code_async(request_type=dict)
 
 
 def test_get_notification_channel_verification_code_field_headers():
@@ -4789,8 +5028,8 @@ async def test_get_notification_channel_verification_code_flattened_error_async(
 @pytest.mark.parametrize(
     "request_type",
     [
-        notification_service.VerifyNotificationChannelRequest,
-        dict,
+        notification_service.VerifyNotificationChannelRequest(),
+        {},
     ],
 )
 def test_verify_notification_channel(request_type, transport: str = "grpc"):
@@ -4801,7 +5040,7 @@ def test_verify_notification_channel(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4861,10 +5100,11 @@ def test_verify_notification_channel_non_empty_request_with_auto_populated_field
         client.verify_notification_channel(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == notification_service.VerifyNotificationChannelRequest(
+        request_msg = notification_service.VerifyNotificationChannelRequest(
             name="name_value",
             code="code_value",
         )
+        assert args[0] == request_msg
 
 
 def test_verify_notification_channel_use_cached_wrapped_rpc():
@@ -4950,9 +5190,15 @@ async def test_verify_notification_channel_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        notification_service.VerifyNotificationChannelRequest(),
+        {},
+    ],
+)
 async def test_verify_notification_channel_async(
-    transport: str = "grpc_asyncio",
-    request_type=notification_service.VerifyNotificationChannelRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = NotificationChannelServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -4961,7 +5207,7 @@ async def test_verify_notification_channel_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4995,11 +5241,6 @@ async def test_verify_notification_channel_async(
         response.verification_status
         == notification.NotificationChannel.VerificationStatus.UNVERIFIED
     )
-
-
-@pytest.mark.asyncio
-async def test_verify_notification_channel_async_from_dict():
-    await test_verify_notification_channel_async(request_type=dict)
 
 
 def test_verify_notification_channel_field_headers():
@@ -5289,7 +5530,6 @@ def test_list_notification_channel_descriptors_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.ListNotificationChannelDescriptorsRequest()
-
         assert args[0] == request_msg
 
 
@@ -5312,7 +5552,6 @@ def test_get_notification_channel_descriptor_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.GetNotificationChannelDescriptorRequest()
-
         assert args[0] == request_msg
 
 
@@ -5335,7 +5574,6 @@ def test_list_notification_channels_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.ListNotificationChannelsRequest()
-
         assert args[0] == request_msg
 
 
@@ -5358,7 +5596,6 @@ def test_get_notification_channel_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.GetNotificationChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -5381,7 +5618,6 @@ def test_create_notification_channel_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.CreateNotificationChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -5404,7 +5640,6 @@ def test_update_notification_channel_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.UpdateNotificationChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -5427,7 +5662,6 @@ def test_delete_notification_channel_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.DeleteNotificationChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -5452,7 +5686,6 @@ def test_send_notification_channel_verification_code_empty_call_grpc():
         request_msg = (
             notification_service.SendNotificationChannelVerificationCodeRequest()
         )
-
         assert args[0] == request_msg
 
 
@@ -5479,7 +5712,6 @@ def test_get_notification_channel_verification_code_empty_call_grpc():
         request_msg = (
             notification_service.GetNotificationChannelVerificationCodeRequest()
         )
-
         assert args[0] == request_msg
 
 
@@ -5502,7 +5734,6 @@ def test_verify_notification_channel_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.VerifyNotificationChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -5545,7 +5776,6 @@ async def test_list_notification_channel_descriptors_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.ListNotificationChannelDescriptorsRequest()
-
         assert args[0] == request_msg
 
 
@@ -5579,7 +5809,6 @@ async def test_get_notification_channel_descriptor_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.GetNotificationChannelDescriptorRequest()
-
         assert args[0] == request_msg
 
 
@@ -5609,7 +5838,6 @@ async def test_list_notification_channels_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.ListNotificationChannelsRequest()
-
         assert args[0] == request_msg
 
 
@@ -5642,7 +5870,6 @@ async def test_get_notification_channel_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.GetNotificationChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -5675,7 +5902,6 @@ async def test_create_notification_channel_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.CreateNotificationChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -5708,7 +5934,6 @@ async def test_update_notification_channel_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.UpdateNotificationChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -5733,7 +5958,6 @@ async def test_delete_notification_channel_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.DeleteNotificationChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -5760,7 +5984,6 @@ async def test_send_notification_channel_verification_code_empty_call_grpc_async
         request_msg = (
             notification_service.SendNotificationChannelVerificationCodeRequest()
         )
-
         assert args[0] == request_msg
 
 
@@ -5791,7 +6014,6 @@ async def test_get_notification_channel_verification_code_empty_call_grpc_asynci
         request_msg = (
             notification_service.GetNotificationChannelVerificationCodeRequest()
         )
-
         assert args[0] == request_msg
 
 
@@ -5824,7 +6046,6 @@ async def test_verify_notification_channel_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = notification_service.VerifyNotificationChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -5890,11 +6111,14 @@ def test_notification_channel_service_base_transport():
 
 def test_notification_channel_service_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.monitoring_v3.services.notification_channel_service.transports.NotificationChannelServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.monitoring_v3.services.notification_channel_service.transports.NotificationChannelServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.NotificationChannelServiceTransport(
@@ -5915,9 +6139,12 @@ def test_notification_channel_service_base_transport_with_credentials_file():
 
 def test_notification_channel_service_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.monitoring_v3.services.notification_channel_service.transports.NotificationChannelServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.monitoring_v3.services.notification_channel_service.transports.NotificationChannelServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.NotificationChannelServiceTransport()
@@ -5998,11 +6225,12 @@ def test_notification_channel_service_transport_create_channel(
 ):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -6138,6 +6366,7 @@ def test_notification_channel_service_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [

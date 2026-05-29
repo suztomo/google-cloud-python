@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,15 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import empty_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 import proto  # type: ignore
 
+from google.cloud.monitoring_dashboard_v1.types import (
+    alertchart,
+    piechart,
+    table,
+    xychart,
+)
 from google.cloud.monitoring_dashboard_v1.types import (
     collapsible_group as gmd_collapsible_group,
 )
@@ -37,11 +43,7 @@ from google.cloud.monitoring_dashboard_v1.types import (
 from google.cloud.monitoring_dashboard_v1.types import (
     single_view_group as gmd_single_view_group,
 )
-from google.cloud.monitoring_dashboard_v1.types import alertchart
-from google.cloud.monitoring_dashboard_v1.types import piechart
-from google.cloud.monitoring_dashboard_v1.types import table
 from google.cloud.monitoring_dashboard_v1.types import text as gmd_text
-from google.cloud.monitoring_dashboard_v1.types import xychart
 
 __protobuf__ = proto.module(
     package="google.monitoring.dashboard.v1",

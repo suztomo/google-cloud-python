@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +38,14 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,23 +54,18 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import options_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    options_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.dataplex_v1.services.dataplex_service import (
     DataplexServiceAsyncClient,
@@ -76,7 +73,7 @@ from google.cloud.dataplex_v1.services.dataplex_service import (
     pagers,
     transports,
 )
-from google.cloud.dataplex_v1.types import analyze, resources, service, tasks
+from google.cloud.dataplex_v1.types import resources, service, tasks
 
 CRED_INFO_JSON = {
     "credential_source": "/path/to/file",
@@ -126,12 +123,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert DataplexServiceClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -152,6 +165,10 @@ def test__get_default_mtls_endpoint():
     )
     assert (
         DataplexServiceClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    )
+    assert (
+        DataplexServiceClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -175,12 +192,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            DataplexServiceClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                DataplexServiceClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert DataplexServiceClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert DataplexServiceClient._read_environment_variables() == (
@@ -217,6 +241,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert DataplexServiceClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert DataplexServiceClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert DataplexServiceClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert DataplexServiceClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert DataplexServiceClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert DataplexServiceClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert DataplexServiceClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert DataplexServiceClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert DataplexServiceClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                DataplexServiceClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert DataplexServiceClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert DataplexServiceClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -588,17 +711,6 @@ def test_dataplex_service_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -834,6 +946,117 @@ def test_dataplex_service_client_get_mtls_endpoint_and_cert_source(client_class)
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -866,10 +1089,9 @@ def test_dataplex_service_client_get_mtls_endpoint_and_cert_source(client_class)
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -882,18 +1104,6 @@ def test_dataplex_service_client_get_mtls_endpoint_and_cert_source(client_class)
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1124,13 +1334,13 @@ def test_dataplex_service_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1155,8 +1365,8 @@ def test_dataplex_service_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.CreateLakeRequest,
-        dict,
+        service.CreateLakeRequest(),
+        {},
     ],
 )
 def test_create_lake(request_type, transport: str = "grpc"):
@@ -1167,7 +1377,7 @@ def test_create_lake(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_lake), "__call__") as call:
@@ -1209,10 +1419,11 @@ def test_create_lake_non_empty_request_with_auto_populated_field():
         client.create_lake(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.CreateLakeRequest(
+        request_msg = service.CreateLakeRequest(
             parent="parent_value",
             lake_id="lake_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_lake_use_cached_wrapped_rpc():
@@ -1303,9 +1514,14 @@ async def test_create_lake_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_lake_async(
-    transport: str = "grpc_asyncio", request_type=service.CreateLakeRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.CreateLakeRequest(),
+        {},
+    ],
+)
+async def test_create_lake_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1313,7 +1529,7 @@ async def test_create_lake_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_lake), "__call__") as call:
@@ -1331,11 +1547,6 @@ async def test_create_lake_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_lake_async_from_dict():
-    await test_create_lake_async(request_type=dict)
 
 
 def test_create_lake_field_headers():
@@ -1504,8 +1715,8 @@ async def test_create_lake_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.UpdateLakeRequest,
-        dict,
+        service.UpdateLakeRequest(),
+        {},
     ],
 )
 def test_update_lake(request_type, transport: str = "grpc"):
@@ -1516,7 +1727,7 @@ def test_update_lake(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_lake), "__call__") as call:
@@ -1555,7 +1766,8 @@ def test_update_lake_non_empty_request_with_auto_populated_field():
         client.update_lake(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.UpdateLakeRequest()
+        request_msg = service.UpdateLakeRequest()
+        assert args[0] == request_msg
 
 
 def test_update_lake_use_cached_wrapped_rpc():
@@ -1646,9 +1858,14 @@ async def test_update_lake_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_lake_async(
-    transport: str = "grpc_asyncio", request_type=service.UpdateLakeRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.UpdateLakeRequest(),
+        {},
+    ],
+)
+async def test_update_lake_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1656,7 +1873,7 @@ async def test_update_lake_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_lake), "__call__") as call:
@@ -1674,11 +1891,6 @@ async def test_update_lake_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_lake_async_from_dict():
-    await test_update_lake_async(request_type=dict)
 
 
 def test_update_lake_field_headers():
@@ -1837,8 +2049,8 @@ async def test_update_lake_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.DeleteLakeRequest,
-        dict,
+        service.DeleteLakeRequest(),
+        {},
     ],
 )
 def test_delete_lake(request_type, transport: str = "grpc"):
@@ -1849,7 +2061,7 @@ def test_delete_lake(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_lake), "__call__") as call:
@@ -1890,9 +2102,10 @@ def test_delete_lake_non_empty_request_with_auto_populated_field():
         client.delete_lake(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.DeleteLakeRequest(
+        request_msg = service.DeleteLakeRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_lake_use_cached_wrapped_rpc():
@@ -1983,9 +2196,14 @@ async def test_delete_lake_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_lake_async(
-    transport: str = "grpc_asyncio", request_type=service.DeleteLakeRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.DeleteLakeRequest(),
+        {},
+    ],
+)
+async def test_delete_lake_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1993,7 +2211,7 @@ async def test_delete_lake_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_lake), "__call__") as call:
@@ -2011,11 +2229,6 @@ async def test_delete_lake_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_lake_async_from_dict():
-    await test_delete_lake_async(request_type=dict)
 
 
 def test_delete_lake_field_headers():
@@ -2164,8 +2377,8 @@ async def test_delete_lake_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.ListLakesRequest,
-        dict,
+        service.ListLakesRequest(),
+        {},
     ],
 )
 def test_list_lakes(request_type, transport: str = "grpc"):
@@ -2176,7 +2389,7 @@ def test_list_lakes(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_lakes), "__call__") as call:
@@ -2225,12 +2438,13 @@ def test_list_lakes_non_empty_request_with_auto_populated_field():
         client.list_lakes(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.ListLakesRequest(
+        request_msg = service.ListLakesRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_lakes_use_cached_wrapped_rpc():
@@ -2309,9 +2523,14 @@ async def test_list_lakes_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_list_lakes_async(
-    transport: str = "grpc_asyncio", request_type=service.ListLakesRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.ListLakesRequest(),
+        {},
+    ],
+)
+async def test_list_lakes_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2319,7 +2538,7 @@ async def test_list_lakes_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_lakes), "__call__") as call:
@@ -2342,11 +2561,6 @@ async def test_list_lakes_async(
     assert isinstance(response, pagers.ListLakesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable_locations == ["unreachable_locations_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_lakes_async_from_dict():
-    await test_list_lakes_async(request_type=dict)
 
 
 def test_list_lakes_field_headers():
@@ -2676,11 +2890,7 @@ async def test_list_lakes_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_lakes(request={})
-        ).pages:
+        async for page_ in (await client.list_lakes(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -2689,8 +2899,8 @@ async def test_list_lakes_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.GetLakeRequest,
-        dict,
+        service.GetLakeRequest(),
+        {},
     ],
 )
 def test_get_lake(request_type, transport: str = "grpc"):
@@ -2701,7 +2911,7 @@ def test_get_lake(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_lake), "__call__") as call:
@@ -2755,9 +2965,10 @@ def test_get_lake_non_empty_request_with_auto_populated_field():
         client.get_lake(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.GetLakeRequest(
+        request_msg = service.GetLakeRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_lake_use_cached_wrapped_rpc():
@@ -2836,9 +3047,14 @@ async def test_get_lake_async_use_cached_wrapped_rpc(transport: str = "grpc_asyn
 
 
 @pytest.mark.asyncio
-async def test_get_lake_async(
-    transport: str = "grpc_asyncio", request_type=service.GetLakeRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.GetLakeRequest(),
+        {},
+    ],
+)
+async def test_get_lake_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2846,7 +3062,7 @@ async def test_get_lake_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_lake), "__call__") as call:
@@ -2877,11 +3093,6 @@ async def test_get_lake_async(
     assert response.description == "description_value"
     assert response.state == resources.State.ACTIVE
     assert response.service_account == "service_account_value"
-
-
-@pytest.mark.asyncio
-async def test_get_lake_async_from_dict():
-    await test_get_lake_async(request_type=dict)
 
 
 def test_get_lake_field_headers():
@@ -3026,8 +3237,8 @@ async def test_get_lake_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.ListLakeActionsRequest,
-        dict,
+        service.ListLakeActionsRequest(),
+        {},
     ],
 )
 def test_list_lake_actions(request_type, transport: str = "grpc"):
@@ -3038,7 +3249,7 @@ def test_list_lake_actions(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3087,10 +3298,11 @@ def test_list_lake_actions_non_empty_request_with_auto_populated_field():
         client.list_lake_actions(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.ListLakeActionsRequest(
+        request_msg = service.ListLakeActionsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_lake_actions_use_cached_wrapped_rpc():
@@ -3114,9 +3326,9 @@ def test_list_lake_actions_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_lake_actions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_lake_actions] = (
+            mock_rpc
+        )
         request = {}
         client.list_lake_actions(request)
 
@@ -3173,9 +3385,14 @@ async def test_list_lake_actions_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_lake_actions_async(
-    transport: str = "grpc_asyncio", request_type=service.ListLakeActionsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.ListLakeActionsRequest(),
+        {},
+    ],
+)
+async def test_list_lake_actions_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3183,7 +3400,7 @@ async def test_list_lake_actions_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3206,11 +3423,6 @@ async def test_list_lake_actions_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListLakeActionsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_lake_actions_async_from_dict():
-    await test_list_lake_actions_async(request_type=dict)
 
 
 def test_list_lake_actions_field_headers():
@@ -3556,11 +3768,7 @@ async def test_list_lake_actions_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_lake_actions(request={})
-        ).pages:
+        async for page_ in (await client.list_lake_actions(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -3569,8 +3777,8 @@ async def test_list_lake_actions_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.CreateZoneRequest,
-        dict,
+        service.CreateZoneRequest(),
+        {},
     ],
 )
 def test_create_zone(request_type, transport: str = "grpc"):
@@ -3581,7 +3789,7 @@ def test_create_zone(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_zone), "__call__") as call:
@@ -3623,10 +3831,11 @@ def test_create_zone_non_empty_request_with_auto_populated_field():
         client.create_zone(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.CreateZoneRequest(
+        request_msg = service.CreateZoneRequest(
             parent="parent_value",
             zone_id="zone_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_zone_use_cached_wrapped_rpc():
@@ -3717,9 +3926,14 @@ async def test_create_zone_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_zone_async(
-    transport: str = "grpc_asyncio", request_type=service.CreateZoneRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.CreateZoneRequest(),
+        {},
+    ],
+)
+async def test_create_zone_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3727,7 +3941,7 @@ async def test_create_zone_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_zone), "__call__") as call:
@@ -3745,11 +3959,6 @@ async def test_create_zone_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_zone_async_from_dict():
-    await test_create_zone_async(request_type=dict)
 
 
 def test_create_zone_field_headers():
@@ -3918,8 +4127,8 @@ async def test_create_zone_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.UpdateZoneRequest,
-        dict,
+        service.UpdateZoneRequest(),
+        {},
     ],
 )
 def test_update_zone(request_type, transport: str = "grpc"):
@@ -3930,7 +4139,7 @@ def test_update_zone(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_zone), "__call__") as call:
@@ -3969,7 +4178,8 @@ def test_update_zone_non_empty_request_with_auto_populated_field():
         client.update_zone(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.UpdateZoneRequest()
+        request_msg = service.UpdateZoneRequest()
+        assert args[0] == request_msg
 
 
 def test_update_zone_use_cached_wrapped_rpc():
@@ -4060,9 +4270,14 @@ async def test_update_zone_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_zone_async(
-    transport: str = "grpc_asyncio", request_type=service.UpdateZoneRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.UpdateZoneRequest(),
+        {},
+    ],
+)
+async def test_update_zone_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4070,7 +4285,7 @@ async def test_update_zone_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_zone), "__call__") as call:
@@ -4088,11 +4303,6 @@ async def test_update_zone_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_zone_async_from_dict():
-    await test_update_zone_async(request_type=dict)
 
 
 def test_update_zone_field_headers():
@@ -4251,8 +4461,8 @@ async def test_update_zone_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.DeleteZoneRequest,
-        dict,
+        service.DeleteZoneRequest(),
+        {},
     ],
 )
 def test_delete_zone(request_type, transport: str = "grpc"):
@@ -4263,7 +4473,7 @@ def test_delete_zone(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_zone), "__call__") as call:
@@ -4304,9 +4514,10 @@ def test_delete_zone_non_empty_request_with_auto_populated_field():
         client.delete_zone(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.DeleteZoneRequest(
+        request_msg = service.DeleteZoneRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_zone_use_cached_wrapped_rpc():
@@ -4397,9 +4608,14 @@ async def test_delete_zone_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_zone_async(
-    transport: str = "grpc_asyncio", request_type=service.DeleteZoneRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.DeleteZoneRequest(),
+        {},
+    ],
+)
+async def test_delete_zone_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4407,7 +4623,7 @@ async def test_delete_zone_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_zone), "__call__") as call:
@@ -4425,11 +4641,6 @@ async def test_delete_zone_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_zone_async_from_dict():
-    await test_delete_zone_async(request_type=dict)
 
 
 def test_delete_zone_field_headers():
@@ -4578,8 +4789,8 @@ async def test_delete_zone_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.ListZonesRequest,
-        dict,
+        service.ListZonesRequest(),
+        {},
     ],
 )
 def test_list_zones(request_type, transport: str = "grpc"):
@@ -4590,7 +4801,7 @@ def test_list_zones(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_zones), "__call__") as call:
@@ -4637,12 +4848,13 @@ def test_list_zones_non_empty_request_with_auto_populated_field():
         client.list_zones(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.ListZonesRequest(
+        request_msg = service.ListZonesRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_zones_use_cached_wrapped_rpc():
@@ -4721,9 +4933,14 @@ async def test_list_zones_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_list_zones_async(
-    transport: str = "grpc_asyncio", request_type=service.ListZonesRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.ListZonesRequest(),
+        {},
+    ],
+)
+async def test_list_zones_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4731,7 +4948,7 @@ async def test_list_zones_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_zones), "__call__") as call:
@@ -4752,11 +4969,6 @@ async def test_list_zones_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListZonesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_zones_async_from_dict():
-    await test_list_zones_async(request_type=dict)
 
 
 def test_list_zones_field_headers():
@@ -5086,11 +5298,7 @@ async def test_list_zones_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_zones(request={})
-        ).pages:
+        async for page_ in (await client.list_zones(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -5099,8 +5307,8 @@ async def test_list_zones_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.GetZoneRequest,
-        dict,
+        service.GetZoneRequest(),
+        {},
     ],
 )
 def test_get_zone(request_type, transport: str = "grpc"):
@@ -5111,7 +5319,7 @@ def test_get_zone(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_zone), "__call__") as call:
@@ -5165,9 +5373,10 @@ def test_get_zone_non_empty_request_with_auto_populated_field():
         client.get_zone(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.GetZoneRequest(
+        request_msg = service.GetZoneRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_zone_use_cached_wrapped_rpc():
@@ -5246,9 +5455,14 @@ async def test_get_zone_async_use_cached_wrapped_rpc(transport: str = "grpc_asyn
 
 
 @pytest.mark.asyncio
-async def test_get_zone_async(
-    transport: str = "grpc_asyncio", request_type=service.GetZoneRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.GetZoneRequest(),
+        {},
+    ],
+)
+async def test_get_zone_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -5256,7 +5470,7 @@ async def test_get_zone_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_zone), "__call__") as call:
@@ -5287,11 +5501,6 @@ async def test_get_zone_async(
     assert response.description == "description_value"
     assert response.state == resources.State.ACTIVE
     assert response.type_ == resources.Zone.Type.RAW
-
-
-@pytest.mark.asyncio
-async def test_get_zone_async_from_dict():
-    await test_get_zone_async(request_type=dict)
 
 
 def test_get_zone_field_headers():
@@ -5436,8 +5645,8 @@ async def test_get_zone_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.ListZoneActionsRequest,
-        dict,
+        service.ListZoneActionsRequest(),
+        {},
     ],
 )
 def test_list_zone_actions(request_type, transport: str = "grpc"):
@@ -5448,7 +5657,7 @@ def test_list_zone_actions(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5497,10 +5706,11 @@ def test_list_zone_actions_non_empty_request_with_auto_populated_field():
         client.list_zone_actions(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.ListZoneActionsRequest(
+        request_msg = service.ListZoneActionsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_zone_actions_use_cached_wrapped_rpc():
@@ -5524,9 +5734,9 @@ def test_list_zone_actions_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_zone_actions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_zone_actions] = (
+            mock_rpc
+        )
         request = {}
         client.list_zone_actions(request)
 
@@ -5583,9 +5793,14 @@ async def test_list_zone_actions_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_zone_actions_async(
-    transport: str = "grpc_asyncio", request_type=service.ListZoneActionsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.ListZoneActionsRequest(),
+        {},
+    ],
+)
+async def test_list_zone_actions_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -5593,7 +5808,7 @@ async def test_list_zone_actions_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5616,11 +5831,6 @@ async def test_list_zone_actions_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListZoneActionsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_zone_actions_async_from_dict():
-    await test_list_zone_actions_async(request_type=dict)
 
 
 def test_list_zone_actions_field_headers():
@@ -5966,11 +6176,7 @@ async def test_list_zone_actions_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_zone_actions(request={})
-        ).pages:
+        async for page_ in (await client.list_zone_actions(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -5979,8 +6185,8 @@ async def test_list_zone_actions_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.CreateAssetRequest,
-        dict,
+        service.CreateAssetRequest(),
+        {},
     ],
 )
 def test_create_asset(request_type, transport: str = "grpc"):
@@ -5991,7 +6197,7 @@ def test_create_asset(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_asset), "__call__") as call:
@@ -6033,10 +6239,11 @@ def test_create_asset_non_empty_request_with_auto_populated_field():
         client.create_asset(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.CreateAssetRequest(
+        request_msg = service.CreateAssetRequest(
             parent="parent_value",
             asset_id="asset_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_asset_use_cached_wrapped_rpc():
@@ -6127,9 +6334,14 @@ async def test_create_asset_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_asset_async(
-    transport: str = "grpc_asyncio", request_type=service.CreateAssetRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.CreateAssetRequest(),
+        {},
+    ],
+)
+async def test_create_asset_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -6137,7 +6349,7 @@ async def test_create_asset_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_asset), "__call__") as call:
@@ -6155,11 +6367,6 @@ async def test_create_asset_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_asset_async_from_dict():
-    await test_create_asset_async(request_type=dict)
 
 
 def test_create_asset_field_headers():
@@ -6328,8 +6535,8 @@ async def test_create_asset_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.UpdateAssetRequest,
-        dict,
+        service.UpdateAssetRequest(),
+        {},
     ],
 )
 def test_update_asset(request_type, transport: str = "grpc"):
@@ -6340,7 +6547,7 @@ def test_update_asset(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_asset), "__call__") as call:
@@ -6379,7 +6586,8 @@ def test_update_asset_non_empty_request_with_auto_populated_field():
         client.update_asset(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.UpdateAssetRequest()
+        request_msg = service.UpdateAssetRequest()
+        assert args[0] == request_msg
 
 
 def test_update_asset_use_cached_wrapped_rpc():
@@ -6470,9 +6678,14 @@ async def test_update_asset_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_asset_async(
-    transport: str = "grpc_asyncio", request_type=service.UpdateAssetRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.UpdateAssetRequest(),
+        {},
+    ],
+)
+async def test_update_asset_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -6480,7 +6693,7 @@ async def test_update_asset_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_asset), "__call__") as call:
@@ -6498,11 +6711,6 @@ async def test_update_asset_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_asset_async_from_dict():
-    await test_update_asset_async(request_type=dict)
 
 
 def test_update_asset_field_headers():
@@ -6661,8 +6869,8 @@ async def test_update_asset_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.DeleteAssetRequest,
-        dict,
+        service.DeleteAssetRequest(),
+        {},
     ],
 )
 def test_delete_asset(request_type, transport: str = "grpc"):
@@ -6673,7 +6881,7 @@ def test_delete_asset(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_asset), "__call__") as call:
@@ -6714,9 +6922,10 @@ def test_delete_asset_non_empty_request_with_auto_populated_field():
         client.delete_asset(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.DeleteAssetRequest(
+        request_msg = service.DeleteAssetRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_asset_use_cached_wrapped_rpc():
@@ -6807,9 +7016,14 @@ async def test_delete_asset_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_asset_async(
-    transport: str = "grpc_asyncio", request_type=service.DeleteAssetRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.DeleteAssetRequest(),
+        {},
+    ],
+)
+async def test_delete_asset_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -6817,7 +7031,7 @@ async def test_delete_asset_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_asset), "__call__") as call:
@@ -6835,11 +7049,6 @@ async def test_delete_asset_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_asset_async_from_dict():
-    await test_delete_asset_async(request_type=dict)
 
 
 def test_delete_asset_field_headers():
@@ -6988,8 +7197,8 @@ async def test_delete_asset_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.ListAssetsRequest,
-        dict,
+        service.ListAssetsRequest(),
+        {},
     ],
 )
 def test_list_assets(request_type, transport: str = "grpc"):
@@ -7000,7 +7209,7 @@ def test_list_assets(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_assets), "__call__") as call:
@@ -7047,12 +7256,13 @@ def test_list_assets_non_empty_request_with_auto_populated_field():
         client.list_assets(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.ListAssetsRequest(
+        request_msg = service.ListAssetsRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_assets_use_cached_wrapped_rpc():
@@ -7133,9 +7343,14 @@ async def test_list_assets_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_assets_async(
-    transport: str = "grpc_asyncio", request_type=service.ListAssetsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.ListAssetsRequest(),
+        {},
+    ],
+)
+async def test_list_assets_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -7143,7 +7358,7 @@ async def test_list_assets_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_assets), "__call__") as call:
@@ -7164,11 +7379,6 @@ async def test_list_assets_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListAssetsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_assets_async_from_dict():
-    await test_list_assets_async(request_type=dict)
 
 
 def test_list_assets_field_headers():
@@ -7498,11 +7708,7 @@ async def test_list_assets_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_assets(request={})
-        ).pages:
+        async for page_ in (await client.list_assets(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -7511,8 +7717,8 @@ async def test_list_assets_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.GetAssetRequest,
-        dict,
+        service.GetAssetRequest(),
+        {},
     ],
 )
 def test_get_asset(request_type, transport: str = "grpc"):
@@ -7523,7 +7729,7 @@ def test_get_asset(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_asset), "__call__") as call:
@@ -7575,9 +7781,10 @@ def test_get_asset_non_empty_request_with_auto_populated_field():
         client.get_asset(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.GetAssetRequest(
+        request_msg = service.GetAssetRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_asset_use_cached_wrapped_rpc():
@@ -7656,9 +7863,14 @@ async def test_get_asset_async_use_cached_wrapped_rpc(transport: str = "grpc_asy
 
 
 @pytest.mark.asyncio
-async def test_get_asset_async(
-    transport: str = "grpc_asyncio", request_type=service.GetAssetRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.GetAssetRequest(),
+        {},
+    ],
+)
+async def test_get_asset_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -7666,7 +7878,7 @@ async def test_get_asset_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_asset), "__call__") as call:
@@ -7695,11 +7907,6 @@ async def test_get_asset_async(
     assert response.uid == "uid_value"
     assert response.description == "description_value"
     assert response.state == resources.State.ACTIVE
-
-
-@pytest.mark.asyncio
-async def test_get_asset_async_from_dict():
-    await test_get_asset_async(request_type=dict)
 
 
 def test_get_asset_field_headers():
@@ -7844,8 +8051,8 @@ async def test_get_asset_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.ListAssetActionsRequest,
-        dict,
+        service.ListAssetActionsRequest(),
+        {},
     ],
 )
 def test_list_asset_actions(request_type, transport: str = "grpc"):
@@ -7856,7 +8063,7 @@ def test_list_asset_actions(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -7905,10 +8112,11 @@ def test_list_asset_actions_non_empty_request_with_auto_populated_field():
         client.list_asset_actions(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.ListAssetActionsRequest(
+        request_msg = service.ListAssetActionsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_asset_actions_use_cached_wrapped_rpc():
@@ -7934,9 +8142,9 @@ def test_list_asset_actions_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_asset_actions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_asset_actions] = (
+            mock_rpc
+        )
         request = {}
         client.list_asset_actions(request)
 
@@ -7993,9 +8201,14 @@ async def test_list_asset_actions_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_asset_actions_async(
-    transport: str = "grpc_asyncio", request_type=service.ListAssetActionsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.ListAssetActionsRequest(),
+        {},
+    ],
+)
+async def test_list_asset_actions_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -8003,7 +8216,7 @@ async def test_list_asset_actions_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -8026,11 +8239,6 @@ async def test_list_asset_actions_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListAssetActionsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_asset_actions_async_from_dict():
-    await test_list_asset_actions_async(request_type=dict)
 
 
 def test_list_asset_actions_field_headers():
@@ -8376,11 +8584,7 @@ async def test_list_asset_actions_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_asset_actions(request={})
-        ).pages:
+        async for page_ in (await client.list_asset_actions(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -8389,8 +8593,8 @@ async def test_list_asset_actions_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.CreateTaskRequest,
-        dict,
+        service.CreateTaskRequest(),
+        {},
     ],
 )
 def test_create_task(request_type, transport: str = "grpc"):
@@ -8401,7 +8605,7 @@ def test_create_task(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_task), "__call__") as call:
@@ -8443,10 +8647,11 @@ def test_create_task_non_empty_request_with_auto_populated_field():
         client.create_task(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.CreateTaskRequest(
+        request_msg = service.CreateTaskRequest(
             parent="parent_value",
             task_id="task_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_task_use_cached_wrapped_rpc():
@@ -8537,9 +8742,14 @@ async def test_create_task_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_task_async(
-    transport: str = "grpc_asyncio", request_type=service.CreateTaskRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.CreateTaskRequest(),
+        {},
+    ],
+)
+async def test_create_task_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -8547,7 +8757,7 @@ async def test_create_task_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_task), "__call__") as call:
@@ -8565,11 +8775,6 @@ async def test_create_task_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_task_async_from_dict():
-    await test_create_task_async(request_type=dict)
 
 
 def test_create_task_field_headers():
@@ -8738,8 +8943,8 @@ async def test_create_task_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.UpdateTaskRequest,
-        dict,
+        service.UpdateTaskRequest(),
+        {},
     ],
 )
 def test_update_task(request_type, transport: str = "grpc"):
@@ -8750,7 +8955,7 @@ def test_update_task(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_task), "__call__") as call:
@@ -8789,7 +8994,8 @@ def test_update_task_non_empty_request_with_auto_populated_field():
         client.update_task(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.UpdateTaskRequest()
+        request_msg = service.UpdateTaskRequest()
+        assert args[0] == request_msg
 
 
 def test_update_task_use_cached_wrapped_rpc():
@@ -8880,9 +9086,14 @@ async def test_update_task_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_task_async(
-    transport: str = "grpc_asyncio", request_type=service.UpdateTaskRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.UpdateTaskRequest(),
+        {},
+    ],
+)
+async def test_update_task_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -8890,7 +9101,7 @@ async def test_update_task_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_task), "__call__") as call:
@@ -8908,11 +9119,6 @@ async def test_update_task_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_task_async_from_dict():
-    await test_update_task_async(request_type=dict)
 
 
 def test_update_task_field_headers():
@@ -9071,8 +9277,8 @@ async def test_update_task_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.DeleteTaskRequest,
-        dict,
+        service.DeleteTaskRequest(),
+        {},
     ],
 )
 def test_delete_task(request_type, transport: str = "grpc"):
@@ -9083,7 +9289,7 @@ def test_delete_task(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_task), "__call__") as call:
@@ -9124,9 +9330,10 @@ def test_delete_task_non_empty_request_with_auto_populated_field():
         client.delete_task(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.DeleteTaskRequest(
+        request_msg = service.DeleteTaskRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_task_use_cached_wrapped_rpc():
@@ -9217,9 +9424,14 @@ async def test_delete_task_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_task_async(
-    transport: str = "grpc_asyncio", request_type=service.DeleteTaskRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.DeleteTaskRequest(),
+        {},
+    ],
+)
+async def test_delete_task_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -9227,7 +9439,7 @@ async def test_delete_task_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_task), "__call__") as call:
@@ -9245,11 +9457,6 @@ async def test_delete_task_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_task_async_from_dict():
-    await test_delete_task_async(request_type=dict)
 
 
 def test_delete_task_field_headers():
@@ -9398,8 +9605,8 @@ async def test_delete_task_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.ListTasksRequest,
-        dict,
+        service.ListTasksRequest(),
+        {},
     ],
 )
 def test_list_tasks(request_type, transport: str = "grpc"):
@@ -9410,7 +9617,7 @@ def test_list_tasks(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_tasks), "__call__") as call:
@@ -9459,12 +9666,13 @@ def test_list_tasks_non_empty_request_with_auto_populated_field():
         client.list_tasks(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.ListTasksRequest(
+        request_msg = service.ListTasksRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_tasks_use_cached_wrapped_rpc():
@@ -9543,9 +9751,14 @@ async def test_list_tasks_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_list_tasks_async(
-    transport: str = "grpc_asyncio", request_type=service.ListTasksRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.ListTasksRequest(),
+        {},
+    ],
+)
+async def test_list_tasks_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -9553,7 +9766,7 @@ async def test_list_tasks_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_tasks), "__call__") as call:
@@ -9576,11 +9789,6 @@ async def test_list_tasks_async(
     assert isinstance(response, pagers.ListTasksAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable_locations == ["unreachable_locations_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_tasks_async_from_dict():
-    await test_list_tasks_async(request_type=dict)
 
 
 def test_list_tasks_field_headers():
@@ -9910,11 +10118,7 @@ async def test_list_tasks_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_tasks(request={})
-        ).pages:
+        async for page_ in (await client.list_tasks(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -9923,8 +10127,8 @@ async def test_list_tasks_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.GetTaskRequest,
-        dict,
+        service.GetTaskRequest(),
+        {},
     ],
 )
 def test_get_task(request_type, transport: str = "grpc"):
@@ -9935,7 +10139,7 @@ def test_get_task(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_task), "__call__") as call:
@@ -9987,9 +10191,10 @@ def test_get_task_non_empty_request_with_auto_populated_field():
         client.get_task(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.GetTaskRequest(
+        request_msg = service.GetTaskRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_task_use_cached_wrapped_rpc():
@@ -10068,9 +10273,14 @@ async def test_get_task_async_use_cached_wrapped_rpc(transport: str = "grpc_asyn
 
 
 @pytest.mark.asyncio
-async def test_get_task_async(
-    transport: str = "grpc_asyncio", request_type=service.GetTaskRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.GetTaskRequest(),
+        {},
+    ],
+)
+async def test_get_task_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10078,7 +10288,7 @@ async def test_get_task_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_task), "__call__") as call:
@@ -10107,11 +10317,6 @@ async def test_get_task_async(
     assert response.description == "description_value"
     assert response.display_name == "display_name_value"
     assert response.state == resources.State.ACTIVE
-
-
-@pytest.mark.asyncio
-async def test_get_task_async_from_dict():
-    await test_get_task_async(request_type=dict)
 
 
 def test_get_task_field_headers():
@@ -10256,8 +10461,8 @@ async def test_get_task_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.ListJobsRequest,
-        dict,
+        service.ListJobsRequest(),
+        {},
     ],
 )
 def test_list_jobs(request_type, transport: str = "grpc"):
@@ -10268,7 +10473,7 @@ def test_list_jobs(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_jobs), "__call__") as call:
@@ -10313,10 +10518,11 @@ def test_list_jobs_non_empty_request_with_auto_populated_field():
         client.list_jobs(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.ListJobsRequest(
+        request_msg = service.ListJobsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_jobs_use_cached_wrapped_rpc():
@@ -10395,9 +10601,14 @@ async def test_list_jobs_async_use_cached_wrapped_rpc(transport: str = "grpc_asy
 
 
 @pytest.mark.asyncio
-async def test_list_jobs_async(
-    transport: str = "grpc_asyncio", request_type=service.ListJobsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.ListJobsRequest(),
+        {},
+    ],
+)
+async def test_list_jobs_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10405,7 +10616,7 @@ async def test_list_jobs_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_jobs), "__call__") as call:
@@ -10426,11 +10637,6 @@ async def test_list_jobs_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListJobsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_jobs_async_from_dict():
-    await test_list_jobs_async(request_type=dict)
 
 
 def test_list_jobs_field_headers():
@@ -10760,11 +10966,7 @@ async def test_list_jobs_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_jobs(request={})
-        ).pages:
+        async for page_ in (await client.list_jobs(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -10773,8 +10975,8 @@ async def test_list_jobs_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.RunTaskRequest,
-        dict,
+        service.RunTaskRequest(),
+        {},
     ],
 )
 def test_run_task(request_type, transport: str = "grpc"):
@@ -10785,7 +10987,7 @@ def test_run_task(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.run_task), "__call__") as call:
@@ -10826,9 +11028,10 @@ def test_run_task_non_empty_request_with_auto_populated_field():
         client.run_task(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.RunTaskRequest(
+        request_msg = service.RunTaskRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_run_task_use_cached_wrapped_rpc():
@@ -10907,9 +11110,14 @@ async def test_run_task_async_use_cached_wrapped_rpc(transport: str = "grpc_asyn
 
 
 @pytest.mark.asyncio
-async def test_run_task_async(
-    transport: str = "grpc_asyncio", request_type=service.RunTaskRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.RunTaskRequest(),
+        {},
+    ],
+)
+async def test_run_task_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10917,7 +11125,7 @@ async def test_run_task_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.run_task), "__call__") as call:
@@ -10935,11 +11143,6 @@ async def test_run_task_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, service.RunTaskResponse)
-
-
-@pytest.mark.asyncio
-async def test_run_task_async_from_dict():
-    await test_run_task_async(request_type=dict)
 
 
 def test_run_task_field_headers():
@@ -11088,8 +11291,8 @@ async def test_run_task_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.GetJobRequest,
-        dict,
+        service.GetJobRequest(),
+        {},
     ],
 )
 def test_get_job(request_type, transport: str = "grpc"):
@@ -11100,7 +11303,7 @@ def test_get_job(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_job), "__call__") as call:
@@ -11158,9 +11361,10 @@ def test_get_job_non_empty_request_with_auto_populated_field():
         client.get_job(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.GetJobRequest(
+        request_msg = service.GetJobRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_job_use_cached_wrapped_rpc():
@@ -11239,9 +11443,14 @@ async def test_get_job_async_use_cached_wrapped_rpc(transport: str = "grpc_async
 
 
 @pytest.mark.asyncio
-async def test_get_job_async(
-    transport: str = "grpc_asyncio", request_type=service.GetJobRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.GetJobRequest(),
+        {},
+    ],
+)
+async def test_get_job_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -11249,7 +11458,7 @@ async def test_get_job_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_job), "__call__") as call:
@@ -11284,11 +11493,6 @@ async def test_get_job_async(
     assert response.service_job == "service_job_value"
     assert response.message == "message_value"
     assert response.trigger == tasks.Job.Trigger.TASK_CONFIG
-
-
-@pytest.mark.asyncio
-async def test_get_job_async_from_dict():
-    await test_get_job_async(request_type=dict)
 
 
 def test_get_job_field_headers():
@@ -11433,8 +11637,8 @@ async def test_get_job_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        service.CancelJobRequest,
-        dict,
+        service.CancelJobRequest(),
+        {},
     ],
 )
 def test_cancel_job(request_type, transport: str = "grpc"):
@@ -11445,7 +11649,7 @@ def test_cancel_job(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.cancel_job), "__call__") as call:
@@ -11486,9 +11690,10 @@ def test_cancel_job_non_empty_request_with_auto_populated_field():
         client.cancel_job(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == service.CancelJobRequest(
+        request_msg = service.CancelJobRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_cancel_job_use_cached_wrapped_rpc():
@@ -11567,9 +11772,14 @@ async def test_cancel_job_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_cancel_job_async(
-    transport: str = "grpc_asyncio", request_type=service.CancelJobRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service.CancelJobRequest(),
+        {},
+    ],
+)
+async def test_cancel_job_async(request_type, transport: str = "grpc_asyncio"):
     client = DataplexServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -11577,7 +11787,7 @@ async def test_cancel_job_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.cancel_job), "__call__") as call:
@@ -11593,11 +11803,6 @@ async def test_cancel_job_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_cancel_job_async_from_dict():
-    await test_cancel_job_async(request_type=dict)
 
 
 def test_cancel_job_field_headers():
@@ -11739,2472 +11944,6 @@ async def test_cancel_job_flattened_error_async():
         )
 
 
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        service.CreateEnvironmentRequest,
-        dict,
-    ],
-)
-def test_create_environment(request_type, transport: str = "grpc"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = operations_pb2.Operation(name="operations/spam")
-        response = client.create_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = service.CreateEnvironmentRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, future.Future)
-
-
-def test_create_environment_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = service.CreateEnvironmentRequest(
-        parent="parent_value",
-        environment_id="environment_id_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_environment), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.create_environment(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == service.CreateEnvironmentRequest(
-            parent="parent_value",
-            environment_id="environment_id_value",
-        )
-
-
-def test_create_environment_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = DataplexServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.create_environment in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.create_environment
-        ] = mock_rpc
-        request = {}
-        client.create_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        # Operation methods call wrapper_fn to build a cached
-        # client._transport.operations_client instance on first rpc call.
-        # Subsequent calls should use the cached wrapper
-        wrapper_fn.reset_mock()
-
-        client.create_environment(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_create_environment_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = DataplexServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.create_environment
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.create_environment
-        ] = mock_rpc
-
-        request = {}
-        await client.create_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        # Operation methods call wrapper_fn to build a cached
-        # client._transport.operations_client instance on first rpc call.
-        # Subsequent calls should use the cached wrapper
-        wrapper_fn.reset_mock()
-
-        await client.create_environment(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_create_environment_async(
-    transport: str = "grpc_asyncio", request_type=service.CreateEnvironmentRequest
-):
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            operations_pb2.Operation(name="operations/spam")
-        )
-        response = await client.create_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = service.CreateEnvironmentRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_environment_async_from_dict():
-    await test_create_environment_async(request_type=dict)
-
-
-def test_create_environment_field_headers():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Any value that is part of the HTTP/1.1 URI should be sent as
-    # a field header. Set these to a non-empty value.
-    request = service.CreateEnvironmentRequest()
-
-    request.parent = "parent_value"
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_environment), "__call__"
-    ) as call:
-        call.return_value = operations_pb2.Operation(name="operations/op")
-        client.create_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == request
-
-    # Establish that the field header was sent.
-    _, _, kw = call.mock_calls[0]
-    assert (
-        "x-goog-request-params",
-        "parent=parent_value",
-    ) in kw["metadata"]
-
-
-@pytest.mark.asyncio
-async def test_create_environment_field_headers_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Any value that is part of the HTTP/1.1 URI should be sent as
-    # a field header. Set these to a non-empty value.
-    request = service.CreateEnvironmentRequest()
-
-    request.parent = "parent_value"
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_environment), "__call__"
-    ) as call:
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            operations_pb2.Operation(name="operations/op")
-        )
-        await client.create_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == request
-
-    # Establish that the field header was sent.
-    _, _, kw = call.mock_calls[0]
-    assert (
-        "x-goog-request-params",
-        "parent=parent_value",
-    ) in kw["metadata"]
-
-
-def test_create_environment_flattened():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = operations_pb2.Operation(name="operations/op")
-        # Call the method with a truthy value for each flattened field,
-        # using the keyword arguments to the method.
-        client.create_environment(
-            parent="parent_value",
-            environment=analyze.Environment(name="name_value"),
-            environment_id="environment_id_value",
-        )
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        arg = args[0].parent
-        mock_val = "parent_value"
-        assert arg == mock_val
-        arg = args[0].environment
-        mock_val = analyze.Environment(name="name_value")
-        assert arg == mock_val
-        arg = args[0].environment_id
-        mock_val = "environment_id_value"
-        assert arg == mock_val
-
-
-def test_create_environment_flattened_error():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        client.create_environment(
-            service.CreateEnvironmentRequest(),
-            parent="parent_value",
-            environment=analyze.Environment(name="name_value"),
-            environment_id="environment_id_value",
-        )
-
-
-@pytest.mark.asyncio
-async def test_create_environment_flattened_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = operations_pb2.Operation(name="operations/op")
-
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            operations_pb2.Operation(name="operations/spam")
-        )
-        # Call the method with a truthy value for each flattened field,
-        # using the keyword arguments to the method.
-        response = await client.create_environment(
-            parent="parent_value",
-            environment=analyze.Environment(name="name_value"),
-            environment_id="environment_id_value",
-        )
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        arg = args[0].parent
-        mock_val = "parent_value"
-        assert arg == mock_val
-        arg = args[0].environment
-        mock_val = analyze.Environment(name="name_value")
-        assert arg == mock_val
-        arg = args[0].environment_id
-        mock_val = "environment_id_value"
-        assert arg == mock_val
-
-
-@pytest.mark.asyncio
-async def test_create_environment_flattened_error_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        await client.create_environment(
-            service.CreateEnvironmentRequest(),
-            parent="parent_value",
-            environment=analyze.Environment(name="name_value"),
-            environment_id="environment_id_value",
-        )
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        service.UpdateEnvironmentRequest,
-        dict,
-    ],
-)
-def test_update_environment(request_type, transport: str = "grpc"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.update_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = operations_pb2.Operation(name="operations/spam")
-        response = client.update_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = service.UpdateEnvironmentRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, future.Future)
-
-
-def test_update_environment_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = service.UpdateEnvironmentRequest()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.update_environment), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.update_environment(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == service.UpdateEnvironmentRequest()
-
-
-def test_update_environment_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = DataplexServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.update_environment in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.update_environment
-        ] = mock_rpc
-        request = {}
-        client.update_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        # Operation methods call wrapper_fn to build a cached
-        # client._transport.operations_client instance on first rpc call.
-        # Subsequent calls should use the cached wrapper
-        wrapper_fn.reset_mock()
-
-        client.update_environment(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_update_environment_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = DataplexServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.update_environment
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.update_environment
-        ] = mock_rpc
-
-        request = {}
-        await client.update_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        # Operation methods call wrapper_fn to build a cached
-        # client._transport.operations_client instance on first rpc call.
-        # Subsequent calls should use the cached wrapper
-        wrapper_fn.reset_mock()
-
-        await client.update_environment(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_update_environment_async(
-    transport: str = "grpc_asyncio", request_type=service.UpdateEnvironmentRequest
-):
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.update_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            operations_pb2.Operation(name="operations/spam")
-        )
-        response = await client.update_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = service.UpdateEnvironmentRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_environment_async_from_dict():
-    await test_update_environment_async(request_type=dict)
-
-
-def test_update_environment_field_headers():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Any value that is part of the HTTP/1.1 URI should be sent as
-    # a field header. Set these to a non-empty value.
-    request = service.UpdateEnvironmentRequest()
-
-    request.environment.name = "name_value"
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.update_environment), "__call__"
-    ) as call:
-        call.return_value = operations_pb2.Operation(name="operations/op")
-        client.update_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == request
-
-    # Establish that the field header was sent.
-    _, _, kw = call.mock_calls[0]
-    assert (
-        "x-goog-request-params",
-        "environment.name=name_value",
-    ) in kw["metadata"]
-
-
-@pytest.mark.asyncio
-async def test_update_environment_field_headers_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Any value that is part of the HTTP/1.1 URI should be sent as
-    # a field header. Set these to a non-empty value.
-    request = service.UpdateEnvironmentRequest()
-
-    request.environment.name = "name_value"
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.update_environment), "__call__"
-    ) as call:
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            operations_pb2.Operation(name="operations/op")
-        )
-        await client.update_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == request
-
-    # Establish that the field header was sent.
-    _, _, kw = call.mock_calls[0]
-    assert (
-        "x-goog-request-params",
-        "environment.name=name_value",
-    ) in kw["metadata"]
-
-
-def test_update_environment_flattened():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.update_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = operations_pb2.Operation(name="operations/op")
-        # Call the method with a truthy value for each flattened field,
-        # using the keyword arguments to the method.
-        client.update_environment(
-            environment=analyze.Environment(name="name_value"),
-            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
-        )
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        arg = args[0].environment
-        mock_val = analyze.Environment(name="name_value")
-        assert arg == mock_val
-        arg = args[0].update_mask
-        mock_val = field_mask_pb2.FieldMask(paths=["paths_value"])
-        assert arg == mock_val
-
-
-def test_update_environment_flattened_error():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        client.update_environment(
-            service.UpdateEnvironmentRequest(),
-            environment=analyze.Environment(name="name_value"),
-            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
-        )
-
-
-@pytest.mark.asyncio
-async def test_update_environment_flattened_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.update_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = operations_pb2.Operation(name="operations/op")
-
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            operations_pb2.Operation(name="operations/spam")
-        )
-        # Call the method with a truthy value for each flattened field,
-        # using the keyword arguments to the method.
-        response = await client.update_environment(
-            environment=analyze.Environment(name="name_value"),
-            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
-        )
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        arg = args[0].environment
-        mock_val = analyze.Environment(name="name_value")
-        assert arg == mock_val
-        arg = args[0].update_mask
-        mock_val = field_mask_pb2.FieldMask(paths=["paths_value"])
-        assert arg == mock_val
-
-
-@pytest.mark.asyncio
-async def test_update_environment_flattened_error_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        await client.update_environment(
-            service.UpdateEnvironmentRequest(),
-            environment=analyze.Environment(name="name_value"),
-            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
-        )
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        service.DeleteEnvironmentRequest,
-        dict,
-    ],
-)
-def test_delete_environment(request_type, transport: str = "grpc"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = operations_pb2.Operation(name="operations/spam")
-        response = client.delete_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = service.DeleteEnvironmentRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, future.Future)
-
-
-def test_delete_environment_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = service.DeleteEnvironmentRequest(
-        name="name_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_environment), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.delete_environment(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == service.DeleteEnvironmentRequest(
-            name="name_value",
-        )
-
-
-def test_delete_environment_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = DataplexServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.delete_environment in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.delete_environment
-        ] = mock_rpc
-        request = {}
-        client.delete_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        # Operation methods call wrapper_fn to build a cached
-        # client._transport.operations_client instance on first rpc call.
-        # Subsequent calls should use the cached wrapper
-        wrapper_fn.reset_mock()
-
-        client.delete_environment(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_delete_environment_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = DataplexServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.delete_environment
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.delete_environment
-        ] = mock_rpc
-
-        request = {}
-        await client.delete_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        # Operation methods call wrapper_fn to build a cached
-        # client._transport.operations_client instance on first rpc call.
-        # Subsequent calls should use the cached wrapper
-        wrapper_fn.reset_mock()
-
-        await client.delete_environment(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_delete_environment_async(
-    transport: str = "grpc_asyncio", request_type=service.DeleteEnvironmentRequest
-):
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            operations_pb2.Operation(name="operations/spam")
-        )
-        response = await client.delete_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = service.DeleteEnvironmentRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_environment_async_from_dict():
-    await test_delete_environment_async(request_type=dict)
-
-
-def test_delete_environment_field_headers():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Any value that is part of the HTTP/1.1 URI should be sent as
-    # a field header. Set these to a non-empty value.
-    request = service.DeleteEnvironmentRequest()
-
-    request.name = "name_value"
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_environment), "__call__"
-    ) as call:
-        call.return_value = operations_pb2.Operation(name="operations/op")
-        client.delete_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == request
-
-    # Establish that the field header was sent.
-    _, _, kw = call.mock_calls[0]
-    assert (
-        "x-goog-request-params",
-        "name=name_value",
-    ) in kw["metadata"]
-
-
-@pytest.mark.asyncio
-async def test_delete_environment_field_headers_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Any value that is part of the HTTP/1.1 URI should be sent as
-    # a field header. Set these to a non-empty value.
-    request = service.DeleteEnvironmentRequest()
-
-    request.name = "name_value"
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_environment), "__call__"
-    ) as call:
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            operations_pb2.Operation(name="operations/op")
-        )
-        await client.delete_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == request
-
-    # Establish that the field header was sent.
-    _, _, kw = call.mock_calls[0]
-    assert (
-        "x-goog-request-params",
-        "name=name_value",
-    ) in kw["metadata"]
-
-
-def test_delete_environment_flattened():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = operations_pb2.Operation(name="operations/op")
-        # Call the method with a truthy value for each flattened field,
-        # using the keyword arguments to the method.
-        client.delete_environment(
-            name="name_value",
-        )
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        arg = args[0].name
-        mock_val = "name_value"
-        assert arg == mock_val
-
-
-def test_delete_environment_flattened_error():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        client.delete_environment(
-            service.DeleteEnvironmentRequest(),
-            name="name_value",
-        )
-
-
-@pytest.mark.asyncio
-async def test_delete_environment_flattened_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = operations_pb2.Operation(name="operations/op")
-
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            operations_pb2.Operation(name="operations/spam")
-        )
-        # Call the method with a truthy value for each flattened field,
-        # using the keyword arguments to the method.
-        response = await client.delete_environment(
-            name="name_value",
-        )
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        arg = args[0].name
-        mock_val = "name_value"
-        assert arg == mock_val
-
-
-@pytest.mark.asyncio
-async def test_delete_environment_flattened_error_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        await client.delete_environment(
-            service.DeleteEnvironmentRequest(),
-            name="name_value",
-        )
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        service.ListEnvironmentsRequest,
-        dict,
-    ],
-)
-def test_list_environments(request_type, transport: str = "grpc"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_environments), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = service.ListEnvironmentsResponse(
-            next_page_token="next_page_token_value",
-        )
-        response = client.list_environments(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = service.ListEnvironmentsRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, pagers.ListEnvironmentsPager)
-    assert response.next_page_token == "next_page_token_value"
-
-
-def test_list_environments_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = service.ListEnvironmentsRequest(
-        parent="parent_value",
-        page_token="page_token_value",
-        filter="filter_value",
-        order_by="order_by_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_environments), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.list_environments(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == service.ListEnvironmentsRequest(
-            parent="parent_value",
-            page_token="page_token_value",
-            filter="filter_value",
-            order_by="order_by_value",
-        )
-
-
-def test_list_environments_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = DataplexServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert client._transport.list_environments in client._transport._wrapped_methods
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.list_environments
-        ] = mock_rpc
-        request = {}
-        client.list_environments(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.list_environments(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_list_environments_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = DataplexServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.list_environments
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.list_environments
-        ] = mock_rpc
-
-        request = {}
-        await client.list_environments(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.list_environments(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_list_environments_async(
-    transport: str = "grpc_asyncio", request_type=service.ListEnvironmentsRequest
-):
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_environments), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            service.ListEnvironmentsResponse(
-                next_page_token="next_page_token_value",
-            )
-        )
-        response = await client.list_environments(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = service.ListEnvironmentsRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, pagers.ListEnvironmentsAsyncPager)
-    assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_environments_async_from_dict():
-    await test_list_environments_async(request_type=dict)
-
-
-def test_list_environments_field_headers():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Any value that is part of the HTTP/1.1 URI should be sent as
-    # a field header. Set these to a non-empty value.
-    request = service.ListEnvironmentsRequest()
-
-    request.parent = "parent_value"
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_environments), "__call__"
-    ) as call:
-        call.return_value = service.ListEnvironmentsResponse()
-        client.list_environments(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == request
-
-    # Establish that the field header was sent.
-    _, _, kw = call.mock_calls[0]
-    assert (
-        "x-goog-request-params",
-        "parent=parent_value",
-    ) in kw["metadata"]
-
-
-@pytest.mark.asyncio
-async def test_list_environments_field_headers_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Any value that is part of the HTTP/1.1 URI should be sent as
-    # a field header. Set these to a non-empty value.
-    request = service.ListEnvironmentsRequest()
-
-    request.parent = "parent_value"
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_environments), "__call__"
-    ) as call:
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            service.ListEnvironmentsResponse()
-        )
-        await client.list_environments(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == request
-
-    # Establish that the field header was sent.
-    _, _, kw = call.mock_calls[0]
-    assert (
-        "x-goog-request-params",
-        "parent=parent_value",
-    ) in kw["metadata"]
-
-
-def test_list_environments_flattened():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_environments), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = service.ListEnvironmentsResponse()
-        # Call the method with a truthy value for each flattened field,
-        # using the keyword arguments to the method.
-        client.list_environments(
-            parent="parent_value",
-        )
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        arg = args[0].parent
-        mock_val = "parent_value"
-        assert arg == mock_val
-
-
-def test_list_environments_flattened_error():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        client.list_environments(
-            service.ListEnvironmentsRequest(),
-            parent="parent_value",
-        )
-
-
-@pytest.mark.asyncio
-async def test_list_environments_flattened_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_environments), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = service.ListEnvironmentsResponse()
-
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            service.ListEnvironmentsResponse()
-        )
-        # Call the method with a truthy value for each flattened field,
-        # using the keyword arguments to the method.
-        response = await client.list_environments(
-            parent="parent_value",
-        )
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        arg = args[0].parent
-        mock_val = "parent_value"
-        assert arg == mock_val
-
-
-@pytest.mark.asyncio
-async def test_list_environments_flattened_error_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        await client.list_environments(
-            service.ListEnvironmentsRequest(),
-            parent="parent_value",
-        )
-
-
-def test_list_environments_pager(transport_name: str = "grpc"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport_name,
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_environments), "__call__"
-    ) as call:
-        # Set the response to a series of pages.
-        call.side_effect = (
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                    analyze.Environment(),
-                    analyze.Environment(),
-                ],
-                next_page_token="abc",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[],
-                next_page_token="def",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                ],
-                next_page_token="ghi",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                    analyze.Environment(),
-                ],
-            ),
-            RuntimeError,
-        )
-
-        expected_metadata = ()
-        retry = retries.Retry()
-        timeout = 5
-        expected_metadata = tuple(expected_metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("parent", ""),)),
-        )
-        pager = client.list_environments(request={}, retry=retry, timeout=timeout)
-
-        assert pager._metadata == expected_metadata
-        assert pager._retry == retry
-        assert pager._timeout == timeout
-
-        results = list(pager)
-        assert len(results) == 6
-        assert all(isinstance(i, analyze.Environment) for i in results)
-
-
-def test_list_environments_pages(transport_name: str = "grpc"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport_name,
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_environments), "__call__"
-    ) as call:
-        # Set the response to a series of pages.
-        call.side_effect = (
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                    analyze.Environment(),
-                    analyze.Environment(),
-                ],
-                next_page_token="abc",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[],
-                next_page_token="def",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                ],
-                next_page_token="ghi",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                    analyze.Environment(),
-                ],
-            ),
-            RuntimeError,
-        )
-        pages = list(client.list_environments(request={}).pages)
-        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
-            assert page_.raw_page.next_page_token == token
-
-
-@pytest.mark.asyncio
-async def test_list_environments_async_pager():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_environments),
-        "__call__",
-        new_callable=mock.AsyncMock,
-    ) as call:
-        # Set the response to a series of pages.
-        call.side_effect = (
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                    analyze.Environment(),
-                    analyze.Environment(),
-                ],
-                next_page_token="abc",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[],
-                next_page_token="def",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                ],
-                next_page_token="ghi",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                    analyze.Environment(),
-                ],
-            ),
-            RuntimeError,
-        )
-        async_pager = await client.list_environments(
-            request={},
-        )
-        assert async_pager.next_page_token == "abc"
-        responses = []
-        async for response in async_pager:  # pragma: no branch
-            responses.append(response)
-
-        assert len(responses) == 6
-        assert all(isinstance(i, analyze.Environment) for i in responses)
-
-
-@pytest.mark.asyncio
-async def test_list_environments_async_pages():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_environments),
-        "__call__",
-        new_callable=mock.AsyncMock,
-    ) as call:
-        # Set the response to a series of pages.
-        call.side_effect = (
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                    analyze.Environment(),
-                    analyze.Environment(),
-                ],
-                next_page_token="abc",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[],
-                next_page_token="def",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                ],
-                next_page_token="ghi",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                    analyze.Environment(),
-                ],
-            ),
-            RuntimeError,
-        )
-        pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_environments(request={})
-        ).pages:
-            pages.append(page_)
-        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
-            assert page_.raw_page.next_page_token == token
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        service.GetEnvironmentRequest,
-        dict,
-    ],
-)
-def test_get_environment(request_type, transport: str = "grpc"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.get_environment), "__call__") as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = analyze.Environment(
-            name="name_value",
-            display_name="display_name_value",
-            uid="uid_value",
-            description="description_value",
-            state=resources.State.ACTIVE,
-        )
-        response = client.get_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = service.GetEnvironmentRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analyze.Environment)
-    assert response.name == "name_value"
-    assert response.display_name == "display_name_value"
-    assert response.uid == "uid_value"
-    assert response.description == "description_value"
-    assert response.state == resources.State.ACTIVE
-
-
-def test_get_environment_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = service.GetEnvironmentRequest(
-        name="name_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.get_environment), "__call__") as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.get_environment(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == service.GetEnvironmentRequest(
-            name="name_value",
-        )
-
-
-def test_get_environment_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = DataplexServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert client._transport.get_environment in client._transport._wrapped_methods
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[client._transport.get_environment] = mock_rpc
-        request = {}
-        client.get_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.get_environment(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_get_environment_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = DataplexServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.get_environment
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.get_environment
-        ] = mock_rpc
-
-        request = {}
-        await client.get_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.get_environment(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_get_environment_async(
-    transport: str = "grpc_asyncio", request_type=service.GetEnvironmentRequest
-):
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.get_environment), "__call__") as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analyze.Environment(
-                name="name_value",
-                display_name="display_name_value",
-                uid="uid_value",
-                description="description_value",
-                state=resources.State.ACTIVE,
-            )
-        )
-        response = await client.get_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = service.GetEnvironmentRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analyze.Environment)
-    assert response.name == "name_value"
-    assert response.display_name == "display_name_value"
-    assert response.uid == "uid_value"
-    assert response.description == "description_value"
-    assert response.state == resources.State.ACTIVE
-
-
-@pytest.mark.asyncio
-async def test_get_environment_async_from_dict():
-    await test_get_environment_async(request_type=dict)
-
-
-def test_get_environment_field_headers():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Any value that is part of the HTTP/1.1 URI should be sent as
-    # a field header. Set these to a non-empty value.
-    request = service.GetEnvironmentRequest()
-
-    request.name = "name_value"
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.get_environment), "__call__") as call:
-        call.return_value = analyze.Environment()
-        client.get_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == request
-
-    # Establish that the field header was sent.
-    _, _, kw = call.mock_calls[0]
-    assert (
-        "x-goog-request-params",
-        "name=name_value",
-    ) in kw["metadata"]
-
-
-@pytest.mark.asyncio
-async def test_get_environment_field_headers_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Any value that is part of the HTTP/1.1 URI should be sent as
-    # a field header. Set these to a non-empty value.
-    request = service.GetEnvironmentRequest()
-
-    request.name = "name_value"
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.get_environment), "__call__") as call:
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(analyze.Environment())
-        await client.get_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == request
-
-    # Establish that the field header was sent.
-    _, _, kw = call.mock_calls[0]
-    assert (
-        "x-goog-request-params",
-        "name=name_value",
-    ) in kw["metadata"]
-
-
-def test_get_environment_flattened():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.get_environment), "__call__") as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = analyze.Environment()
-        # Call the method with a truthy value for each flattened field,
-        # using the keyword arguments to the method.
-        client.get_environment(
-            name="name_value",
-        )
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        arg = args[0].name
-        mock_val = "name_value"
-        assert arg == mock_val
-
-
-def test_get_environment_flattened_error():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        client.get_environment(
-            service.GetEnvironmentRequest(),
-            name="name_value",
-        )
-
-
-@pytest.mark.asyncio
-async def test_get_environment_flattened_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.get_environment), "__call__") as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = analyze.Environment()
-
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(analyze.Environment())
-        # Call the method with a truthy value for each flattened field,
-        # using the keyword arguments to the method.
-        response = await client.get_environment(
-            name="name_value",
-        )
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        arg = args[0].name
-        mock_val = "name_value"
-        assert arg == mock_val
-
-
-@pytest.mark.asyncio
-async def test_get_environment_flattened_error_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        await client.get_environment(
-            service.GetEnvironmentRequest(),
-            name="name_value",
-        )
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        service.ListSessionsRequest,
-        dict,
-    ],
-)
-def test_list_sessions(request_type, transport: str = "grpc"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.list_sessions), "__call__") as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = service.ListSessionsResponse(
-            next_page_token="next_page_token_value",
-        )
-        response = client.list_sessions(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = service.ListSessionsRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, pagers.ListSessionsPager)
-    assert response.next_page_token == "next_page_token_value"
-
-
-def test_list_sessions_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = service.ListSessionsRequest(
-        parent="parent_value",
-        page_token="page_token_value",
-        filter="filter_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.list_sessions), "__call__") as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.list_sessions(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == service.ListSessionsRequest(
-            parent="parent_value",
-            page_token="page_token_value",
-            filter="filter_value",
-        )
-
-
-def test_list_sessions_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = DataplexServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert client._transport.list_sessions in client._transport._wrapped_methods
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[client._transport.list_sessions] = mock_rpc
-        request = {}
-        client.list_sessions(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.list_sessions(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_list_sessions_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = DataplexServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.list_sessions
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.list_sessions
-        ] = mock_rpc
-
-        request = {}
-        await client.list_sessions(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.list_sessions(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_list_sessions_async(
-    transport: str = "grpc_asyncio", request_type=service.ListSessionsRequest
-):
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.list_sessions), "__call__") as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            service.ListSessionsResponse(
-                next_page_token="next_page_token_value",
-            )
-        )
-        response = await client.list_sessions(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = service.ListSessionsRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, pagers.ListSessionsAsyncPager)
-    assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_sessions_async_from_dict():
-    await test_list_sessions_async(request_type=dict)
-
-
-def test_list_sessions_field_headers():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Any value that is part of the HTTP/1.1 URI should be sent as
-    # a field header. Set these to a non-empty value.
-    request = service.ListSessionsRequest()
-
-    request.parent = "parent_value"
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.list_sessions), "__call__") as call:
-        call.return_value = service.ListSessionsResponse()
-        client.list_sessions(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == request
-
-    # Establish that the field header was sent.
-    _, _, kw = call.mock_calls[0]
-    assert (
-        "x-goog-request-params",
-        "parent=parent_value",
-    ) in kw["metadata"]
-
-
-@pytest.mark.asyncio
-async def test_list_sessions_field_headers_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Any value that is part of the HTTP/1.1 URI should be sent as
-    # a field header. Set these to a non-empty value.
-    request = service.ListSessionsRequest()
-
-    request.parent = "parent_value"
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.list_sessions), "__call__") as call:
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            service.ListSessionsResponse()
-        )
-        await client.list_sessions(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == request
-
-    # Establish that the field header was sent.
-    _, _, kw = call.mock_calls[0]
-    assert (
-        "x-goog-request-params",
-        "parent=parent_value",
-    ) in kw["metadata"]
-
-
-def test_list_sessions_flattened():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.list_sessions), "__call__") as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = service.ListSessionsResponse()
-        # Call the method with a truthy value for each flattened field,
-        # using the keyword arguments to the method.
-        client.list_sessions(
-            parent="parent_value",
-        )
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        arg = args[0].parent
-        mock_val = "parent_value"
-        assert arg == mock_val
-
-
-def test_list_sessions_flattened_error():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        client.list_sessions(
-            service.ListSessionsRequest(),
-            parent="parent_value",
-        )
-
-
-@pytest.mark.asyncio
-async def test_list_sessions_flattened_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.list_sessions), "__call__") as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = service.ListSessionsResponse()
-
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            service.ListSessionsResponse()
-        )
-        # Call the method with a truthy value for each flattened field,
-        # using the keyword arguments to the method.
-        response = await client.list_sessions(
-            parent="parent_value",
-        )
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        arg = args[0].parent
-        mock_val = "parent_value"
-        assert arg == mock_val
-
-
-@pytest.mark.asyncio
-async def test_list_sessions_flattened_error_async():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        await client.list_sessions(
-            service.ListSessionsRequest(),
-            parent="parent_value",
-        )
-
-
-def test_list_sessions_pager(transport_name: str = "grpc"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport_name,
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.list_sessions), "__call__") as call:
-        # Set the response to a series of pages.
-        call.side_effect = (
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                    analyze.Session(),
-                    analyze.Session(),
-                ],
-                next_page_token="abc",
-            ),
-            service.ListSessionsResponse(
-                sessions=[],
-                next_page_token="def",
-            ),
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                ],
-                next_page_token="ghi",
-            ),
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                    analyze.Session(),
-                ],
-            ),
-            RuntimeError,
-        )
-
-        expected_metadata = ()
-        retry = retries.Retry()
-        timeout = 5
-        expected_metadata = tuple(expected_metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("parent", ""),)),
-        )
-        pager = client.list_sessions(request={}, retry=retry, timeout=timeout)
-
-        assert pager._metadata == expected_metadata
-        assert pager._retry == retry
-        assert pager._timeout == timeout
-
-        results = list(pager)
-        assert len(results) == 6
-        assert all(isinstance(i, analyze.Session) for i in results)
-
-
-def test_list_sessions_pages(transport_name: str = "grpc"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport_name,
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(type(client.transport.list_sessions), "__call__") as call:
-        # Set the response to a series of pages.
-        call.side_effect = (
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                    analyze.Session(),
-                    analyze.Session(),
-                ],
-                next_page_token="abc",
-            ),
-            service.ListSessionsResponse(
-                sessions=[],
-                next_page_token="def",
-            ),
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                ],
-                next_page_token="ghi",
-            ),
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                    analyze.Session(),
-                ],
-            ),
-            RuntimeError,
-        )
-        pages = list(client.list_sessions(request={}).pages)
-        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
-            assert page_.raw_page.next_page_token == token
-
-
-@pytest.mark.asyncio
-async def test_list_sessions_async_pager():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_sessions), "__call__", new_callable=mock.AsyncMock
-    ) as call:
-        # Set the response to a series of pages.
-        call.side_effect = (
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                    analyze.Session(),
-                    analyze.Session(),
-                ],
-                next_page_token="abc",
-            ),
-            service.ListSessionsResponse(
-                sessions=[],
-                next_page_token="def",
-            ),
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                ],
-                next_page_token="ghi",
-            ),
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                    analyze.Session(),
-                ],
-            ),
-            RuntimeError,
-        )
-        async_pager = await client.list_sessions(
-            request={},
-        )
-        assert async_pager.next_page_token == "abc"
-        responses = []
-        async for response in async_pager:  # pragma: no branch
-            responses.append(response)
-
-        assert len(responses) == 6
-        assert all(isinstance(i, analyze.Session) for i in responses)
-
-
-@pytest.mark.asyncio
-async def test_list_sessions_async_pages():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_sessions), "__call__", new_callable=mock.AsyncMock
-    ) as call:
-        # Set the response to a series of pages.
-        call.side_effect = (
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                    analyze.Session(),
-                    analyze.Session(),
-                ],
-                next_page_token="abc",
-            ),
-            service.ListSessionsResponse(
-                sessions=[],
-                next_page_token="def",
-            ),
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                ],
-                next_page_token="ghi",
-            ),
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                    analyze.Session(),
-                ],
-            ),
-            RuntimeError,
-        )
-        pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_sessions(request={})
-        ).pages:
-            pages.append(page_)
-        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
-            assert page_.raw_page.next_page_token == token
-
-
 def test_create_lake_rest_use_cached_wrapped_rpc():
     # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
     # instead of constructing them on each call
@@ -14333,7 +12072,7 @@ def test_create_lake_rest_required_fields(request_type=service.CreateLakeRequest
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_lake_rest_unset_required_fields():
@@ -14528,7 +12267,7 @@ def test_update_lake_rest_required_fields(request_type=service.UpdateLakeRequest
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_lake_rest_unset_required_fields():
@@ -14719,7 +12458,7 @@ def test_delete_lake_rest_required_fields(request_type=service.DeleteLakeRequest
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_lake_rest_unset_required_fields():
@@ -14901,7 +12640,7 @@ def test_list_lakes_rest_required_fields(request_type=service.ListLakesRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_lakes_rest_unset_required_fields():
@@ -15147,7 +12886,7 @@ def test_get_lake_rest_required_fields(request_type=service.GetLakeRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_lake_rest_unset_required_fields():
@@ -15237,9 +12976,9 @@ def test_list_lake_actions_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_lake_actions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_lake_actions] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_lake_actions(request)
@@ -15333,7 +13072,7 @@ def test_list_lake_actions_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_lake_actions_rest_unset_required_fields():
@@ -15600,7 +13339,7 @@ def test_create_zone_rest_required_fields(request_type=service.CreateZoneRequest
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_zone_rest_unset_required_fields():
@@ -15796,7 +13535,7 @@ def test_update_zone_rest_required_fields(request_type=service.UpdateZoneRequest
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_zone_rest_unset_required_fields():
@@ -15990,7 +13729,7 @@ def test_delete_zone_rest_required_fields(request_type=service.DeleteZoneRequest
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_zone_rest_unset_required_fields():
@@ -16175,7 +13914,7 @@ def test_list_zones_rest_required_fields(request_type=service.ListZonesRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_zones_rest_unset_required_fields():
@@ -16422,7 +14161,7 @@ def test_get_zone_rest_required_fields(request_type=service.GetZoneRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_zone_rest_unset_required_fields():
@@ -16515,9 +14254,9 @@ def test_list_zone_actions_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_zone_actions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_zone_actions] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_zone_actions(request)
@@ -16611,7 +14350,7 @@ def test_list_zone_actions_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_zone_actions_rest_unset_required_fields():
@@ -16882,7 +14621,7 @@ def test_create_asset_rest_required_fields(request_type=service.CreateAssetReque
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_asset_rest_unset_required_fields():
@@ -17080,7 +14819,7 @@ def test_update_asset_rest_required_fields(request_type=service.UpdateAssetReque
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_asset_rest_unset_required_fields():
@@ -17274,7 +15013,7 @@ def test_delete_asset_rest_required_fields(request_type=service.DeleteAssetReque
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_asset_rest_unset_required_fields():
@@ -17459,7 +15198,7 @@ def test_list_assets_rest_required_fields(request_type=service.ListAssetsRequest
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_assets_rest_unset_required_fields():
@@ -17710,7 +15449,7 @@ def test_get_asset_rest_required_fields(request_type=service.GetAssetRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_asset_rest_unset_required_fields():
@@ -17805,9 +15544,9 @@ def test_list_asset_actions_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_asset_actions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_asset_actions] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_asset_actions(request)
@@ -17901,7 +15640,7 @@ def test_list_asset_actions_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_asset_actions_rest_unset_required_fields():
@@ -18172,7 +15911,7 @@ def test_create_task_rest_required_fields(request_type=service.CreateTaskRequest
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_task_rest_unset_required_fields():
@@ -18368,7 +16107,7 @@ def test_update_task_rest_required_fields(request_type=service.UpdateTaskRequest
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_task_rest_unset_required_fields():
@@ -18562,7 +16301,7 @@ def test_delete_task_rest_required_fields(request_type=service.DeleteTaskRequest
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_task_rest_unset_required_fields():
@@ -18747,7 +16486,7 @@ def test_list_tasks_rest_required_fields(request_type=service.ListTasksRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_tasks_rest_unset_required_fields():
@@ -18994,7 +16733,7 @@ def test_get_task_rest_required_fields(request_type=service.GetTaskRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_task_rest_unset_required_fields():
@@ -19179,7 +16918,7 @@ def test_list_jobs_rest_required_fields(request_type=service.ListJobsRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_jobs_rest_unset_required_fields():
@@ -19429,7 +17168,7 @@ def test_run_task_rest_required_fields(request_type=service.RunTaskRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_run_task_rest_unset_required_fields():
@@ -19607,7 +17346,7 @@ def test_get_job_rest_required_fields(request_type=service.GetJobRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_job_rest_unset_required_fields():
@@ -19783,7 +17522,7 @@ def test_cancel_job_rest_required_fields(request_type=service.CancelJobRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_cancel_job_rest_unset_required_fields():
@@ -19851,1310 +17590,6 @@ def test_cancel_job_rest_flattened_error(transport: str = "rest"):
             service.CancelJobRequest(),
             name="name_value",
         )
-
-
-def test_create_environment_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = DataplexServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.create_environment in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.create_environment
-        ] = mock_rpc
-
-        request = {}
-        client.create_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        # Operation methods build a cached wrapper on first rpc call
-        # subsequent calls should use the cached wrapper
-        wrapper_fn.reset_mock()
-
-        client.create_environment(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_create_environment_rest_required_fields(
-    request_type=service.CreateEnvironmentRequest,
-):
-    transport_class = transports.DataplexServiceRestTransport
-
-    request_init = {}
-    request_init["parent"] = ""
-    request_init["environment_id"] = ""
-    request = request_type(**request_init)
-    pb_request = request_type.pb(request)
-    jsonified_request = json.loads(
-        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
-    )
-
-    # verify fields with default values are dropped
-    assert "environmentId" not in jsonified_request
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).create_environment._get_unset_required_fields(jsonified_request)
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with default values are now present
-    assert "environmentId" in jsonified_request
-    assert jsonified_request["environmentId"] == request_init["environment_id"]
-
-    jsonified_request["parent"] = "parent_value"
-    jsonified_request["environmentId"] = "environment_id_value"
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).create_environment._get_unset_required_fields(jsonified_request)
-    # Check that path parameters and body parameters are not mixing in.
-    assert not set(unset_fields) - set(
-        (
-            "environment_id",
-            "validate_only",
-        )
-    )
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with non-default values are left alone
-    assert "parent" in jsonified_request
-    assert jsonified_request["parent"] == "parent_value"
-    assert "environmentId" in jsonified_request
-    assert jsonified_request["environmentId"] == "environment_id_value"
-
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-    request = request_type(**request_init)
-
-    # Designate an appropriate value for the returned response.
-    return_value = operations_pb2.Operation(name="operations/spam")
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # We need to mock transcode() because providing default values
-        # for required fields will fail the real version if the http_options
-        # expect actual values for those fields.
-        with mock.patch.object(path_template, "transcode") as transcode:
-            # A uri without fields and an empty body will force all the
-            # request fields to show up in the query_params.
-            pb_request = request_type.pb(request)
-            transcode_result = {
-                "uri": "v1/sample_method",
-                "method": "post",
-                "query_params": pb_request,
-            }
-            transcode_result["body"] = pb_request
-            transcode.return_value = transcode_result
-
-            response_value = Response()
-            response_value.status_code = 200
-            json_return_value = json_format.MessageToJson(return_value)
-
-            response_value._content = json_return_value.encode("UTF-8")
-            req.return_value = response_value
-            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-            response = client.create_environment(request)
-
-            expected_params = [
-                (
-                    "environmentId",
-                    "",
-                ),
-                ("$alt", "json;enum-encoding=int"),
-            ]
-            actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
-
-
-def test_create_environment_rest_unset_required_fields():
-    transport = transports.DataplexServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials
-    )
-
-    unset_fields = transport.create_environment._get_unset_required_fields({})
-    assert set(unset_fields) == (
-        set(
-            (
-                "environmentId",
-                "validateOnly",
-            )
-        )
-        & set(
-            (
-                "parent",
-                "environmentId",
-                "environment",
-            )
-        )
-    )
-
-
-def test_create_environment_rest_flattened():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = operations_pb2.Operation(name="operations/spam")
-
-        # get arguments that satisfy an http rule for this method
-        sample_request = {"parent": "projects/sample1/locations/sample2/lakes/sample3"}
-
-        # get truthy value for each flattened field
-        mock_args = dict(
-            parent="parent_value",
-            environment=analyze.Environment(name="name_value"),
-            environment_id="environment_id_value",
-        )
-        mock_args.update(sample_request)
-
-        # Wrap the value into a proper Response obj
-        response_value = Response()
-        response_value.status_code = 200
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value._content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-        client.create_environment(**mock_args)
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(req.mock_calls) == 1
-        _, args, _ = req.mock_calls[0]
-        assert path_template.validate(
-            "%s/v1/{parent=projects/*/locations/*/lakes/*}/environments"
-            % client.transport._host,
-            args[1],
-        )
-
-
-def test_create_environment_rest_flattened_error(transport: str = "rest"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        client.create_environment(
-            service.CreateEnvironmentRequest(),
-            parent="parent_value",
-            environment=analyze.Environment(name="name_value"),
-            environment_id="environment_id_value",
-        )
-
-
-def test_update_environment_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = DataplexServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.update_environment in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.update_environment
-        ] = mock_rpc
-
-        request = {}
-        client.update_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        # Operation methods build a cached wrapper on first rpc call
-        # subsequent calls should use the cached wrapper
-        wrapper_fn.reset_mock()
-
-        client.update_environment(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_update_environment_rest_required_fields(
-    request_type=service.UpdateEnvironmentRequest,
-):
-    transport_class = transports.DataplexServiceRestTransport
-
-    request_init = {}
-    request = request_type(**request_init)
-    pb_request = request_type.pb(request)
-    jsonified_request = json.loads(
-        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
-    )
-
-    # verify fields with default values are dropped
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).update_environment._get_unset_required_fields(jsonified_request)
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with default values are now present
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).update_environment._get_unset_required_fields(jsonified_request)
-    # Check that path parameters and body parameters are not mixing in.
-    assert not set(unset_fields) - set(
-        (
-            "update_mask",
-            "validate_only",
-        )
-    )
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with non-default values are left alone
-
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-    request = request_type(**request_init)
-
-    # Designate an appropriate value for the returned response.
-    return_value = operations_pb2.Operation(name="operations/spam")
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # We need to mock transcode() because providing default values
-        # for required fields will fail the real version if the http_options
-        # expect actual values for those fields.
-        with mock.patch.object(path_template, "transcode") as transcode:
-            # A uri without fields and an empty body will force all the
-            # request fields to show up in the query_params.
-            pb_request = request_type.pb(request)
-            transcode_result = {
-                "uri": "v1/sample_method",
-                "method": "patch",
-                "query_params": pb_request,
-            }
-            transcode_result["body"] = pb_request
-            transcode.return_value = transcode_result
-
-            response_value = Response()
-            response_value.status_code = 200
-            json_return_value = json_format.MessageToJson(return_value)
-
-            response_value._content = json_return_value.encode("UTF-8")
-            req.return_value = response_value
-            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-            response = client.update_environment(request)
-
-            expected_params = [("$alt", "json;enum-encoding=int")]
-            actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
-
-
-def test_update_environment_rest_unset_required_fields():
-    transport = transports.DataplexServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials
-    )
-
-    unset_fields = transport.update_environment._get_unset_required_fields({})
-    assert set(unset_fields) == (
-        set(
-            (
-                "updateMask",
-                "validateOnly",
-            )
-        )
-        & set(
-            (
-                "updateMask",
-                "environment",
-            )
-        )
-    )
-
-
-def test_update_environment_rest_flattened():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = operations_pb2.Operation(name="operations/spam")
-
-        # get arguments that satisfy an http rule for this method
-        sample_request = {
-            "environment": {
-                "name": "projects/sample1/locations/sample2/lakes/sample3/environments/sample4"
-            }
-        }
-
-        # get truthy value for each flattened field
-        mock_args = dict(
-            environment=analyze.Environment(name="name_value"),
-            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
-        )
-        mock_args.update(sample_request)
-
-        # Wrap the value into a proper Response obj
-        response_value = Response()
-        response_value.status_code = 200
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value._content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-        client.update_environment(**mock_args)
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(req.mock_calls) == 1
-        _, args, _ = req.mock_calls[0]
-        assert path_template.validate(
-            "%s/v1/{environment.name=projects/*/locations/*/lakes/*/environments/*}"
-            % client.transport._host,
-            args[1],
-        )
-
-
-def test_update_environment_rest_flattened_error(transport: str = "rest"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        client.update_environment(
-            service.UpdateEnvironmentRequest(),
-            environment=analyze.Environment(name="name_value"),
-            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
-        )
-
-
-def test_delete_environment_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = DataplexServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.delete_environment in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.delete_environment
-        ] = mock_rpc
-
-        request = {}
-        client.delete_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        # Operation methods build a cached wrapper on first rpc call
-        # subsequent calls should use the cached wrapper
-        wrapper_fn.reset_mock()
-
-        client.delete_environment(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_delete_environment_rest_required_fields(
-    request_type=service.DeleteEnvironmentRequest,
-):
-    transport_class = transports.DataplexServiceRestTransport
-
-    request_init = {}
-    request_init["name"] = ""
-    request = request_type(**request_init)
-    pb_request = request_type.pb(request)
-    jsonified_request = json.loads(
-        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
-    )
-
-    # verify fields with default values are dropped
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).delete_environment._get_unset_required_fields(jsonified_request)
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with default values are now present
-
-    jsonified_request["name"] = "name_value"
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).delete_environment._get_unset_required_fields(jsonified_request)
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with non-default values are left alone
-    assert "name" in jsonified_request
-    assert jsonified_request["name"] == "name_value"
-
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-    request = request_type(**request_init)
-
-    # Designate an appropriate value for the returned response.
-    return_value = operations_pb2.Operation(name="operations/spam")
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # We need to mock transcode() because providing default values
-        # for required fields will fail the real version if the http_options
-        # expect actual values for those fields.
-        with mock.patch.object(path_template, "transcode") as transcode:
-            # A uri without fields and an empty body will force all the
-            # request fields to show up in the query_params.
-            pb_request = request_type.pb(request)
-            transcode_result = {
-                "uri": "v1/sample_method",
-                "method": "delete",
-                "query_params": pb_request,
-            }
-            transcode.return_value = transcode_result
-
-            response_value = Response()
-            response_value.status_code = 200
-            json_return_value = json_format.MessageToJson(return_value)
-
-            response_value._content = json_return_value.encode("UTF-8")
-            req.return_value = response_value
-            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-            response = client.delete_environment(request)
-
-            expected_params = [("$alt", "json;enum-encoding=int")]
-            actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
-
-
-def test_delete_environment_rest_unset_required_fields():
-    transport = transports.DataplexServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials
-    )
-
-    unset_fields = transport.delete_environment._get_unset_required_fields({})
-    assert set(unset_fields) == (set(()) & set(("name",)))
-
-
-def test_delete_environment_rest_flattened():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = operations_pb2.Operation(name="operations/spam")
-
-        # get arguments that satisfy an http rule for this method
-        sample_request = {
-            "name": "projects/sample1/locations/sample2/lakes/sample3/environments/sample4"
-        }
-
-        # get truthy value for each flattened field
-        mock_args = dict(
-            name="name_value",
-        )
-        mock_args.update(sample_request)
-
-        # Wrap the value into a proper Response obj
-        response_value = Response()
-        response_value.status_code = 200
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value._content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-        client.delete_environment(**mock_args)
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(req.mock_calls) == 1
-        _, args, _ = req.mock_calls[0]
-        assert path_template.validate(
-            "%s/v1/{name=projects/*/locations/*/lakes/*/environments/*}"
-            % client.transport._host,
-            args[1],
-        )
-
-
-def test_delete_environment_rest_flattened_error(transport: str = "rest"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        client.delete_environment(
-            service.DeleteEnvironmentRequest(),
-            name="name_value",
-        )
-
-
-def test_list_environments_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = DataplexServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert client._transport.list_environments in client._transport._wrapped_methods
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.list_environments
-        ] = mock_rpc
-
-        request = {}
-        client.list_environments(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.list_environments(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_list_environments_rest_required_fields(
-    request_type=service.ListEnvironmentsRequest,
-):
-    transport_class = transports.DataplexServiceRestTransport
-
-    request_init = {}
-    request_init["parent"] = ""
-    request = request_type(**request_init)
-    pb_request = request_type.pb(request)
-    jsonified_request = json.loads(
-        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
-    )
-
-    # verify fields with default values are dropped
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).list_environments._get_unset_required_fields(jsonified_request)
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with default values are now present
-
-    jsonified_request["parent"] = "parent_value"
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).list_environments._get_unset_required_fields(jsonified_request)
-    # Check that path parameters and body parameters are not mixing in.
-    assert not set(unset_fields) - set(
-        (
-            "filter",
-            "order_by",
-            "page_size",
-            "page_token",
-        )
-    )
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with non-default values are left alone
-    assert "parent" in jsonified_request
-    assert jsonified_request["parent"] == "parent_value"
-
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-    request = request_type(**request_init)
-
-    # Designate an appropriate value for the returned response.
-    return_value = service.ListEnvironmentsResponse()
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # We need to mock transcode() because providing default values
-        # for required fields will fail the real version if the http_options
-        # expect actual values for those fields.
-        with mock.patch.object(path_template, "transcode") as transcode:
-            # A uri without fields and an empty body will force all the
-            # request fields to show up in the query_params.
-            pb_request = request_type.pb(request)
-            transcode_result = {
-                "uri": "v1/sample_method",
-                "method": "get",
-                "query_params": pb_request,
-            }
-            transcode.return_value = transcode_result
-
-            response_value = Response()
-            response_value.status_code = 200
-
-            # Convert return value to protobuf type
-            return_value = service.ListEnvironmentsResponse.pb(return_value)
-            json_return_value = json_format.MessageToJson(return_value)
-
-            response_value._content = json_return_value.encode("UTF-8")
-            req.return_value = response_value
-            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-            response = client.list_environments(request)
-
-            expected_params = [("$alt", "json;enum-encoding=int")]
-            actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
-
-
-def test_list_environments_rest_unset_required_fields():
-    transport = transports.DataplexServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials
-    )
-
-    unset_fields = transport.list_environments._get_unset_required_fields({})
-    assert set(unset_fields) == (
-        set(
-            (
-                "filter",
-                "orderBy",
-                "pageSize",
-                "pageToken",
-            )
-        )
-        & set(("parent",))
-    )
-
-
-def test_list_environments_rest_flattened():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = service.ListEnvironmentsResponse()
-
-        # get arguments that satisfy an http rule for this method
-        sample_request = {"parent": "projects/sample1/locations/sample2/lakes/sample3"}
-
-        # get truthy value for each flattened field
-        mock_args = dict(
-            parent="parent_value",
-        )
-        mock_args.update(sample_request)
-
-        # Wrap the value into a proper Response obj
-        response_value = Response()
-        response_value.status_code = 200
-        # Convert return value to protobuf type
-        return_value = service.ListEnvironmentsResponse.pb(return_value)
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value._content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-        client.list_environments(**mock_args)
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(req.mock_calls) == 1
-        _, args, _ = req.mock_calls[0]
-        assert path_template.validate(
-            "%s/v1/{parent=projects/*/locations/*/lakes/*}/environments"
-            % client.transport._host,
-            args[1],
-        )
-
-
-def test_list_environments_rest_flattened_error(transport: str = "rest"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        client.list_environments(
-            service.ListEnvironmentsRequest(),
-            parent="parent_value",
-        )
-
-
-def test_list_environments_rest_pager(transport: str = "rest"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # TODO(kbandes): remove this mock unless there's a good reason for it.
-        # with mock.patch.object(path_template, 'transcode') as transcode:
-        # Set the response as a series of pages
-        response = (
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                    analyze.Environment(),
-                    analyze.Environment(),
-                ],
-                next_page_token="abc",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[],
-                next_page_token="def",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                ],
-                next_page_token="ghi",
-            ),
-            service.ListEnvironmentsResponse(
-                environments=[
-                    analyze.Environment(),
-                    analyze.Environment(),
-                ],
-            ),
-        )
-        # Two responses for two calls
-        response = response + response
-
-        # Wrap the values into proper Response objs
-        response = tuple(service.ListEnvironmentsResponse.to_json(x) for x in response)
-        return_values = tuple(Response() for i in response)
-        for return_val, response_val in zip(return_values, response):
-            return_val._content = response_val.encode("UTF-8")
-            return_val.status_code = 200
-        req.side_effect = return_values
-
-        sample_request = {"parent": "projects/sample1/locations/sample2/lakes/sample3"}
-
-        pager = client.list_environments(request=sample_request)
-
-        results = list(pager)
-        assert len(results) == 6
-        assert all(isinstance(i, analyze.Environment) for i in results)
-
-        pages = list(client.list_environments(request=sample_request).pages)
-        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
-            assert page_.raw_page.next_page_token == token
-
-
-def test_get_environment_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = DataplexServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert client._transport.get_environment in client._transport._wrapped_methods
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[client._transport.get_environment] = mock_rpc
-
-        request = {}
-        client.get_environment(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.get_environment(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_get_environment_rest_required_fields(
-    request_type=service.GetEnvironmentRequest,
-):
-    transport_class = transports.DataplexServiceRestTransport
-
-    request_init = {}
-    request_init["name"] = ""
-    request = request_type(**request_init)
-    pb_request = request_type.pb(request)
-    jsonified_request = json.loads(
-        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
-    )
-
-    # verify fields with default values are dropped
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).get_environment._get_unset_required_fields(jsonified_request)
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with default values are now present
-
-    jsonified_request["name"] = "name_value"
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).get_environment._get_unset_required_fields(jsonified_request)
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with non-default values are left alone
-    assert "name" in jsonified_request
-    assert jsonified_request["name"] == "name_value"
-
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-    request = request_type(**request_init)
-
-    # Designate an appropriate value for the returned response.
-    return_value = analyze.Environment()
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # We need to mock transcode() because providing default values
-        # for required fields will fail the real version if the http_options
-        # expect actual values for those fields.
-        with mock.patch.object(path_template, "transcode") as transcode:
-            # A uri without fields and an empty body will force all the
-            # request fields to show up in the query_params.
-            pb_request = request_type.pb(request)
-            transcode_result = {
-                "uri": "v1/sample_method",
-                "method": "get",
-                "query_params": pb_request,
-            }
-            transcode.return_value = transcode_result
-
-            response_value = Response()
-            response_value.status_code = 200
-
-            # Convert return value to protobuf type
-            return_value = analyze.Environment.pb(return_value)
-            json_return_value = json_format.MessageToJson(return_value)
-
-            response_value._content = json_return_value.encode("UTF-8")
-            req.return_value = response_value
-            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-            response = client.get_environment(request)
-
-            expected_params = [("$alt", "json;enum-encoding=int")]
-            actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
-
-
-def test_get_environment_rest_unset_required_fields():
-    transport = transports.DataplexServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials
-    )
-
-    unset_fields = transport.get_environment._get_unset_required_fields({})
-    assert set(unset_fields) == (set(()) & set(("name",)))
-
-
-def test_get_environment_rest_flattened():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = analyze.Environment()
-
-        # get arguments that satisfy an http rule for this method
-        sample_request = {
-            "name": "projects/sample1/locations/sample2/lakes/sample3/environments/sample4"
-        }
-
-        # get truthy value for each flattened field
-        mock_args = dict(
-            name="name_value",
-        )
-        mock_args.update(sample_request)
-
-        # Wrap the value into a proper Response obj
-        response_value = Response()
-        response_value.status_code = 200
-        # Convert return value to protobuf type
-        return_value = analyze.Environment.pb(return_value)
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value._content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-        client.get_environment(**mock_args)
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(req.mock_calls) == 1
-        _, args, _ = req.mock_calls[0]
-        assert path_template.validate(
-            "%s/v1/{name=projects/*/locations/*/lakes/*/environments/*}"
-            % client.transport._host,
-            args[1],
-        )
-
-
-def test_get_environment_rest_flattened_error(transport: str = "rest"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        client.get_environment(
-            service.GetEnvironmentRequest(),
-            name="name_value",
-        )
-
-
-def test_list_sessions_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = DataplexServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert client._transport.list_sessions in client._transport._wrapped_methods
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[client._transport.list_sessions] = mock_rpc
-
-        request = {}
-        client.list_sessions(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.list_sessions(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_list_sessions_rest_required_fields(request_type=service.ListSessionsRequest):
-    transport_class = transports.DataplexServiceRestTransport
-
-    request_init = {}
-    request_init["parent"] = ""
-    request = request_type(**request_init)
-    pb_request = request_type.pb(request)
-    jsonified_request = json.loads(
-        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
-    )
-
-    # verify fields with default values are dropped
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).list_sessions._get_unset_required_fields(jsonified_request)
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with default values are now present
-
-    jsonified_request["parent"] = "parent_value"
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).list_sessions._get_unset_required_fields(jsonified_request)
-    # Check that path parameters and body parameters are not mixing in.
-    assert not set(unset_fields) - set(
-        (
-            "filter",
-            "page_size",
-            "page_token",
-        )
-    )
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with non-default values are left alone
-    assert "parent" in jsonified_request
-    assert jsonified_request["parent"] == "parent_value"
-
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-    request = request_type(**request_init)
-
-    # Designate an appropriate value for the returned response.
-    return_value = service.ListSessionsResponse()
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # We need to mock transcode() because providing default values
-        # for required fields will fail the real version if the http_options
-        # expect actual values for those fields.
-        with mock.patch.object(path_template, "transcode") as transcode:
-            # A uri without fields and an empty body will force all the
-            # request fields to show up in the query_params.
-            pb_request = request_type.pb(request)
-            transcode_result = {
-                "uri": "v1/sample_method",
-                "method": "get",
-                "query_params": pb_request,
-            }
-            transcode.return_value = transcode_result
-
-            response_value = Response()
-            response_value.status_code = 200
-
-            # Convert return value to protobuf type
-            return_value = service.ListSessionsResponse.pb(return_value)
-            json_return_value = json_format.MessageToJson(return_value)
-
-            response_value._content = json_return_value.encode("UTF-8")
-            req.return_value = response_value
-            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-            response = client.list_sessions(request)
-
-            expected_params = [("$alt", "json;enum-encoding=int")]
-            actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
-
-
-def test_list_sessions_rest_unset_required_fields():
-    transport = transports.DataplexServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials
-    )
-
-    unset_fields = transport.list_sessions._get_unset_required_fields({})
-    assert set(unset_fields) == (
-        set(
-            (
-                "filter",
-                "pageSize",
-                "pageToken",
-            )
-        )
-        & set(("parent",))
-    )
-
-
-def test_list_sessions_rest_flattened():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = service.ListSessionsResponse()
-
-        # get arguments that satisfy an http rule for this method
-        sample_request = {
-            "parent": "projects/sample1/locations/sample2/lakes/sample3/environments/sample4"
-        }
-
-        # get truthy value for each flattened field
-        mock_args = dict(
-            parent="parent_value",
-        )
-        mock_args.update(sample_request)
-
-        # Wrap the value into a proper Response obj
-        response_value = Response()
-        response_value.status_code = 200
-        # Convert return value to protobuf type
-        return_value = service.ListSessionsResponse.pb(return_value)
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value._content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-        client.list_sessions(**mock_args)
-
-        # Establish that the underlying call was made with the expected
-        # request object values.
-        assert len(req.mock_calls) == 1
-        _, args, _ = req.mock_calls[0]
-        assert path_template.validate(
-            "%s/v1/{parent=projects/*/locations/*/lakes/*/environments/*}/sessions"
-            % client.transport._host,
-            args[1],
-        )
-
-
-def test_list_sessions_rest_flattened_error(transport: str = "rest"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Attempting to call a method with both a request object and flattened
-    # fields is an error.
-    with pytest.raises(ValueError):
-        client.list_sessions(
-            service.ListSessionsRequest(),
-            parent="parent_value",
-        )
-
-
-def test_list_sessions_rest_pager(transport: str = "rest"):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # TODO(kbandes): remove this mock unless there's a good reason for it.
-        # with mock.patch.object(path_template, 'transcode') as transcode:
-        # Set the response as a series of pages
-        response = (
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                    analyze.Session(),
-                    analyze.Session(),
-                ],
-                next_page_token="abc",
-            ),
-            service.ListSessionsResponse(
-                sessions=[],
-                next_page_token="def",
-            ),
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                ],
-                next_page_token="ghi",
-            ),
-            service.ListSessionsResponse(
-                sessions=[
-                    analyze.Session(),
-                    analyze.Session(),
-                ],
-            ),
-        )
-        # Two responses for two calls
-        response = response + response
-
-        # Wrap the values into proper Response objs
-        response = tuple(service.ListSessionsResponse.to_json(x) for x in response)
-        return_values = tuple(Response() for i in response)
-        for return_val, response_val in zip(return_values, response):
-            return_val._content = response_val.encode("UTF-8")
-            return_val.status_code = 200
-        req.side_effect = return_values
-
-        sample_request = {
-            "parent": "projects/sample1/locations/sample2/lakes/sample3/environments/sample4"
-        }
-
-        pager = client.list_sessions(request=sample_request)
-
-        results = list(pager)
-        assert len(results) == 6
-        assert all(isinstance(i, analyze.Session) for i in results)
-
-        pages = list(client.list_sessions(request=sample_request).pages)
-        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
-            assert page_.raw_page.next_page_token == token
 
 
 def test_credentials_transport_error():
@@ -21280,7 +17715,6 @@ def test_create_lake_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateLakeRequest()
-
         assert args[0] == request_msg
 
 
@@ -21301,7 +17735,6 @@ def test_update_lake_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateLakeRequest()
-
         assert args[0] == request_msg
 
 
@@ -21322,7 +17755,6 @@ def test_delete_lake_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteLakeRequest()
-
         assert args[0] == request_msg
 
 
@@ -21343,7 +17775,6 @@ def test_list_lakes_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListLakesRequest()
-
         assert args[0] == request_msg
 
 
@@ -21364,7 +17795,6 @@ def test_get_lake_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetLakeRequest()
-
         assert args[0] == request_msg
 
 
@@ -21387,7 +17817,6 @@ def test_list_lake_actions_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListLakeActionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -21408,7 +17837,6 @@ def test_create_zone_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -21429,7 +17857,6 @@ def test_update_zone_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -21450,7 +17877,6 @@ def test_delete_zone_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -21471,7 +17897,6 @@ def test_list_zones_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListZonesRequest()
-
         assert args[0] == request_msg
 
 
@@ -21492,7 +17917,6 @@ def test_get_zone_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -21515,7 +17939,6 @@ def test_list_zone_actions_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListZoneActionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -21536,7 +17959,6 @@ def test_create_asset_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -21557,7 +17979,6 @@ def test_update_asset_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -21578,7 +17999,6 @@ def test_delete_asset_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -21599,7 +18019,6 @@ def test_list_assets_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListAssetsRequest()
-
         assert args[0] == request_msg
 
 
@@ -21620,7 +18039,6 @@ def test_get_asset_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -21643,7 +18061,6 @@ def test_list_asset_actions_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListAssetActionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -21664,7 +18081,6 @@ def test_create_task_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -21685,7 +18101,6 @@ def test_update_task_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -21706,7 +18121,6 @@ def test_delete_task_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -21727,7 +18141,6 @@ def test_list_tasks_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListTasksRequest()
-
         assert args[0] == request_msg
 
 
@@ -21748,7 +18161,6 @@ def test_get_task_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -21769,7 +18181,6 @@ def test_list_jobs_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListJobsRequest()
-
         assert args[0] == request_msg
 
 
@@ -21790,7 +18201,6 @@ def test_run_task_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.RunTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -21811,7 +18221,6 @@ def test_get_job_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -21832,141 +18241,6 @@ def test_cancel_job_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CancelJobRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_create_environment_empty_call_grpc():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_environment), "__call__"
-    ) as call:
-        call.return_value = operations_pb2.Operation(name="operations/op")
-        client.create_environment(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.CreateEnvironmentRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_update_environment_empty_call_grpc():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.update_environment), "__call__"
-    ) as call:
-        call.return_value = operations_pb2.Operation(name="operations/op")
-        client.update_environment(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.UpdateEnvironmentRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_delete_environment_empty_call_grpc():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_environment), "__call__"
-    ) as call:
-        call.return_value = operations_pb2.Operation(name="operations/op")
-        client.delete_environment(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.DeleteEnvironmentRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_list_environments_empty_call_grpc():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_environments), "__call__"
-    ) as call:
-        call.return_value = service.ListEnvironmentsResponse()
-        client.list_environments(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.ListEnvironmentsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_get_environment_empty_call_grpc():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(type(client.transport.get_environment), "__call__") as call:
-        call.return_value = analyze.Environment()
-        client.get_environment(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.GetEnvironmentRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_list_sessions_empty_call_grpc():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(type(client.transport.list_sessions), "__call__") as call:
-        call.return_value = service.ListSessionsResponse()
-        client.list_sessions(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.ListSessionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -22005,7 +18279,6 @@ async def test_create_lake_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateLakeRequest()
-
         assert args[0] == request_msg
 
 
@@ -22030,7 +18303,6 @@ async def test_update_lake_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateLakeRequest()
-
         assert args[0] == request_msg
 
 
@@ -22055,7 +18327,6 @@ async def test_delete_lake_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteLakeRequest()
-
         assert args[0] == request_msg
 
 
@@ -22083,7 +18354,6 @@ async def test_list_lakes_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListLakesRequest()
-
         assert args[0] == request_msg
 
 
@@ -22115,7 +18385,6 @@ async def test_get_lake_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetLakeRequest()
-
         assert args[0] == request_msg
 
 
@@ -22144,7 +18413,6 @@ async def test_list_lake_actions_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListLakeActionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -22169,7 +18437,6 @@ async def test_create_zone_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -22194,7 +18461,6 @@ async def test_update_zone_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -22219,7 +18485,6 @@ async def test_delete_zone_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -22246,7 +18511,6 @@ async def test_list_zones_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListZonesRequest()
-
         assert args[0] == request_msg
 
 
@@ -22278,7 +18542,6 @@ async def test_get_zone_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -22307,7 +18570,6 @@ async def test_list_zone_actions_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListZoneActionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -22332,7 +18594,6 @@ async def test_create_asset_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -22357,7 +18618,6 @@ async def test_update_asset_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -22382,7 +18642,6 @@ async def test_delete_asset_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -22409,7 +18668,6 @@ async def test_list_assets_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListAssetsRequest()
-
         assert args[0] == request_msg
 
 
@@ -22440,7 +18698,6 @@ async def test_get_asset_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -22469,7 +18726,6 @@ async def test_list_asset_actions_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListAssetActionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -22494,7 +18750,6 @@ async def test_create_task_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -22519,7 +18774,6 @@ async def test_update_task_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -22544,7 +18798,6 @@ async def test_delete_task_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -22572,7 +18825,6 @@ async def test_list_tasks_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListTasksRequest()
-
         assert args[0] == request_msg
 
 
@@ -22603,7 +18855,6 @@ async def test_get_task_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -22630,7 +18881,6 @@ async def test_list_jobs_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListJobsRequest()
-
         assert args[0] == request_msg
 
 
@@ -22655,7 +18905,6 @@ async def test_run_task_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.RunTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -22689,7 +18938,6 @@ async def test_get_job_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -22712,175 +18960,6 @@ async def test_cancel_job_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CancelJobRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_create_environment_empty_call_grpc_asyncio():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            operations_pb2.Operation(name="operations/spam")
-        )
-        await client.create_environment(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.CreateEnvironmentRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_update_environment_empty_call_grpc_asyncio():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.update_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            operations_pb2.Operation(name="operations/spam")
-        )
-        await client.update_environment(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.UpdateEnvironmentRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_delete_environment_empty_call_grpc_asyncio():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_environment), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            operations_pb2.Operation(name="operations/spam")
-        )
-        await client.delete_environment(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.DeleteEnvironmentRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_list_environments_empty_call_grpc_asyncio():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_environments), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            service.ListEnvironmentsResponse(
-                next_page_token="next_page_token_value",
-            )
-        )
-        await client.list_environments(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.ListEnvironmentsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_get_environment_empty_call_grpc_asyncio():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(type(client.transport.get_environment), "__call__") as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analyze.Environment(
-                name="name_value",
-                display_name="display_name_value",
-                uid="uid_value",
-                description="description_value",
-                state=resources.State.ACTIVE,
-            )
-        )
-        await client.get_environment(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.GetEnvironmentRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_list_sessions_empty_call_grpc_asyncio():
-    client = DataplexServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(type(client.transport.list_sessions), "__call__") as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            service.ListSessionsResponse(
-                next_page_token="next_page_token_value",
-            )
-        )
-        await client.list_sessions(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.ListSessionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -22900,8 +18979,9 @@ def test_create_lake_rest_bad_request(request_type=service.CreateLakeRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -23048,19 +19128,20 @@ def test_create_lake_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_create_lake"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_create_lake_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_create_lake"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_create_lake"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_create_lake_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_create_lake"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -23111,8 +19192,9 @@ def test_update_lake_rest_bad_request(request_type=service.UpdateLakeRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -23261,19 +19343,20 @@ def test_update_lake_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_update_lake"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_update_lake_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_update_lake"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_update_lake"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_update_lake_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_update_lake"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -23322,8 +19405,9 @@ def test_delete_lake_rest_bad_request(request_type=service.DeleteLakeRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -23380,19 +19464,20 @@ def test_delete_lake_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_delete_lake"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_delete_lake_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_delete_lake"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_delete_lake"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_delete_lake_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_delete_lake"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -23441,8 +19526,9 @@ def test_list_lakes_rest_bad_request(request_type=service.ListLakesRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -23507,17 +19593,19 @@ def test_list_lakes_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_lakes"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_lakes_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_list_lakes"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_list_lakes"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_list_lakes_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_list_lakes"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -23566,8 +19654,9 @@ def test_get_lake_rest_bad_request(request_type=service.GetLakeRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -23640,17 +19729,19 @@ def test_get_lake_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_get_lake"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_get_lake_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_get_lake"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_get_lake"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_get_lake_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_get_lake"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -23701,8 +19792,9 @@ def test_list_lake_actions_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -23765,18 +19857,20 @@ def test_list_lake_actions_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_lake_actions"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor,
-        "post_list_lake_actions_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_list_lake_actions"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_list_lake_actions"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor,
+            "post_list_lake_actions_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_list_lake_actions"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -23827,8 +19921,9 @@ def test_create_zone_rest_bad_request(request_type=service.CreateZoneRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -23985,19 +20080,20 @@ def test_create_zone_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_create_zone"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_create_zone_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_create_zone"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_create_zone"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_create_zone_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_create_zone"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -24050,8 +20146,9 @@ def test_update_zone_rest_bad_request(request_type=service.UpdateZoneRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -24212,19 +20309,20 @@ def test_update_zone_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_update_zone"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_update_zone_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_update_zone"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_update_zone"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_update_zone_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_update_zone"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -24275,8 +20373,9 @@ def test_delete_zone_rest_bad_request(request_type=service.DeleteZoneRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -24335,19 +20434,20 @@ def test_delete_zone_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_delete_zone"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_delete_zone_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_delete_zone"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_delete_zone"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_delete_zone_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_delete_zone"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -24396,8 +20496,9 @@ def test_list_zones_rest_bad_request(request_type=service.ListZonesRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -24460,17 +20561,19 @@ def test_list_zones_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_zones"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_zones_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_list_zones"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_list_zones"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_list_zones_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_list_zones"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -24521,8 +20624,9 @@ def test_get_zone_rest_bad_request(request_type=service.GetZoneRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -24597,17 +20701,19 @@ def test_get_zone_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_get_zone"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_get_zone_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_get_zone"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_get_zone"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_get_zone_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_get_zone"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -24660,8 +20766,9 @@ def test_list_zone_actions_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -24726,18 +20833,20 @@ def test_list_zone_actions_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_zone_actions"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor,
-        "post_list_zone_actions_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_list_zone_actions"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_list_zone_actions"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor,
+            "post_list_zone_actions_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_list_zone_actions"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -24790,8 +20899,9 @@ def test_create_asset_rest_bad_request(request_type=service.CreateAssetRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -24964,19 +21074,20 @@ def test_create_asset_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_create_asset"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_create_asset_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_create_asset"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_create_asset"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_create_asset_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_create_asset"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -25029,8 +21140,9 @@ def test_update_asset_rest_bad_request(request_type=service.UpdateAssetRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -25205,19 +21317,20 @@ def test_update_asset_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_update_asset"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_update_asset_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_update_asset"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_update_asset"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_update_asset_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_update_asset"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -25268,8 +21381,9 @@ def test_delete_asset_rest_bad_request(request_type=service.DeleteAssetRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -25328,19 +21442,20 @@ def test_delete_asset_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_delete_asset"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_delete_asset_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_delete_asset"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_delete_asset"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_delete_asset_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_delete_asset"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -25391,8 +21506,9 @@ def test_list_assets_rest_bad_request(request_type=service.ListAssetsRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -25457,17 +21573,19 @@ def test_list_assets_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_assets"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_assets_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_list_assets"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_list_assets"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_list_assets_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_list_assets"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -25518,8 +21636,9 @@ def test_get_asset_rest_bad_request(request_type=service.GetAssetRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -25592,17 +21711,19 @@ def test_get_asset_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_get_asset"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_get_asset_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_get_asset"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_get_asset"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_get_asset_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_get_asset"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -25655,8 +21776,9 @@ def test_list_asset_actions_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -25721,18 +21843,20 @@ def test_list_asset_actions_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_asset_actions"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor,
-        "post_list_asset_actions_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_list_asset_actions"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_list_asset_actions"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor,
+            "post_list_asset_actions_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_list_asset_actions"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -25785,8 +21909,9 @@ def test_create_task_rest_bad_request(request_type=service.CreateTaskRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -25983,19 +22108,20 @@ def test_create_task_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_create_task"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_create_task_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_create_task"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_create_task"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_create_task_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_create_task"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26048,8 +22174,9 @@ def test_update_task_rest_bad_request(request_type=service.UpdateTaskRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26250,19 +22377,20 @@ def test_update_task_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_update_task"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_update_task_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_update_task"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_update_task"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_update_task_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_update_task"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26313,8 +22441,9 @@ def test_delete_task_rest_bad_request(request_type=service.DeleteTaskRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26373,19 +22502,20 @@ def test_delete_task_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_delete_task"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_delete_task_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_delete_task"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_delete_task"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_delete_task_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_delete_task"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26434,8 +22564,9 @@ def test_list_tasks_rest_bad_request(request_type=service.ListTasksRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26500,17 +22631,19 @@ def test_list_tasks_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_tasks"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_tasks_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_list_tasks"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_list_tasks"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_list_tasks_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_list_tasks"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26561,8 +22694,9 @@ def test_get_task_rest_bad_request(request_type=service.GetTaskRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26635,17 +22769,19 @@ def test_get_task_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_get_task"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_get_task_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_get_task"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_get_task"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_get_task_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_get_task"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26696,8 +22832,9 @@ def test_list_jobs_rest_bad_request(request_type=service.ListJobsRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26762,17 +22899,19 @@ def test_list_jobs_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_jobs"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_jobs_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_list_jobs"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_list_jobs"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_list_jobs_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_list_jobs"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26823,8 +22962,9 @@ def test_run_task_rest_bad_request(request_type=service.RunTaskRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26886,17 +23026,19 @@ def test_run_task_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_run_task"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_run_task_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_run_task"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_run_task"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_run_task_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_run_task"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26947,8 +23089,9 @@ def test_get_job_rest_bad_request(request_type=service.GetJobRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -27027,17 +23170,19 @@ def test_get_job_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_get_job"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_get_job_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_get_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_get_job"
+        ) as post,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "post_get_job_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_get_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -27088,8 +23233,9 @@ def test_cancel_job_rest_bad_request(request_type=service.CancelJobRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -27148,13 +23294,13 @@ def test_cancel_job_rest_interceptors(null_interceptor):
     )
     client = DataplexServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_cancel_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DataplexServiceRestInterceptor, "pre_cancel_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = service.CancelJobRequest.pb(service.CancelJobRequest())
         transcode.return_value = {
@@ -27186,976 +23332,6 @@ def test_cancel_job_rest_interceptors(null_interceptor):
         pre.assert_called_once()
 
 
-def test_create_environment_rest_bad_request(
-    request_type=service.CreateEnvironmentRequest,
-):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {"parent": "projects/sample1/locations/sample2/lakes/sample3"}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.create_environment(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        service.CreateEnvironmentRequest,
-        dict,
-    ],
-)
-def test_create_environment_rest_call_success(request_type):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {"parent": "projects/sample1/locations/sample2/lakes/sample3"}
-    request_init["environment"] = {
-        "name": "name_value",
-        "display_name": "display_name_value",
-        "uid": "uid_value",
-        "create_time": {"seconds": 751, "nanos": 543},
-        "update_time": {},
-        "labels": {},
-        "description": "description_value",
-        "state": 1,
-        "infrastructure_spec": {
-            "compute": {
-                "disk_size_gb": 1261,
-                "node_count": 1070,
-                "max_node_count": 1491,
-            },
-            "os_image": {
-                "image_version": "image_version_value",
-                "java_libraries": ["java_libraries_value1", "java_libraries_value2"],
-                "python_packages": ["python_packages_value1", "python_packages_value2"],
-                "properties": {},
-            },
-        },
-        "session_spec": {
-            "max_idle_duration": {"seconds": 751, "nanos": 543},
-            "enable_fast_startup": True,
-        },
-        "session_status": {"active": True},
-        "endpoints": {"notebooks": "notebooks_value", "sql": "sql_value"},
-    }
-    # The version of a generated dependency at test runtime may differ from the version used during generation.
-    # Delete any fields which are not present in the current runtime dependency
-    # See https://github.com/googleapis/gapic-generator-python/issues/1748
-
-    # Determine if the message type is proto-plus or protobuf
-    test_field = service.CreateEnvironmentRequest.meta.fields["environment"]
-
-    def get_message_fields(field):
-        # Given a field which is a message (composite type), return a list with
-        # all the fields of the message.
-        # If the field is not a composite type, return an empty list.
-        message_fields = []
-
-        if hasattr(field, "message") and field.message:
-            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
-
-            if is_field_type_proto_plus_type:
-                message_fields = field.message.meta.fields.values()
-            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
-            else:  # pragma: NO COVER
-                message_fields = field.message.DESCRIPTOR.fields
-        return message_fields
-
-    runtime_nested_fields = [
-        (field.name, nested_field.name)
-        for field in get_message_fields(test_field)
-        for nested_field in get_message_fields(field)
-    ]
-
-    subfields_not_in_runtime = []
-
-    # For each item in the sample request, create a list of sub fields which are not present at runtime
-    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
-    for field, value in request_init["environment"].items():  # pragma: NO COVER
-        result = None
-        is_repeated = False
-        # For repeated fields
-        if isinstance(value, list) and len(value):
-            is_repeated = True
-            result = value[0]
-        # For fields where the type is another message
-        if isinstance(value, dict):
-            result = value
-
-        if result and hasattr(result, "keys"):
-            for subfield in result.keys():
-                if (field, subfield) not in runtime_nested_fields:
-                    subfields_not_in_runtime.append(
-                        {
-                            "field": field,
-                            "subfield": subfield,
-                            "is_repeated": is_repeated,
-                        }
-                    )
-
-    # Remove fields from the sample request which are not present in the runtime version of the dependency
-    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
-    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
-        field = subfield_to_delete.get("field")
-        field_repeated = subfield_to_delete.get("is_repeated")
-        subfield = subfield_to_delete.get("subfield")
-        if subfield:
-            if field_repeated:
-                for i in range(0, len(request_init["environment"][field])):
-                    del request_init["environment"][field][i][subfield]
-            else:
-                del request_init["environment"][field][subfield]
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = operations_pb2.Operation(name="operations/spam")
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.create_environment(request)
-
-    # Establish that the response is the type that we expect.
-    json_return_value = json_format.MessageToJson(return_value)
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_create_environment_rest_interceptors(null_interceptor):
-    transport = transports.DataplexServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.DataplexServiceRestInterceptor(),
-    )
-    client = DataplexServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_create_environment"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor,
-        "post_create_environment_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_create_environment"
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = service.CreateEnvironmentRequest.pb(
-            service.CreateEnvironmentRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = json_format.MessageToJson(operations_pb2.Operation())
-        req.return_value.content = return_value
-
-        request = service.CreateEnvironmentRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = operations_pb2.Operation()
-        post_with_metadata.return_value = operations_pb2.Operation(), metadata
-
-        client.create_environment(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
-def test_update_environment_rest_bad_request(
-    request_type=service.UpdateEnvironmentRequest,
-):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {
-        "environment": {
-            "name": "projects/sample1/locations/sample2/lakes/sample3/environments/sample4"
-        }
-    }
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.update_environment(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        service.UpdateEnvironmentRequest,
-        dict,
-    ],
-)
-def test_update_environment_rest_call_success(request_type):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {
-        "environment": {
-            "name": "projects/sample1/locations/sample2/lakes/sample3/environments/sample4"
-        }
-    }
-    request_init["environment"] = {
-        "name": "projects/sample1/locations/sample2/lakes/sample3/environments/sample4",
-        "display_name": "display_name_value",
-        "uid": "uid_value",
-        "create_time": {"seconds": 751, "nanos": 543},
-        "update_time": {},
-        "labels": {},
-        "description": "description_value",
-        "state": 1,
-        "infrastructure_spec": {
-            "compute": {
-                "disk_size_gb": 1261,
-                "node_count": 1070,
-                "max_node_count": 1491,
-            },
-            "os_image": {
-                "image_version": "image_version_value",
-                "java_libraries": ["java_libraries_value1", "java_libraries_value2"],
-                "python_packages": ["python_packages_value1", "python_packages_value2"],
-                "properties": {},
-            },
-        },
-        "session_spec": {
-            "max_idle_duration": {"seconds": 751, "nanos": 543},
-            "enable_fast_startup": True,
-        },
-        "session_status": {"active": True},
-        "endpoints": {"notebooks": "notebooks_value", "sql": "sql_value"},
-    }
-    # The version of a generated dependency at test runtime may differ from the version used during generation.
-    # Delete any fields which are not present in the current runtime dependency
-    # See https://github.com/googleapis/gapic-generator-python/issues/1748
-
-    # Determine if the message type is proto-plus or protobuf
-    test_field = service.UpdateEnvironmentRequest.meta.fields["environment"]
-
-    def get_message_fields(field):
-        # Given a field which is a message (composite type), return a list with
-        # all the fields of the message.
-        # If the field is not a composite type, return an empty list.
-        message_fields = []
-
-        if hasattr(field, "message") and field.message:
-            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
-
-            if is_field_type_proto_plus_type:
-                message_fields = field.message.meta.fields.values()
-            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
-            else:  # pragma: NO COVER
-                message_fields = field.message.DESCRIPTOR.fields
-        return message_fields
-
-    runtime_nested_fields = [
-        (field.name, nested_field.name)
-        for field in get_message_fields(test_field)
-        for nested_field in get_message_fields(field)
-    ]
-
-    subfields_not_in_runtime = []
-
-    # For each item in the sample request, create a list of sub fields which are not present at runtime
-    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
-    for field, value in request_init["environment"].items():  # pragma: NO COVER
-        result = None
-        is_repeated = False
-        # For repeated fields
-        if isinstance(value, list) and len(value):
-            is_repeated = True
-            result = value[0]
-        # For fields where the type is another message
-        if isinstance(value, dict):
-            result = value
-
-        if result and hasattr(result, "keys"):
-            for subfield in result.keys():
-                if (field, subfield) not in runtime_nested_fields:
-                    subfields_not_in_runtime.append(
-                        {
-                            "field": field,
-                            "subfield": subfield,
-                            "is_repeated": is_repeated,
-                        }
-                    )
-
-    # Remove fields from the sample request which are not present in the runtime version of the dependency
-    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
-    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
-        field = subfield_to_delete.get("field")
-        field_repeated = subfield_to_delete.get("is_repeated")
-        subfield = subfield_to_delete.get("subfield")
-        if subfield:
-            if field_repeated:
-                for i in range(0, len(request_init["environment"][field])):
-                    del request_init["environment"][field][i][subfield]
-            else:
-                del request_init["environment"][field][subfield]
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = operations_pb2.Operation(name="operations/spam")
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.update_environment(request)
-
-    # Establish that the response is the type that we expect.
-    json_return_value = json_format.MessageToJson(return_value)
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_update_environment_rest_interceptors(null_interceptor):
-    transport = transports.DataplexServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.DataplexServiceRestInterceptor(),
-    )
-    client = DataplexServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_update_environment"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor,
-        "post_update_environment_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_update_environment"
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = service.UpdateEnvironmentRequest.pb(
-            service.UpdateEnvironmentRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = json_format.MessageToJson(operations_pb2.Operation())
-        req.return_value.content = return_value
-
-        request = service.UpdateEnvironmentRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = operations_pb2.Operation()
-        post_with_metadata.return_value = operations_pb2.Operation(), metadata
-
-        client.update_environment(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
-def test_delete_environment_rest_bad_request(
-    request_type=service.DeleteEnvironmentRequest,
-):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {
-        "name": "projects/sample1/locations/sample2/lakes/sample3/environments/sample4"
-    }
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.delete_environment(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        service.DeleteEnvironmentRequest,
-        dict,
-    ],
-)
-def test_delete_environment_rest_call_success(request_type):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {
-        "name": "projects/sample1/locations/sample2/lakes/sample3/environments/sample4"
-    }
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = operations_pb2.Operation(name="operations/spam")
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.delete_environment(request)
-
-    # Establish that the response is the type that we expect.
-    json_return_value = json_format.MessageToJson(return_value)
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_delete_environment_rest_interceptors(null_interceptor):
-    transport = transports.DataplexServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.DataplexServiceRestInterceptor(),
-    )
-    client = DataplexServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_delete_environment"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor,
-        "post_delete_environment_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_delete_environment"
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = service.DeleteEnvironmentRequest.pb(
-            service.DeleteEnvironmentRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = json_format.MessageToJson(operations_pb2.Operation())
-        req.return_value.content = return_value
-
-        request = service.DeleteEnvironmentRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = operations_pb2.Operation()
-        post_with_metadata.return_value = operations_pb2.Operation(), metadata
-
-        client.delete_environment(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
-def test_list_environments_rest_bad_request(
-    request_type=service.ListEnvironmentsRequest,
-):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {"parent": "projects/sample1/locations/sample2/lakes/sample3"}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.list_environments(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        service.ListEnvironmentsRequest,
-        dict,
-    ],
-)
-def test_list_environments_rest_call_success(request_type):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {"parent": "projects/sample1/locations/sample2/lakes/sample3"}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = service.ListEnvironmentsResponse(
-            next_page_token="next_page_token_value",
-        )
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-
-        # Convert return value to protobuf type
-        return_value = service.ListEnvironmentsResponse.pb(return_value)
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.list_environments(request)
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, pagers.ListEnvironmentsPager)
-    assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_list_environments_rest_interceptors(null_interceptor):
-    transport = transports.DataplexServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.DataplexServiceRestInterceptor(),
-    )
-    client = DataplexServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_environments"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor,
-        "post_list_environments_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_list_environments"
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = service.ListEnvironmentsRequest.pb(
-            service.ListEnvironmentsRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = service.ListEnvironmentsResponse.to_json(
-            service.ListEnvironmentsResponse()
-        )
-        req.return_value.content = return_value
-
-        request = service.ListEnvironmentsRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = service.ListEnvironmentsResponse()
-        post_with_metadata.return_value = service.ListEnvironmentsResponse(), metadata
-
-        client.list_environments(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
-def test_get_environment_rest_bad_request(request_type=service.GetEnvironmentRequest):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {
-        "name": "projects/sample1/locations/sample2/lakes/sample3/environments/sample4"
-    }
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.get_environment(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        service.GetEnvironmentRequest,
-        dict,
-    ],
-)
-def test_get_environment_rest_call_success(request_type):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {
-        "name": "projects/sample1/locations/sample2/lakes/sample3/environments/sample4"
-    }
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = analyze.Environment(
-            name="name_value",
-            display_name="display_name_value",
-            uid="uid_value",
-            description="description_value",
-            state=resources.State.ACTIVE,
-        )
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-
-        # Convert return value to protobuf type
-        return_value = analyze.Environment.pb(return_value)
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.get_environment(request)
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analyze.Environment)
-    assert response.name == "name_value"
-    assert response.display_name == "display_name_value"
-    assert response.uid == "uid_value"
-    assert response.description == "description_value"
-    assert response.state == resources.State.ACTIVE
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_get_environment_rest_interceptors(null_interceptor):
-    transport = transports.DataplexServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.DataplexServiceRestInterceptor(),
-    )
-    client = DataplexServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_get_environment"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_get_environment_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_get_environment"
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = service.GetEnvironmentRequest.pb(service.GetEnvironmentRequest())
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = analyze.Environment.to_json(analyze.Environment())
-        req.return_value.content = return_value
-
-        request = service.GetEnvironmentRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = analyze.Environment()
-        post_with_metadata.return_value = analyze.Environment(), metadata
-
-        client.get_environment(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
-def test_list_sessions_rest_bad_request(request_type=service.ListSessionsRequest):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {
-        "parent": "projects/sample1/locations/sample2/lakes/sample3/environments/sample4"
-    }
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.list_sessions(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        service.ListSessionsRequest,
-        dict,
-    ],
-)
-def test_list_sessions_rest_call_success(request_type):
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {
-        "parent": "projects/sample1/locations/sample2/lakes/sample3/environments/sample4"
-    }
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = service.ListSessionsResponse(
-            next_page_token="next_page_token_value",
-        )
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-
-        # Convert return value to protobuf type
-        return_value = service.ListSessionsResponse.pb(return_value)
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.list_sessions(request)
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, pagers.ListSessionsPager)
-    assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_list_sessions_rest_interceptors(null_interceptor):
-    transport = transports.DataplexServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.DataplexServiceRestInterceptor(),
-    )
-    client = DataplexServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_sessions"
-    ) as post, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "post_list_sessions_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DataplexServiceRestInterceptor, "pre_list_sessions"
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = service.ListSessionsRequest.pb(service.ListSessionsRequest())
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = service.ListSessionsResponse.to_json(
-            service.ListSessionsResponse()
-        )
-        req.return_value.content = return_value
-
-        request = service.ListSessionsRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = service.ListSessionsResponse()
-        post_with_metadata.return_value = service.ListSessionsResponse(), metadata
-
-        client.list_sessions(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
 def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationRequest):
     client = DataplexServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -28167,8 +23343,9 @@ def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationReq
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -28227,8 +23404,9 @@ def test_list_locations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -28276,6 +23454,195 @@ def test_list_locations_rest(request_type):
     assert isinstance(response, locations_pb2.ListLocationsResponse)
 
 
+def test_get_iam_policy_rest_bad_request(
+    request_type=iam_policy_pb2.GetIamPolicyRequest,
+):
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type()
+    request = json_format.ParseDict(
+        {"resource": "projects/sample1/locations/sample2/lakes/sample3"}, request
+    )
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = Request()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_iam_policy(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        iam_policy_pb2.GetIamPolicyRequest,
+        dict,
+    ],
+)
+def test_get_iam_policy_rest(request_type):
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    request_init = {"resource": "projects/sample1/locations/sample2/lakes/sample3"}
+    request = request_type(**request_init)
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = policy_pb2.Policy()
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        response = client.get_iam_policy(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, policy_pb2.Policy)
+
+
+def test_set_iam_policy_rest_bad_request(
+    request_type=iam_policy_pb2.SetIamPolicyRequest,
+):
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type()
+    request = json_format.ParseDict(
+        {"resource": "projects/sample1/locations/sample2/lakes/sample3"}, request
+    )
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = Request()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.set_iam_policy(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        iam_policy_pb2.SetIamPolicyRequest,
+        dict,
+    ],
+)
+def test_set_iam_policy_rest(request_type):
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    request_init = {"resource": "projects/sample1/locations/sample2/lakes/sample3"}
+    request = request_type(**request_init)
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = policy_pb2.Policy()
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        response = client.set_iam_policy(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, policy_pb2.Policy)
+
+
+def test_test_iam_permissions_rest_bad_request(
+    request_type=iam_policy_pb2.TestIamPermissionsRequest,
+):
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type()
+    request = json_format.ParseDict(
+        {"resource": "projects/sample1/locations/sample2/lakes/sample3"}, request
+    )
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = Request()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.test_iam_permissions(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        iam_policy_pb2.TestIamPermissionsRequest,
+        dict,
+    ],
+)
+def test_test_iam_permissions_rest(request_type):
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    request_init = {"resource": "projects/sample1/locations/sample2/lakes/sample3"}
+    request = request_type(**request_init)
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = iam_policy_pb2.TestIamPermissionsResponse()
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        response = client.test_iam_permissions(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, iam_policy_pb2.TestIamPermissionsResponse)
+
+
 def test_cancel_operation_rest_bad_request(
     request_type=operations_pb2.CancelOperationRequest,
 ):
@@ -28289,8 +23656,9 @@ def test_cancel_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -28351,8 +23719,9 @@ def test_delete_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -28413,8 +23782,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -28475,8 +23845,9 @@ def test_list_operations_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -28547,7 +23918,6 @@ def test_create_lake_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateLakeRequest()
-
         assert args[0] == request_msg
 
 
@@ -28567,7 +23937,6 @@ def test_update_lake_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateLakeRequest()
-
         assert args[0] == request_msg
 
 
@@ -28587,7 +23956,6 @@ def test_delete_lake_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteLakeRequest()
-
         assert args[0] == request_msg
 
 
@@ -28607,7 +23975,6 @@ def test_list_lakes_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListLakesRequest()
-
         assert args[0] == request_msg
 
 
@@ -28627,7 +23994,6 @@ def test_get_lake_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetLakeRequest()
-
         assert args[0] == request_msg
 
 
@@ -28649,7 +24015,6 @@ def test_list_lake_actions_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListLakeActionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -28669,7 +24034,6 @@ def test_create_zone_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -28689,7 +24053,6 @@ def test_update_zone_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -28709,7 +24072,6 @@ def test_delete_zone_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -28729,7 +24091,6 @@ def test_list_zones_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListZonesRequest()
-
         assert args[0] == request_msg
 
 
@@ -28749,7 +24110,6 @@ def test_get_zone_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetZoneRequest()
-
         assert args[0] == request_msg
 
 
@@ -28771,7 +24131,6 @@ def test_list_zone_actions_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListZoneActionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -28791,7 +24150,6 @@ def test_create_asset_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -28811,7 +24169,6 @@ def test_update_asset_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -28831,7 +24188,6 @@ def test_delete_asset_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -28851,7 +24207,6 @@ def test_list_assets_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListAssetsRequest()
-
         assert args[0] == request_msg
 
 
@@ -28871,7 +24226,6 @@ def test_get_asset_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetAssetRequest()
-
         assert args[0] == request_msg
 
 
@@ -28893,7 +24247,6 @@ def test_list_asset_actions_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListAssetActionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -28913,7 +24266,6 @@ def test_create_task_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CreateTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -28933,7 +24285,6 @@ def test_update_task_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.UpdateTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -28953,7 +24304,6 @@ def test_delete_task_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.DeleteTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -28973,7 +24323,6 @@ def test_list_tasks_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListTasksRequest()
-
         assert args[0] == request_msg
 
 
@@ -28993,7 +24342,6 @@ def test_get_task_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -29013,7 +24361,6 @@ def test_list_jobs_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.ListJobsRequest()
-
         assert args[0] == request_msg
 
 
@@ -29033,7 +24380,6 @@ def test_run_task_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.RunTaskRequest()
-
         assert args[0] == request_msg
 
 
@@ -29053,7 +24399,6 @@ def test_get_job_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.GetJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -29073,135 +24418,6 @@ def test_cancel_job_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = service.CancelJobRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_create_environment_empty_call_rest():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_environment), "__call__"
-    ) as call:
-        client.create_environment(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.CreateEnvironmentRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_update_environment_empty_call_rest():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.update_environment), "__call__"
-    ) as call:
-        client.update_environment(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.UpdateEnvironmentRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_delete_environment_empty_call_rest():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_environment), "__call__"
-    ) as call:
-        client.delete_environment(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.DeleteEnvironmentRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_list_environments_empty_call_rest():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_environments), "__call__"
-    ) as call:
-        client.list_environments(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.ListEnvironmentsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_get_environment_empty_call_rest():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(type(client.transport.get_environment), "__call__") as call:
-        client.get_environment(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.GetEnvironmentRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_list_sessions_empty_call_rest():
-    client = DataplexServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(type(client.transport.list_sessions), "__call__") as call:
-        client.list_sessions(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = service.ListSessionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -29282,12 +24498,9 @@ def test_dataplex_service_base_transport():
         "run_task",
         "get_job",
         "cancel_job",
-        "create_environment",
-        "update_environment",
-        "delete_environment",
-        "list_environments",
-        "get_environment",
-        "list_sessions",
+        "set_iam_policy",
+        "get_iam_policy",
+        "test_iam_permissions",
         "get_location",
         "list_locations",
         "get_operation",
@@ -29318,11 +24531,14 @@ def test_dataplex_service_base_transport():
 
 def test_dataplex_service_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.dataplex_v1.services.dataplex_service.transports.DataplexServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.dataplex_v1.services.dataplex_service.transports.DataplexServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.DataplexServiceTransport(
@@ -29339,9 +24555,12 @@ def test_dataplex_service_base_transport_with_credentials_file():
 
 def test_dataplex_service_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.dataplex_v1.services.dataplex_service.transports.DataplexServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.dataplex_v1.services.dataplex_service.transports.DataplexServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.DataplexServiceTransport()
@@ -29413,11 +24632,12 @@ def test_dataplex_service_transport_auth_gdch_credentials(transport_class):
 def test_dataplex_service_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -29638,24 +24858,6 @@ def test_dataplex_service_client_transport_session_collision(transport_name):
     session1 = client1.transport.cancel_job._session
     session2 = client2.transport.cancel_job._session
     assert session1 != session2
-    session1 = client1.transport.create_environment._session
-    session2 = client2.transport.create_environment._session
-    assert session1 != session2
-    session1 = client1.transport.update_environment._session
-    session2 = client2.transport.update_environment._session
-    assert session1 != session2
-    session1 = client1.transport.delete_environment._session
-    session2 = client2.transport.delete_environment._session
-    assert session1 != session2
-    session1 = client1.transport.list_environments._session
-    session2 = client2.transport.list_environments._session
-    assert session1 != session2
-    session1 = client1.transport.get_environment._session
-    session2 = client2.transport.get_environment._session
-    assert session1 != session2
-    session1 = client1.transport.list_sessions._session
-    session2 = client2.transport.list_sessions._session
-    assert session1 != session2
 
 
 def test_dataplex_service_grpc_transport_channel():
@@ -29686,6 +24888,7 @@ def test_dataplex_service_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [
@@ -29881,43 +25084,12 @@ def test_parse_asset_path():
     assert expected == actual
 
 
-def test_environment_path():
+def test_job_path():
     project = "cuttlefish"
     location = "mussel"
     lake = "winkle"
-    environment = "nautilus"
-    expected = "projects/{project}/locations/{location}/lakes/{lake}/environments/{environment}".format(
-        project=project,
-        location=location,
-        lake=lake,
-        environment=environment,
-    )
-    actual = DataplexServiceClient.environment_path(
-        project, location, lake, environment
-    )
-    assert expected == actual
-
-
-def test_parse_environment_path():
-    expected = {
-        "project": "scallop",
-        "location": "abalone",
-        "lake": "squid",
-        "environment": "clam",
-    }
-    path = DataplexServiceClient.environment_path(**expected)
-
-    # Check that the path construction is reversible.
-    actual = DataplexServiceClient.parse_environment_path(path)
-    assert expected == actual
-
-
-def test_job_path():
-    project = "whelk"
-    location = "octopus"
-    lake = "oyster"
-    task = "nudibranch"
-    job = "cuttlefish"
+    task = "nautilus"
+    job = "scallop"
     expected = "projects/{project}/locations/{location}/lakes/{lake}/tasks/{task}/jobs/{job}".format(
         project=project,
         location=location,
@@ -29931,11 +25103,11 @@ def test_job_path():
 
 def test_parse_job_path():
     expected = {
-        "project": "mussel",
-        "location": "winkle",
-        "lake": "nautilus",
-        "task": "scallop",
-        "job": "abalone",
+        "project": "abalone",
+        "location": "squid",
+        "lake": "clam",
+        "task": "whelk",
+        "job": "octopus",
     }
     path = DataplexServiceClient.job_path(**expected)
 
@@ -29945,9 +25117,9 @@ def test_parse_job_path():
 
 
 def test_lake_path():
-    project = "squid"
-    location = "clam"
-    lake = "whelk"
+    project = "oyster"
+    location = "nudibranch"
+    lake = "cuttlefish"
     expected = "projects/{project}/locations/{location}/lakes/{lake}".format(
         project=project,
         location=location,
@@ -29959,9 +25131,9 @@ def test_lake_path():
 
 def test_parse_lake_path():
     expected = {
-        "project": "octopus",
-        "location": "oyster",
-        "lake": "nudibranch",
+        "project": "mussel",
+        "location": "winkle",
+        "lake": "nautilus",
     }
     path = DataplexServiceClient.lake_path(**expected)
 
@@ -29970,45 +25142,11 @@ def test_parse_lake_path():
     assert expected == actual
 
 
-def test_session_path():
-    project = "cuttlefish"
-    location = "mussel"
-    lake = "winkle"
-    environment = "nautilus"
-    session = "scallop"
-    expected = "projects/{project}/locations/{location}/lakes/{lake}/environments/{environment}/sessions/{session}".format(
-        project=project,
-        location=location,
-        lake=lake,
-        environment=environment,
-        session=session,
-    )
-    actual = DataplexServiceClient.session_path(
-        project, location, lake, environment, session
-    )
-    assert expected == actual
-
-
-def test_parse_session_path():
-    expected = {
-        "project": "abalone",
-        "location": "squid",
-        "lake": "clam",
-        "environment": "whelk",
-        "session": "octopus",
-    }
-    path = DataplexServiceClient.session_path(**expected)
-
-    # Check that the path construction is reversible.
-    actual = DataplexServiceClient.parse_session_path(path)
-    assert expected == actual
-
-
 def test_task_path():
-    project = "oyster"
-    location = "nudibranch"
-    lake = "cuttlefish"
-    task = "mussel"
+    project = "scallop"
+    location = "abalone"
+    lake = "squid"
+    task = "clam"
     expected = (
         "projects/{project}/locations/{location}/lakes/{lake}/tasks/{task}".format(
             project=project,
@@ -30023,10 +25161,10 @@ def test_task_path():
 
 def test_parse_task_path():
     expected = {
-        "project": "winkle",
-        "location": "nautilus",
-        "lake": "scallop",
-        "task": "abalone",
+        "project": "whelk",
+        "location": "octopus",
+        "lake": "oyster",
+        "task": "nudibranch",
     }
     path = DataplexServiceClient.task_path(**expected)
 
@@ -30036,10 +25174,10 @@ def test_parse_task_path():
 
 
 def test_zone_path():
-    project = "squid"
-    location = "clam"
-    lake = "whelk"
-    zone = "octopus"
+    project = "cuttlefish"
+    location = "mussel"
+    lake = "winkle"
+    zone = "nautilus"
     expected = (
         "projects/{project}/locations/{location}/lakes/{lake}/zones/{zone}".format(
             project=project,
@@ -30054,10 +25192,10 @@ def test_zone_path():
 
 def test_parse_zone_path():
     expected = {
-        "project": "oyster",
-        "location": "nudibranch",
-        "lake": "cuttlefish",
-        "zone": "mussel",
+        "project": "scallop",
+        "location": "abalone",
+        "lake": "squid",
+        "zone": "clam",
     }
     path = DataplexServiceClient.zone_path(**expected)
 
@@ -30067,7 +25205,7 @@ def test_parse_zone_path():
 
 
 def test_common_billing_account_path():
-    billing_account = "winkle"
+    billing_account = "whelk"
     expected = "billingAccounts/{billing_account}".format(
         billing_account=billing_account,
     )
@@ -30077,7 +25215,7 @@ def test_common_billing_account_path():
 
 def test_parse_common_billing_account_path():
     expected = {
-        "billing_account": "nautilus",
+        "billing_account": "octopus",
     }
     path = DataplexServiceClient.common_billing_account_path(**expected)
 
@@ -30087,7 +25225,7 @@ def test_parse_common_billing_account_path():
 
 
 def test_common_folder_path():
-    folder = "scallop"
+    folder = "oyster"
     expected = "folders/{folder}".format(
         folder=folder,
     )
@@ -30097,7 +25235,7 @@ def test_common_folder_path():
 
 def test_parse_common_folder_path():
     expected = {
-        "folder": "abalone",
+        "folder": "nudibranch",
     }
     path = DataplexServiceClient.common_folder_path(**expected)
 
@@ -30107,7 +25245,7 @@ def test_parse_common_folder_path():
 
 
 def test_common_organization_path():
-    organization = "squid"
+    organization = "cuttlefish"
     expected = "organizations/{organization}".format(
         organization=organization,
     )
@@ -30117,7 +25255,7 @@ def test_common_organization_path():
 
 def test_parse_common_organization_path():
     expected = {
-        "organization": "clam",
+        "organization": "mussel",
     }
     path = DataplexServiceClient.common_organization_path(**expected)
 
@@ -30127,7 +25265,7 @@ def test_parse_common_organization_path():
 
 
 def test_common_project_path():
-    project = "whelk"
+    project = "winkle"
     expected = "projects/{project}".format(
         project=project,
     )
@@ -30137,7 +25275,7 @@ def test_common_project_path():
 
 def test_parse_common_project_path():
     expected = {
-        "project": "octopus",
+        "project": "nautilus",
     }
     path = DataplexServiceClient.common_project_path(**expected)
 
@@ -30147,8 +25285,8 @@ def test_parse_common_project_path():
 
 
 def test_common_location_path():
-    project = "oyster"
-    location = "nudibranch"
+    project = "scallop"
+    location = "abalone"
     expected = "projects/{project}/locations/{location}".format(
         project=project,
         location=location,
@@ -30159,8 +25297,8 @@ def test_common_location_path():
 
 def test_parse_common_location_path():
     expected = {
-        "project": "cuttlefish",
-        "location": "mussel",
+        "project": "squid",
+        "location": "clam",
     }
     path = DataplexServiceClient.common_location_path(**expected)
 
@@ -30331,6 +25469,38 @@ async def test_delete_operation_from_dict_async():
         call.assert_called()
 
 
+def test_delete_operation_flattened():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_flattened_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
 def test_cancel_operation(transport: str = "grpc"):
     client = DataplexServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -30468,6 +25638,38 @@ async def test_cancel_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_cancel_operation_flattened():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
 
 
 def test_get_operation(transport: str = "grpc"):
@@ -30615,6 +25817,40 @@ async def test_get_operation_from_dict_async():
         call.assert_called()
 
 
+def test_get_operation_flattened():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
 def test_list_operations(transport: str = "grpc"):
     client = DataplexServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -30758,6 +25994,40 @@ async def test_list_operations_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_list_operations_flattened():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
 
 
 def test_list_locations(transport: str = "grpc"):
@@ -30905,6 +26175,40 @@ async def test_list_locations_from_dict_async():
         call.assert_called()
 
 
+def test_list_locations_flattened():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_flattened_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
 def test_get_location(transport: str = "grpc"):
     client = DataplexServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -31044,6 +26348,659 @@ async def test_get_location_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_location_flattened():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_location_flattened_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+def test_set_iam_policy(transport: str = "grpc"):
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = iam_policy_pb2.SetIamPolicyRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy(
+            version=774,
+            etag=b"etag_blob",
+        )
+        response = client.set_iam_policy(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, policy_pb2.Policy)
+
+    assert response.version == 774
+
+    assert response.etag == b"etag_blob"
+
+
+@pytest.mark.asyncio
+async def test_set_iam_policy_async(transport: str = "grpc_asyncio"):
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = iam_policy_pb2.SetIamPolicyRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            policy_pb2.Policy(
+                version=774,
+                etag=b"etag_blob",
+            )
+        )
+        response = await client.set_iam_policy(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, policy_pb2.Policy)
+
+    assert response.version == 774
+
+    assert response.etag == b"etag_blob"
+
+
+def test_set_iam_policy_field_headers():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = iam_policy_pb2.SetIamPolicyRequest()
+    request.resource = "resource/value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        call.return_value = policy_pb2.Policy()
+
+        client.set_iam_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "resource=resource/value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_set_iam_policy_field_headers_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = iam_policy_pb2.SetIamPolicyRequest()
+    request.resource = "resource/value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.set_iam_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "resource=resource/value",
+    ) in kw["metadata"]
+
+
+def test_set_iam_policy_from_dict():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        response = client.set_iam_policy(
+            request={
+                "resource": "resource_value",
+                "policy": policy_pb2.Policy(version=774),
+            }
+        )
+        call.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_set_iam_policy_from_dict_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        response = await client.set_iam_policy(
+            request={
+                "resource": "resource_value",
+                "policy": policy_pb2.Policy(version=774),
+            }
+        )
+        call.assert_called()
+
+
+def test_set_iam_policy_flattened():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        client.set_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.SetIamPolicyRequest()
+
+
+@pytest.mark.asyncio
+async def test_set_iam_policy_flattened_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.set_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.SetIamPolicyRequest()
+
+
+def test_get_iam_policy(transport: str = "grpc"):
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = iam_policy_pb2.GetIamPolicyRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy(
+            version=774,
+            etag=b"etag_blob",
+        )
+
+        response = client.get_iam_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, policy_pb2.Policy)
+
+    assert response.version == 774
+
+    assert response.etag == b"etag_blob"
+
+
+@pytest.mark.asyncio
+async def test_get_iam_policy_async(transport: str = "grpc_asyncio"):
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = iam_policy_pb2.GetIamPolicyRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            policy_pb2.Policy(
+                version=774,
+                etag=b"etag_blob",
+            )
+        )
+
+        response = await client.get_iam_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, policy_pb2.Policy)
+
+    assert response.version == 774
+
+    assert response.etag == b"etag_blob"
+
+
+def test_get_iam_policy_field_headers():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = iam_policy_pb2.GetIamPolicyRequest()
+    request.resource = "resource/value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        call.return_value = policy_pb2.Policy()
+
+        client.get_iam_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "resource=resource/value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_iam_policy_field_headers_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = iam_policy_pb2.GetIamPolicyRequest()
+    request.resource = "resource/value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.get_iam_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "resource=resource/value",
+    ) in kw["metadata"]
+
+
+def test_get_iam_policy_from_dict():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        response = client.get_iam_policy(
+            request={
+                "resource": "resource_value",
+                "options": options_pb2.GetPolicyOptions(requested_policy_version=2598),
+            }
+        )
+        call.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_get_iam_policy_from_dict_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        response = await client.get_iam_policy(
+            request={
+                "resource": "resource_value",
+                "options": options_pb2.GetPolicyOptions(requested_policy_version=2598),
+            }
+        )
+        call.assert_called()
+
+
+def test_get_iam_policy_flattened():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        client.get_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.GetIamPolicyRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_iam_policy_flattened_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.get_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.GetIamPolicyRequest()
+
+
+def test_test_iam_permissions(transport: str = "grpc"):
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = iam_policy_pb2.TestIamPermissionsRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = iam_policy_pb2.TestIamPermissionsResponse(
+            permissions=["permissions_value"],
+        )
+
+        response = client.test_iam_permissions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, iam_policy_pb2.TestIamPermissionsResponse)
+
+    assert response.permissions == ["permissions_value"]
+
+
+@pytest.mark.asyncio
+async def test_test_iam_permissions_async(transport: str = "grpc_asyncio"):
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = iam_policy_pb2.TestIamPermissionsRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            iam_policy_pb2.TestIamPermissionsResponse(
+                permissions=["permissions_value"],
+            )
+        )
+
+        response = await client.test_iam_permissions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, iam_policy_pb2.TestIamPermissionsResponse)
+
+    assert response.permissions == ["permissions_value"]
+
+
+def test_test_iam_permissions_field_headers():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = iam_policy_pb2.TestIamPermissionsRequest()
+    request.resource = "resource/value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        call.return_value = iam_policy_pb2.TestIamPermissionsResponse()
+
+        client.test_iam_permissions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "resource=resource/value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_test_iam_permissions_field_headers_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = iam_policy_pb2.TestIamPermissionsRequest()
+    request.resource = "resource/value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            iam_policy_pb2.TestIamPermissionsResponse()
+        )
+
+        await client.test_iam_permissions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "resource=resource/value",
+    ) in kw["metadata"]
+
+
+def test_test_iam_permissions_from_dict():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = iam_policy_pb2.TestIamPermissionsResponse()
+
+        response = client.test_iam_permissions(
+            request={
+                "resource": "resource_value",
+                "permissions": ["permissions_value"],
+            }
+        )
+        call.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_test_iam_permissions_from_dict_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            iam_policy_pb2.TestIamPermissionsResponse()
+        )
+
+        response = await client.test_iam_permissions(
+            request={
+                "resource": "resource_value",
+                "permissions": ["permissions_value"],
+            }
+        )
+        call.assert_called()
+
+
+def test_test_iam_permissions_flattened():
+    client = DataplexServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = iam_policy_pb2.TestIamPermissionsResponse()
+
+        client.test_iam_permissions()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.TestIamPermissionsRequest()
+
+
+@pytest.mark.asyncio
+async def test_test_iam_permissions_flattened_async():
+    client = DataplexServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            iam_policy_pb2.TestIamPermissionsResponse()
+        )
+
+        await client.test_iam_permissions()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.TestIamPermissionsRequest()
 
 
 def test_transport_close_grpc():

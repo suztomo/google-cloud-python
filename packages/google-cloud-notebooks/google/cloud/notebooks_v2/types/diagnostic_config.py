@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,11 +37,11 @@ class DiagnosticConfig(proto.Message):
 
             Permissions: User Managed Notebooks:
 
-            -  storage.buckets.writer: Must be given to the project's
-               service account attached to VM. Google Managed Notebooks:
-            -  storage.buckets.writer: Must be given to the project's
-               service account or user credentials attached to VM
-               depending on authentication mode.
+            - storage.buckets.writer: Must be given to the project's
+              service account attached to VM. Google Managed Notebooks:
+            - storage.buckets.writer: Must be given to the project's
+              service account or user credentials attached to VM
+              depending on authentication mode.
 
             Cloud Storage bucket Log file will be written to
             ``gs://$GCS_BUCKET/$RELATIVE_PATH/$VM_DATE_$TIME.tar.gz``

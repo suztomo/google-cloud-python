@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.managedidentities_v1.types import resource
@@ -111,16 +111,16 @@ class CreateMicrosoftAdDomainRequest(proto.Message):
             mydomain.myorganization.com, with the following
             restrictions:
 
-            -  Must contain only lowercase letters, numbers, periods and
-               hyphens.
-            -  Must start with a letter.
-            -  Must contain between 2-64 characters.
-            -  Must end with a number or a letter.
-            -  Must not start with period.
-            -  First segement length (mydomain form example above)
-               shouldn't exceed 15 chars.
-            -  The last segment cannot be fully numeric.
-            -  Must be unique within the customer project.
+            - Must contain only lowercase letters, numbers, periods and
+              hyphens.
+            - Must start with a letter.
+            - Must contain between 2-64 characters.
+            - Must end with a number or a letter.
+            - Must not start with period.
+            - First segement length (mydomain form example above)
+              shouldn't exceed 15 chars.
+            - The last segment cannot be fully numeric.
+            - Must be unique within the customer project.
         domain (google.cloud.managedidentities_v1.types.Domain):
             Required. A Managed Identity domain resource.
     """
@@ -286,9 +286,9 @@ class UpdateDomainRequest(proto.Message):
             paths field may only include fields from
             [Domain][google.cloud.managedidentities.v1.Domain]:
 
-            -  ``labels``
-            -  ``locations``
-            -  ``authorized_networks``
+            - ``labels``
+            - ``locations``
+            - ``authorized_networks``
         domain (google.cloud.managedidentities_v1.types.Domain):
             Required. Domain message with updated fields. Only supported
             fields specified in update_mask are updated.

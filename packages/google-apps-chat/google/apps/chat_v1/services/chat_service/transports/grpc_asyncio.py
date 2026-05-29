@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,38 +17,43 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async
 from google.api_core import retry_async as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
+from google.apps.chat_v1.types import (
+    attachment,
+    membership,
+    message,
+    reaction,
+    section,
+    space,
+    space_event,
+    space_notification_setting,
+    space_read_state,
+    space_setup,
+    thread_read_state,
+)
+from google.apps.chat_v1.types import membership as gc_membership
+from google.apps.chat_v1.types import message as gc_message
+from google.apps.chat_v1.types import reaction as gc_reaction
+from google.apps.chat_v1.types import section as gc_section
+from google.apps.chat_v1.types import space as gc_space
 from google.apps.chat_v1.types import (
     space_notification_setting as gc_space_notification_setting,
 )
-from google.apps.chat_v1.types import attachment
-from google.apps.chat_v1.types import membership
-from google.apps.chat_v1.types import membership as gc_membership
-from google.apps.chat_v1.types import message
-from google.apps.chat_v1.types import message as gc_message
-from google.apps.chat_v1.types import reaction
-from google.apps.chat_v1.types import reaction as gc_reaction
-from google.apps.chat_v1.types import space
-from google.apps.chat_v1.types import space as gc_space
-from google.apps.chat_v1.types import space_event
-from google.apps.chat_v1.types import space_notification_setting
-from google.apps.chat_v1.types import space_read_state
 from google.apps.chat_v1.types import space_read_state as gc_space_read_state
-from google.apps.chat_v1.types import space_setup, thread_read_state
 
 from .base import DEFAULT_CLIENT_INFO, ChatServiceTransport
 from .grpc import ChatServiceGrpcTransport
@@ -77,7 +82,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -112,7 +117,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -165,8 +170,9 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -217,9 +223,10 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -251,6 +258,10 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -355,10 +366,24 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         `Send a
         message <https://developers.google.com/workspace/chat/create-messages>`__.
 
-        The ``create()`` method requires either `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-        or `app
-        authentication <https://developers.google.com/workspace/chat/authorize-import>`__.
+        Supports the following types of
+        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
+
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with the authorization scope:
+
+          - ``https://www.googleapis.com/auth/chat.bot``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.messages.create``
+          - ``https://www.googleapis.com/auth/chat.messages``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+
         Chat attributes the message sender differently depending on the
         type of authentication that you use in your request.
 
@@ -368,7 +393,7 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         (``text``), cards (``cardsV2``), and accessory widgets
         (``accessoryWidgets``).
 
-        |Message sent with app authentication async gRPC|
+        |Message sent with app authentication|
 
         The following image shows how Chat attributes a message when you
         use user authentication. Chat displays the user as the message
@@ -376,7 +401,7 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         its name. The content of message can only contain text
         (``text``).
 
-        |Message sent with user authentication async gRPC|
+        |Message sent with user authentication|
 
         The maximum message size, including the message contents, is
         32,000 bytes.
@@ -387,8 +412,8 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         response only populates the ``name`` and ``thread.name`` fields
         in addition to the information that was in the request.
 
-        .. |Message sent with app authentication async gRPC| image:: https://developers.google.com/workspace/chat/images/message-app-auth.svg
-        .. |Message sent with user authentication async gRPC| image:: https://developers.google.com/workspace/chat/images/message-user-auth.svg
+        .. |Message sent with app authentication| image:: https://developers.google.com/workspace/chat/images/message-app-auth.svg
+        .. |Message sent with user authentication| image:: https://developers.google.com/workspace/chat/images/message-user-auth.svg
 
         Returns:
             Callable[[~.CreateMessageRequest],
@@ -417,14 +442,36 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         r"""Return a callable for the list messages method over gRPC.
 
         Lists messages in a space that the caller is a member of,
-        including messages from blocked members and spaces. If you list
-        messages from a space with no messages, the response is an empty
-        object. When using a REST/HTTP interface, the response contains
-        an empty JSON object, ``{}``. For an example, see `List
+        including messages from blocked members and spaces. System
+        messages, like those announcing new space members, aren't
+        included. If you list messages from a space with no messages,
+        the response is an empty object. When using a REST/HTTP
+        interface, the response contains an empty JSON object, ``{}``.
+        For an example, see `List
         messages <https://developers.google.com/workspace/chat/api/guides/v1/messages/list>`__.
 
-        Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        Supports the following types of
+        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
+
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__
+          with the authorization scope:
+
+          - ``https://www.googleapis.com/auth/chat.app.messages.readonly``.
+            When using this authentication scope, this method only
+            returns public messages in a space. It doesn't include
+            private messages.
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.messages.readonly``
+          - ``https://www.googleapis.com/auth/chat.messages``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
 
         Returns:
             Callable[[~.ListMessagesRequest],
@@ -468,14 +515,30 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with one of the following authorization scopes:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.bot``
+          - ``https://www.googleapis.com/auth/chat.app.memberships``
+            (requires `administrator
+            approval <https://support.google.com/a?p=chat-app-auth>`__)
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.memberships.readonly``
+          - ``https://www.googleapis.com/auth/chat.memberships``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and one of the following authorization scopes is
+            used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.memberships.readonly``
+            - ``https://www.googleapis.com/auth/chat.admin.memberships``
 
         Returns:
             Callable[[~.ListMembershipsRequest],
@@ -508,14 +571,28 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with one of the following authorization scopes:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.bot``
+          - ``https://www.googleapis.com/auth/chat.app.memberships``
+            (requires `administrator
+            approval <https://support.google.com/a?p=chat-app-auth>`__)
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.memberships.readonly``
+          - ``https://www.googleapis.com/auth/chat.memberships``
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and one of the following authorization scopes is
+            used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.memberships.readonly``
+            - ``https://www.googleapis.com/auth/chat.admin.memberships``
 
         Returns:
             Callable[[~.GetMembershipRequest],
@@ -548,11 +625,28 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with one of the following authorization scopes:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          - ``https://www.googleapis.com/auth/chat.bot``: When using
+            this authorization scope, this method returns details about
+            a message the Chat app has access to, like direct messages
+            and `slash
+            commands <https://developers.google.com/workspace/chat/slash-commands>`__
+            that invoke the Chat app.
+          - ``https://www.googleapis.com/auth/chat.app.messages.readonly``
+            with `administrator
+            approval <https://support.google.com/a?p=chat-app-auth>`__.
+            When using this authentication scope, this method returns
+            details about a public message in a space.
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.messages.readonly``
+          - ``https://www.googleapis.com/auth/chat.messages``
 
         Note: Might return a message from a blocked member or space.
 
@@ -590,11 +684,19 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          - ``https://www.googleapis.com/auth/chat.bot``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.messages``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
 
         When using app authentication, requests can only update messages
         created by the calling Chat app.
@@ -629,11 +731,19 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          - ``https://www.googleapis.com/auth/chat.bot``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.messages``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
 
         When using app authentication, requests can only delete messages
         created by the calling Chat app.
@@ -667,8 +777,13 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         API <https://developers.google.com/workspace/chat/api/reference/rest/v1/media/download>`__.
         For an example, see `Get metadata about a message
         attachment <https://developers.google.com/workspace/chat/get-media-attachments>`__.
+
         Requires `app
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.bot``
 
         Returns:
             Callable[[~.GetAttachmentRequest],
@@ -702,7 +817,14 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         attachment <https://developers.google.com/workspace/chat/upload-media-attachments>`__.
 
         Requires user
-        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.messages.create``
+        - ``https://www.googleapis.com/auth/chat.messages``
+        - ``https://www.googleapis.com/auth/chat.import`` (import mode
+          spaces only)
 
         You can upload attachments up to 200 MB. Certain file types
         aren't supported. For details, see `File types blocked by Google
@@ -740,11 +862,18 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          - ``https://www.googleapis.com/auth/chat.bot``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.spaces.readonly``
+          - ``https://www.googleapis.com/auth/chat.spaces``
 
         To list all named spaces by Google Workspace organization, use
         the
@@ -776,11 +905,18 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         r"""Return a callable for the search spaces method over gRPC.
 
         Returns a list of spaces in a Google Workspace organization
-        based on an administrator's search.
+        based on an administrator's search. In the request, set
+        ``use_admin_access`` to ``true``. For an example, see `Search
+        for and manage
+        spaces <https://developers.google.com/workspace/chat/search-manage-admin>`__.
 
         Requires `user authentication with administrator
-        privileges <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user#admin-privileges>`__.
-        In the request, set ``use_admin_access`` to ``true``.
+        privileges <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user#admin-privileges>`__
+        and one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.admin.spaces.readonly``
+        - ``https://www.googleapis.com/auth/chat.admin.spaces``
 
         Returns:
             Callable[[~.SearchSpacesRequest],
@@ -811,14 +947,37 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with one of the following authorization scopes:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.bot``
+          - ``https://www.googleapis.com/auth/chat.app.spaces`` with
+            `administrator
+            approval <https://support.google.com/a?p=chat-app-auth>`__
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.spaces.readonly``
+          - ``https://www.googleapis.com/auth/chat.spaces``
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and one of the following authorization scopes is
+            used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.spaces.readonly``
+            - ``https://www.googleapis.com/auth/chat.admin.spaces``
+
+        App authentication has the following limitations:
+
+        - ``space.access_settings`` is only populated when using the
+          ``chat.app.spaces`` scope.
+        - ``space.predefind_permission_settings`` and
+          ``space.permission_settings`` are only populated when using
+          the ``chat.app.spaces`` scope, and only for spaces the app
+          created.
 
         Returns:
             Callable[[~.GetSpaceRequest],
@@ -844,31 +1003,56 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
     ) -> Callable[[gc_space.CreateSpaceRequest], Awaitable[gc_space.Space]]:
         r"""Return a callable for the create space method over gRPC.
 
-        Creates a space with no members. Can be used to create a named
-        space, or a group chat in ``Import mode``. For an example, see
-        `Create a
+        Creates a space. Can be used to create a named space, or a group
+        chat in ``Import mode``. For an example, see `Create a
         space <https://developers.google.com/workspace/chat/create-spaces>`__.
+
+        Supports the following types of
+        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
+
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__ and
+          one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.app.spaces.create``
+          - ``https://www.googleapis.com/auth/chat.app.spaces``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.spaces.create``
+          - ``https://www.googleapis.com/auth/chat.spaces``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+
+        When authenticating as an app, the ``space.customer`` field must
+        be set in the request.
+
+        When authenticating as an app, the Chat app is added as a member
+        of the space. However, unlike human authentication, the Chat app
+        is not added as a space manager. By default, the Chat app can be
+        removed from the space by all space members. To allow only space
+        managers to remove the app from a space, set
+        ``space.permission_settings.manage_apps`` to
+        ``managers_allowed``.
+
+        Space membership upon creation depends on whether the space is
+        created in ``Import mode``:
+
+        - **Import mode:** No members are created.
+        - **All other modes:** The calling user is added as a member.
+          This is:
+
+          - The app itself when using app authentication.
+          - The human user when using user authentication.
 
         If you receive the error message ``ALREADY_EXISTS`` when
         creating a space, try a different ``displayName``. An existing
         space within the Google Workspace organization might already use
         this display name.
-
-        Supports the following types of
-        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
-
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-           with `administrator
-           approval <https://support.google.com/a?p=chat-app-auth>`__ in
-           `Developer
-           Preview <https://developers.google.com/workspace/preview>`__
-
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-
-        When authenticating as an app, the ``space.customer`` field must
-        be set in the request.
 
         Returns:
             Callable[[~.CreateSpaceRequest],
@@ -951,7 +1135,12 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         name.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.spaces.create``
+        - ``https://www.googleapis.com/auth/chat.spaces``
 
         Returns:
             Callable[[~.SetUpSpaceRequest],
@@ -988,18 +1177,34 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-           with `administrator
-           approval <https://support.google.com/a?p=chat-app-auth>`__ in
-           `Developer
-           Preview <https://developers.google.com/workspace/preview>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__ and
+          one of the following authorization scopes:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.app.spaces``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.spaces``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and the following authorization scopes is used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.spaces``
+
+        App authentication has the following limitations:
+
+        - To update either ``space.predefined_permission_settings`` or
+          ``space.permission_settings``, the app must be the space
+          creator.
+        - Updating the ``space.access_settings.audience`` is not
+          supported for app authentication.
 
         Returns:
             Callable[[~.UpdateSpaceRequest],
@@ -1034,18 +1239,27 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-           with `administrator
-           approval <https://support.google.com/a?p=chat-app-auth>`__ in
-           `Developer
-           Preview <https://developers.google.com/workspace/preview>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__ and
+          the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.app.delete`` (only in
+            spaces the app created)
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.delete``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and the following authorization scope is used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.delete``
 
         Returns:
             Callable[[~.DeleteSpaceRequest],
@@ -1077,10 +1291,14 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         process <https://developers.google.com/workspace/chat/import-data>`__
         for the specified space and makes it visible to users.
 
-        Requires `app
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-        and domain-wide delegation. For more information, see `Authorize
-        Google Chat apps to import
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        and domain-wide delegation with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.import``
+
+        For more information, see `Authorize Google Chat apps to import
         data <https://developers.google.com/workspace/chat/authorize-import>`__.
 
         Returns:
@@ -1122,14 +1340,21 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         returns the direct message space between the specified user and
         the authenticated user.
 
-        // Supports the following types of
+        Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          - ``https://www.googleapis.com/auth/chat.bot``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.spaces.readonly``
+          - ``https://www.googleapis.com/auth/chat.spaces``
 
         Returns:
             Callable[[~.FindDirectMessageRequest],
@@ -1150,6 +1375,56 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         return self._stubs["find_direct_message"]
 
     @property
+    def find_group_chats(
+        self,
+    ) -> Callable[
+        [space.FindGroupChatsRequest], Awaitable[space.FindGroupChatsResponse]
+    ]:
+        r"""Return a callable for the find group chats method over gRPC.
+
+        Returns all spaces with ``spaceType == GROUP_CHAT``, whose human
+        memberships contain exactly the calling user, and the users
+        specified in ``FindGroupChatsRequest.users``. Only members that
+        have joined the conversation are supported. For an example, see
+        `Find group
+        chats <https://developers.google.com/workspace/chat/find-group-chats>`__.
+
+        If the calling user blocks, or is blocked by, some users, and no
+        spaces with the entire specified set of users are found, this
+        method returns spaces that don't include the blocked or blocking
+        users.
+
+        The specified set of users must contain only human (non-app)
+        memberships. A request that contains non-human users doesn't
+        return any spaces.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.memberships.readonly``
+        - ``https://www.googleapis.com/auth/chat.memberships``
+
+        Returns:
+            Callable[[~.FindGroupChatsRequest],
+                    Awaitable[~.FindGroupChatsResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "find_group_chats" not in self._stubs:
+            self._stubs["find_group_chats"] = self._logged_channel.unary_unary(
+                "/google.chat.v1.ChatService/FindGroupChats",
+                request_serializer=space.FindGroupChatsRequest.serialize,
+                response_deserializer=space.FindGroupChatsResponse.deserialize,
+            )
+        return self._stubs["find_group_chats"]
+
+    @property
     def create_membership(
         self,
     ) -> Callable[
@@ -1168,29 +1443,44 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-           with `administrator
-           approval <https://support.google.com/a?p=chat-app-auth>`__ in
-           `Developer
-           Preview <https://developers.google.com/workspace/preview>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__ and
+          the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.app.memberships``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.memberships``
+          - ``https://www.googleapis.com/auth/chat.memberships.app`` (to
+            add the calling app to the space)
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and the following authorization scope is used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.memberships``
+
+        App authentication is not supported for the following use cases:
+
+        - Inviting users external to the Workspace organization that
+          owns the space.
+        - Adding a Google Group to a space.
+        - Adding a Chat app to a space.
 
         For example usage, see:
 
-        -  `Invite or add a user to a
-           space <https://developers.google.com/workspace/chat/create-members#create-user-membership>`__.
-
-        -  `Invite or add a Google Group to a
-           space <https://developers.google.com/workspace/chat/create-members#create-group-membership>`__.
-
-        -  `Add the Chat app to a
-           space <https://developers.google.com/workspace/chat/create-members#create-membership-calling-api>`__.
+        - `Invite or add a user to a
+          space <https://developers.google.com/workspace/chat/create-members#create-user-membership>`__.
+        - `Invite or add a Google Group to a
+          space <https://developers.google.com/workspace/chat/create-members#create-group-membership>`__.
+        - `Add the Chat app to a
+          space <https://developers.google.com/workspace/chat/create-members#create-membership-calling-api>`__.
 
         Returns:
             Callable[[~.CreateMembershipRequest],
@@ -1225,18 +1515,27 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-           with `administrator
-           approval <https://support.google.com/a?p=chat-app-auth>`__ in
-           `Developer
-           Preview <https://developers.google.com/workspace/preview>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__ and
+          the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.app.memberships``
+            (only in spaces the app created)
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.memberships``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and the following authorization scope is used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.memberships``
 
         Returns:
             Callable[[~.UpdateMembershipRequest],
@@ -1271,18 +1570,38 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-           with `administrator
-           approval <https://support.google.com/a?p=chat-app-auth>`__ in
-           `Developer
-           Preview <https://developers.google.com/workspace/preview>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__ and
+          the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.app.memberships``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.memberships``
+          - ``https://www.googleapis.com/auth/chat.memberships.app`` (to
+            remove the calling app from the space)
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and the following authorization scope is used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.memberships``
+
+        App authentication is not supported for the following use cases:
+
+        - Removing a Google Group from a space.
+        - Removing a Chat app from a space.
+
+        To delete memberships for space managers, the requester must be
+        a space manager. If you're using `app
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        the Chat app must be the space creator.
 
         Returns:
             Callable[[~.DeleteMembershipRequest],
@@ -1313,7 +1632,15 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         message <https://developers.google.com/workspace/chat/create-reactions>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.messages.reactions.create``
+        - ``https://www.googleapis.com/auth/chat.messages.reactions``
+        - ``https://www.googleapis.com/auth/chat.messages``
+        - ``https://www.googleapis.com/auth/chat.import`` (import mode
+          spaces only)
 
         Returns:
             Callable[[~.CreateReactionRequest],
@@ -1346,7 +1673,14 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         message <https://developers.google.com/workspace/chat/list-reactions>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.messages.reactions.readonly``
+        - ``https://www.googleapis.com/auth/chat.messages.reactions``
+        - ``https://www.googleapis.com/auth/chat.messages.readonly``
+        - ``https://www.googleapis.com/auth/chat.messages``
 
         Returns:
             Callable[[~.ListReactionsRequest],
@@ -1376,7 +1710,14 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         reaction <https://developers.google.com/workspace/chat/delete-reactions>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.messages.reactions``
+        - ``https://www.googleapis.com/auth/chat.messages``
+        - ``https://www.googleapis.com/auth/chat.import`` (import mode
+          spaces only)
 
         Returns:
             Callable[[~.DeleteReactionRequest],
@@ -1413,7 +1754,11 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         permissions <https://support.google.com/a/answer/12850085>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.customemojis``
 
         Returns:
             Callable[[~.CreateCustomEmojiRequest],
@@ -1450,7 +1795,12 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         permissions <https://support.google.com/a/answer/12850085>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.customemojis.readonly``
+        - ``https://www.googleapis.com/auth/chat.customemojis``
 
         Returns:
             Callable[[~.GetCustomEmojiRequest],
@@ -1489,7 +1839,12 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         permissions <https://support.google.com/a/answer/12850085>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.customemojis.readonly``
+        - ``https://www.googleapis.com/auth/chat.customemojis``
 
         Returns:
             Callable[[~.ListCustomEmojisRequest],
@@ -1531,7 +1886,11 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         permissions <https://support.google.com/a/answer/12850085>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.customemojis``
 
         Returns:
             Callable[[~.DeleteCustomEmojiRequest],
@@ -1566,7 +1925,12 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         state <https://developers.google.com/workspace/chat/get-space-read-state>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.readstate.readonly``
+        - ``https://www.googleapis.com/auth/chat.users.readstate``
 
         Returns:
             Callable[[~.GetSpaceReadStateRequest],
@@ -1601,7 +1965,11 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         state <https://developers.google.com/workspace/chat/update-space-read-state>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.readstate``
 
         Returns:
             Callable[[~.UpdateSpaceReadStateRequest],
@@ -1636,7 +2004,12 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         state <https://developers.google.com/workspace/chat/get-thread-read-state>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.readstate.readonly``
+        - ``https://www.googleapis.com/auth/chat.users.readstate``
 
         Returns:
             Callable[[~.GetThreadReadStateRequest],
@@ -1674,10 +2047,39 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         Note: The ``permissionSettings`` field is not returned in the
         Space object of the Space event data for this request.
 
-        Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
-        To get an event, the authenticated user must be a member of the
-        space.
+        Supports the following types of
+        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__
+        with an `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__
+        appropriate for reading the requested data:
+
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.app.spaces``
+          - ``https://www.googleapis.com/auth/chat.app.spaces.readonly``
+          - ``https://www.googleapis.com/auth/chat.app.messages.readonly``
+          - ``https://www.googleapis.com/auth/chat.app.memberships``
+          - ``https://www.googleapis.com/auth/chat.app.memberships.readonly``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.spaces.readonly``
+          - ``https://www.googleapis.com/auth/chat.spaces``
+          - ``https://www.googleapis.com/auth/chat.messages.readonly``
+          - ``https://www.googleapis.com/auth/chat.messages``
+          - ``https://www.googleapis.com/auth/chat.messages.reactions.readonly``
+          - ``https://www.googleapis.com/auth/chat.messages.reactions``
+          - ``https://www.googleapis.com/auth/chat.memberships.readonly``
+          - ``https://www.googleapis.com/auth/chat.memberships``
+
+        To get an event, the authenticated caller must be a member of
+        the space.
 
         For an example, see `Get details about an event from a Google
         Chat
@@ -1719,9 +2121,38 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         requested period, the event payload contains an empty
         ``Membership`` resource.
 
-        Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
-        To list events, the authenticated user must be a member of the
+        Supports the following types of
+        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__
+        with an `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__
+        appropriate for reading the requested data:
+
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.app.spaces``
+          - ``https://www.googleapis.com/auth/chat.app.spaces.readonly``
+          - ``https://www.googleapis.com/auth/chat.app.messages.readonly``
+          - ``https://www.googleapis.com/auth/chat.app.memberships``
+          - ``https://www.googleapis.com/auth/chat.app.memberships.readonly``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.spaces.readonly``
+          - ``https://www.googleapis.com/auth/chat.spaces``
+          - ``https://www.googleapis.com/auth/chat.messages.readonly``
+          - ``https://www.googleapis.com/auth/chat.messages``
+          - ``https://www.googleapis.com/auth/chat.messages.reactions.readonly``
+          - ``https://www.googleapis.com/auth/chat.messages.reactions``
+          - ``https://www.googleapis.com/auth/chat.memberships.readonly``
+          - ``https://www.googleapis.com/auth/chat.memberships``
+
+        To list events, the authenticated caller must be a member of the
         space.
 
         For an example, see `List events from a Google Chat
@@ -1759,7 +2190,11 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         setting <https://developers.google.com/workspace/chat/get-space-notification-setting>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.spacesettings``
 
         Returns:
             Callable[[~.GetSpaceNotificationSettingRequest],
@@ -1772,12 +2207,12 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_space_notification_setting" not in self._stubs:
-            self._stubs[
-                "get_space_notification_setting"
-            ] = self._logged_channel.unary_unary(
-                "/google.chat.v1.ChatService/GetSpaceNotificationSetting",
-                request_serializer=space_notification_setting.GetSpaceNotificationSettingRequest.serialize,
-                response_deserializer=space_notification_setting.SpaceNotificationSetting.deserialize,
+            self._stubs["get_space_notification_setting"] = (
+                self._logged_channel.unary_unary(
+                    "/google.chat.v1.ChatService/GetSpaceNotificationSetting",
+                    request_serializer=space_notification_setting.GetSpaceNotificationSettingRequest.serialize,
+                    response_deserializer=space_notification_setting.SpaceNotificationSetting.deserialize,
+                )
             )
         return self._stubs["get_space_notification_setting"]
 
@@ -1796,7 +2231,11 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         setting <https://developers.google.com/workspace/chat/update-space-notification-setting>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.spacesettings``
 
         Returns:
             Callable[[~.UpdateSpaceNotificationSettingRequest],
@@ -1809,14 +2248,283 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_space_notification_setting" not in self._stubs:
-            self._stubs[
-                "update_space_notification_setting"
-            ] = self._logged_channel.unary_unary(
-                "/google.chat.v1.ChatService/UpdateSpaceNotificationSetting",
-                request_serializer=gc_space_notification_setting.UpdateSpaceNotificationSettingRequest.serialize,
-                response_deserializer=gc_space_notification_setting.SpaceNotificationSetting.deserialize,
+            self._stubs["update_space_notification_setting"] = (
+                self._logged_channel.unary_unary(
+                    "/google.chat.v1.ChatService/UpdateSpaceNotificationSetting",
+                    request_serializer=gc_space_notification_setting.UpdateSpaceNotificationSettingRequest.serialize,
+                    response_deserializer=gc_space_notification_setting.SpaceNotificationSetting.deserialize,
+                )
             )
         return self._stubs["update_space_notification_setting"]
+
+    @property
+    def create_section(
+        self,
+    ) -> Callable[[gc_section.CreateSectionRequest], Awaitable[gc_section.Section]]:
+        r"""Return a callable for the create section method over gRPC.
+
+        Creates a section in Google Chat. Sections help users group
+        conversations and customize the list of spaces displayed in Chat
+        navigation panel. Only sections of type ``CUSTOM_SECTION`` can
+        be created. For details, see `Create and organize sections in
+        Google
+        Chat <https://support.google.com/chat/answer/16059854>`__.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.sections``
+
+        Returns:
+            Callable[[~.CreateSectionRequest],
+                    Awaitable[~.Section]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "create_section" not in self._stubs:
+            self._stubs["create_section"] = self._logged_channel.unary_unary(
+                "/google.chat.v1.ChatService/CreateSection",
+                request_serializer=gc_section.CreateSectionRequest.serialize,
+                response_deserializer=gc_section.Section.deserialize,
+            )
+        return self._stubs["create_section"]
+
+    @property
+    def delete_section(
+        self,
+    ) -> Callable[[section.DeleteSectionRequest], Awaitable[empty_pb2.Empty]]:
+        r"""Return a callable for the delete section method over gRPC.
+
+        Deletes a section of type ``CUSTOM_SECTION``.
+
+        If the section contains items, such as spaces, the items are
+        moved to Google Chat's default sections and are not deleted.
+
+        For details, see `Create and organize sections in Google
+        Chat <https://support.google.com/chat/answer/16059854>`__.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.sections``
+
+        Returns:
+            Callable[[~.DeleteSectionRequest],
+                    Awaitable[~.Empty]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "delete_section" not in self._stubs:
+            self._stubs["delete_section"] = self._logged_channel.unary_unary(
+                "/google.chat.v1.ChatService/DeleteSection",
+                request_serializer=section.DeleteSectionRequest.serialize,
+                response_deserializer=empty_pb2.Empty.FromString,
+            )
+        return self._stubs["delete_section"]
+
+    @property
+    def update_section(
+        self,
+    ) -> Callable[[gc_section.UpdateSectionRequest], Awaitable[gc_section.Section]]:
+        r"""Return a callable for the update section method over gRPC.
+
+        Updates a section. Only sections of type ``CUSTOM_SECTION`` can
+        be updated. For details, see `Create and organize sections in
+        Google
+        Chat <https://support.google.com/chat/answer/16059854>`__.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.sections``
+
+        Returns:
+            Callable[[~.UpdateSectionRequest],
+                    Awaitable[~.Section]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "update_section" not in self._stubs:
+            self._stubs["update_section"] = self._logged_channel.unary_unary(
+                "/google.chat.v1.ChatService/UpdateSection",
+                request_serializer=gc_section.UpdateSectionRequest.serialize,
+                response_deserializer=gc_section.Section.deserialize,
+            )
+        return self._stubs["update_section"]
+
+    @property
+    def list_sections(
+        self,
+    ) -> Callable[
+        [section.ListSectionsRequest], Awaitable[section.ListSectionsResponse]
+    ]:
+        r"""Return a callable for the list sections method over gRPC.
+
+        Lists sections available to the Chat user. Sections help users
+        group their conversations and customize the list of spaces
+        displayed in Chat navigation panel. For details, see `Create and
+        organize sections in Google
+        Chat <https://support.google.com/chat/answer/16059854>`__.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.sections``
+        - ``https://www.googleapis.com/auth/chat.users.sections.readonly``
+
+        Returns:
+            Callable[[~.ListSectionsRequest],
+                    Awaitable[~.ListSectionsResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "list_sections" not in self._stubs:
+            self._stubs["list_sections"] = self._logged_channel.unary_unary(
+                "/google.chat.v1.ChatService/ListSections",
+                request_serializer=section.ListSectionsRequest.serialize,
+                response_deserializer=section.ListSectionsResponse.deserialize,
+            )
+        return self._stubs["list_sections"]
+
+    @property
+    def position_section(
+        self,
+    ) -> Callable[
+        [section.PositionSectionRequest], Awaitable[section.PositionSectionResponse]
+    ]:
+        r"""Return a callable for the position section method over gRPC.
+
+        Changes the sort order of a section. For details, see `Create
+        and organize sections in Google
+        Chat <https://support.google.com/chat/answer/16059854>`__.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.sections``
+
+        Returns:
+            Callable[[~.PositionSectionRequest],
+                    Awaitable[~.PositionSectionResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "position_section" not in self._stubs:
+            self._stubs["position_section"] = self._logged_channel.unary_unary(
+                "/google.chat.v1.ChatService/PositionSection",
+                request_serializer=section.PositionSectionRequest.serialize,
+                response_deserializer=section.PositionSectionResponse.deserialize,
+            )
+        return self._stubs["position_section"]
+
+    @property
+    def list_section_items(
+        self,
+    ) -> Callable[
+        [section.ListSectionItemsRequest], Awaitable[section.ListSectionItemsResponse]
+    ]:
+        r"""Return a callable for the list section items method over gRPC.
+
+        Lists items in a section.
+
+        Only spaces can be section items. For details, see `Create and
+        organize sections in Google
+        Chat <https://support.google.com/chat/answer/16059854>`__.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.sections``
+        - ``https://www.googleapis.com/auth/chat.users.sections.readonly``
+
+        Returns:
+            Callable[[~.ListSectionItemsRequest],
+                    Awaitable[~.ListSectionItemsResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "list_section_items" not in self._stubs:
+            self._stubs["list_section_items"] = self._logged_channel.unary_unary(
+                "/google.chat.v1.ChatService/ListSectionItems",
+                request_serializer=section.ListSectionItemsRequest.serialize,
+                response_deserializer=section.ListSectionItemsResponse.deserialize,
+            )
+        return self._stubs["list_section_items"]
+
+    @property
+    def move_section_item(
+        self,
+    ) -> Callable[
+        [section.MoveSectionItemRequest], Awaitable[section.MoveSectionItemResponse]
+    ]:
+        r"""Return a callable for the move section item method over gRPC.
+
+        Moves an item from one section to another. For example, if a
+        section contains spaces, this method can be used to move a space
+        to a different section. For details, see `Create and organize
+        sections in Google
+        Chat <https://support.google.com/chat/answer/16059854>`__.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.sections``
+
+        Returns:
+            Callable[[~.MoveSectionItemRequest],
+                    Awaitable[~.MoveSectionItemResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "move_section_item" not in self._stubs:
+            self._stubs["move_section_item"] = self._logged_channel.unary_unary(
+                "/google.chat.v1.ChatService/MoveSectionItem",
+                request_serializer=section.MoveSectionItemRequest.serialize,
+                response_deserializer=section.MoveSectionItemResponse.deserialize,
+            )
+        return self._stubs["move_section_item"]
 
     def _prep_wrapped_messages(self, client_info):
         """Precompute the wrapped methods, overriding the base class method to use async wrappers."""
@@ -2073,6 +2781,20 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
                 default_timeout=30.0,
                 client_info=client_info,
             ),
+            self.find_group_chats: self._wrap_method(
+                self.find_group_chats,
+                default_retry=retries.AsyncRetry(
+                    initial=1.0,
+                    maximum=10.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=30.0,
+                ),
+                default_timeout=30.0,
+                client_info=client_info,
+            ),
             self.create_membership: self._wrap_method(
                 self.create_membership,
                 default_retry=retries.AsyncRetry(
@@ -2299,6 +3021,104 @@ class ChatServiceGrpcAsyncIOTransport(ChatServiceTransport):
             ),
             self.update_space_notification_setting: self._wrap_method(
                 self.update_space_notification_setting,
+                default_retry=retries.AsyncRetry(
+                    initial=1.0,
+                    maximum=10.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=30.0,
+                ),
+                default_timeout=30.0,
+                client_info=client_info,
+            ),
+            self.create_section: self._wrap_method(
+                self.create_section,
+                default_retry=retries.AsyncRetry(
+                    initial=1.0,
+                    maximum=10.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=30.0,
+                ),
+                default_timeout=30.0,
+                client_info=client_info,
+            ),
+            self.delete_section: self._wrap_method(
+                self.delete_section,
+                default_retry=retries.AsyncRetry(
+                    initial=1.0,
+                    maximum=10.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=30.0,
+                ),
+                default_timeout=30.0,
+                client_info=client_info,
+            ),
+            self.update_section: self._wrap_method(
+                self.update_section,
+                default_retry=retries.AsyncRetry(
+                    initial=1.0,
+                    maximum=10.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=30.0,
+                ),
+                default_timeout=30.0,
+                client_info=client_info,
+            ),
+            self.list_sections: self._wrap_method(
+                self.list_sections,
+                default_retry=retries.AsyncRetry(
+                    initial=1.0,
+                    maximum=10.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=30.0,
+                ),
+                default_timeout=30.0,
+                client_info=client_info,
+            ),
+            self.position_section: self._wrap_method(
+                self.position_section,
+                default_retry=retries.AsyncRetry(
+                    initial=1.0,
+                    maximum=10.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=30.0,
+                ),
+                default_timeout=30.0,
+                client_info=client_info,
+            ),
+            self.list_section_items: self._wrap_method(
+                self.list_section_items,
+                default_retry=retries.AsyncRetry(
+                    initial=1.0,
+                    maximum=10.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=30.0,
+                ),
+                default_timeout=30.0,
+                client_info=client_info,
+            ),
+            self.move_section_item: self._wrap_method(
+                self.move_section_item,
                 default_retry=retries.AsyncRetry(
                     initial=1.0,
                     maximum=10.0,

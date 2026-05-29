@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.shopping.merchant_accounts_v1beta import gapic_version as package_version
 
@@ -124,7 +124,10 @@ class ProgramsServiceAsyncClient:
         Returns:
             ProgramsServiceAsyncClient: The constructed client.
         """
-        return ProgramsServiceClient.from_service_account_info.__func__(ProgramsServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ProgramsServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ProgramsServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -140,7 +143,10 @@ class ProgramsServiceAsyncClient:
         Returns:
             ProgramsServiceAsyncClient: The constructed client.
         """
-        return ProgramsServiceClient.from_service_account_file.__func__(ProgramsServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ProgramsServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(ProgramsServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -190,7 +196,7 @@ class ProgramsServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -364,7 +370,7 @@ class ProgramsServiceAsyncClient:
                    Programs provide a mechanism for adding functionality
                    to merchant accounts. A typical example of this is
                    the [Free product
-                   listings](\ https://support.google.com/merchants/topic/9240261?ref_topic=7257954,7259405,&sjid=796648681813264022-EU)
+                   listings](https://support.google.com/merchants/topic/9240261?ref_topic=7257954,7259405,&sjid=796648681813264022-EU)
                    program, which enables products from a merchant's
                    store to be shown across Google for free.
 
@@ -610,7 +616,7 @@ class ProgramsServiceAsyncClient:
                    Programs provide a mechanism for adding functionality
                    to merchant accounts. A typical example of this is
                    the [Free product
-                   listings](\ https://support.google.com/merchants/topic/9240261?ref_topic=7257954,7259405,&sjid=796648681813264022-EU)
+                   listings](https://support.google.com/merchants/topic/9240261?ref_topic=7257954,7259405,&sjid=796648681813264022-EU)
                    program, which enables products from a merchant's
                    store to be shown across Google for free.
 
@@ -731,7 +737,7 @@ class ProgramsServiceAsyncClient:
                    Programs provide a mechanism for adding functionality
                    to merchant accounts. A typical example of this is
                    the [Free product
-                   listings](\ https://support.google.com/merchants/topic/9240261?ref_topic=7257954,7259405,&sjid=796648681813264022-EU)
+                   listings](https://support.google.com/merchants/topic/9240261?ref_topic=7257954,7259405,&sjid=796648681813264022-EU)
                    program, which enables products from a merchant's
                    store to be shown across Google for free.
 

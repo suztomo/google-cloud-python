@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -171,8 +171,8 @@ class OperationMetadata(proto.Message):
             values are "create", "delete", "update" and
             "import".
         requested_cancellation (bool):
-            Output only. Identifies whether it has been requested
-            cancellation for the operation. Operations that have
+            Output only. Identifies whether cancellation has been
+            requested for the operation. Operations that have
             successfully been cancelled have
             [google.longrunning.Operation.error][google.longrunning.Operation.error]
             value with a
@@ -248,6 +248,7 @@ class NodeTaint(proto.Message):
                 tolerate the taint. Currently enforced by
                 NodeController.
         """
+
         EFFECT_UNSPECIFIED = 0
         NO_SCHEDULE = 1
         PREFER_NO_SCHEDULE = 2
@@ -283,12 +284,12 @@ class NodeKubeletConfig(proto.Message):
 
             The following values are allowed.
 
-            -  "none": the default, which represents the existing
-               scheduling behavior.
-            -  "static": allows pods with certain resource
-               characteristics to be granted increased CPU affinity and
-               exclusivity on the node. The default value is 'none' if
-               unspecified.
+            - "none": the default, which represents the existing
+              scheduling behavior.
+            - "static": allows pods with certain resource
+              characteristics to be granted increased CPU affinity and
+              exclusivity on the node. The default value is 'none' if
+              unspecified.
 
             This field is a member of `oneof`_ ``_cpu_manager_policy``.
         cpu_cfs_quota (bool):
@@ -432,6 +433,7 @@ class LoggingComponentConfig(proto.Message):
                 This indicates that user workload logging
                 component is enabled.
         """
+
         COMPONENT_UNSPECIFIED = 0
         SYSTEM_COMPONENTS = 1
         WORKLOADS = 2
@@ -529,6 +531,7 @@ class BinaryAuthorization(proto.Message):
                 BinaryAuthorization using the project's
                 singleton policy.
         """
+
         EVALUATION_MODE_UNSPECIFIED = 0
         DISABLED = 1
         PROJECT_SINGLETON_POLICY_ENFORCE = 2
@@ -564,6 +567,7 @@ class SecurityPostureConfig(proto.Message):
                 Applies the Security Posture's vulnerability
                 on cluster Enterprise level features.
         """
+
         VULNERABILITY_MODE_UNSPECIFIED = 0
         VULNERABILITY_DISABLED = 1
         VULNERABILITY_ENTERPRISE = 2

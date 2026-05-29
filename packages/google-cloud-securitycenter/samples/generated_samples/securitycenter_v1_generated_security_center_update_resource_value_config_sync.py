@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ def sample_update_resource_value_config():
     # Initialize request argument(s)
     resource_value_config = securitycenter_v1.ResourceValueConfig()
     resource_value_config.resource_value = "NONE"
-    resource_value_config.tag_values = ['tag_values_value1', 'tag_values_value2']
+    resource_value_config.tag_values = ["tag_values_value1", "tag_values_value2"]
 
     request = securitycenter_v1.UpdateResourceValueConfigRequest(
         resource_value_config=resource_value_config,
@@ -52,5 +52,6 @@ def sample_update_resource_value_config():
 
     # Handle the response
     print(response)
+
 
 # [END securitycenter_v1_generated_SecurityCenter_UpdateResourceValueConfig_sync]

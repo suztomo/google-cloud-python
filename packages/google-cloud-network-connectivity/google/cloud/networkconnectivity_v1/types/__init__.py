@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from .common import OperationMetadata
+from .common import (
+    OperationMetadata,
+)
 from .cross_network_automation import (
     ConnectionErrorType,
     CreateServiceConnectionMapRequest,
@@ -44,6 +46,28 @@ from .cross_network_automation import (
     UpdateServiceClassRequest,
     UpdateServiceConnectionMapRequest,
     UpdateServiceConnectionPolicyRequest,
+)
+from .data_transfer import (
+    CreateDestinationRequest,
+    CreateMulticloudDataTransferConfigRequest,
+    DeleteDestinationRequest,
+    DeleteMulticloudDataTransferConfigRequest,
+    Destination,
+    GetDestinationRequest,
+    GetMulticloudDataTransferConfigRequest,
+    GetMulticloudDataTransferSupportedServiceRequest,
+    ListDestinationsRequest,
+    ListDestinationsResponse,
+    ListMulticloudDataTransferConfigsRequest,
+    ListMulticloudDataTransferConfigsResponse,
+    ListMulticloudDataTransferSupportedServicesRequest,
+    ListMulticloudDataTransferSupportedServicesResponse,
+    MulticloudDataTransferConfig,
+    MulticloudDataTransferSupportedService,
+    ServiceConfig,
+    StateTimeline,
+    UpdateDestinationRequest,
+    UpdateMulticloudDataTransferConfigRequest,
 )
 from .hub import (
     AcceptHubSpokeRequest,
@@ -108,6 +132,15 @@ from .hub import (
     UpdateHubRequest,
     UpdateSpokeRequest,
 )
+from .internal_range import (
+    CreateInternalRangeRequest,
+    DeleteInternalRangeRequest,
+    GetInternalRangeRequest,
+    InternalRange,
+    ListInternalRangesRequest,
+    ListInternalRangesResponse,
+    UpdateInternalRangeRequest,
+)
 from .policy_based_routing import (
     CreatePolicyBasedRouteRequest,
     DeletePolicyBasedRouteRequest,
@@ -148,6 +181,26 @@ __all__ = (
     "ConnectionErrorType",
     "Infrastructure",
     "IPVersion",
+    "CreateDestinationRequest",
+    "CreateMulticloudDataTransferConfigRequest",
+    "DeleteDestinationRequest",
+    "DeleteMulticloudDataTransferConfigRequest",
+    "Destination",
+    "GetDestinationRequest",
+    "GetMulticloudDataTransferConfigRequest",
+    "GetMulticloudDataTransferSupportedServiceRequest",
+    "ListDestinationsRequest",
+    "ListDestinationsResponse",
+    "ListMulticloudDataTransferConfigsRequest",
+    "ListMulticloudDataTransferConfigsResponse",
+    "ListMulticloudDataTransferSupportedServicesRequest",
+    "ListMulticloudDataTransferSupportedServicesResponse",
+    "MulticloudDataTransferConfig",
+    "MulticloudDataTransferSupportedService",
+    "ServiceConfig",
+    "StateTimeline",
+    "UpdateDestinationRequest",
+    "UpdateMulticloudDataTransferConfigRequest",
     "AcceptHubSpokeRequest",
     "AcceptHubSpokeResponse",
     "AcceptSpokeUpdateRequest",
@@ -209,6 +262,13 @@ __all__ = (
     "RouteType",
     "SpokeType",
     "State",
+    "CreateInternalRangeRequest",
+    "DeleteInternalRangeRequest",
+    "GetInternalRangeRequest",
+    "InternalRange",
+    "ListInternalRangesRequest",
+    "ListInternalRangesResponse",
+    "UpdateInternalRangeRequest",
     "CreatePolicyBasedRouteRequest",
     "DeletePolicyBasedRouteRequest",
     "GetPolicyBasedRouteRequest",

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_create_billing_account():
     client = billing_v1.CloudBillingClient()
 
     # Initialize request argument(s)
-    request = billing_v1.CreateBillingAccountRequest(
-    )
+    request = billing_v1.CreateBillingAccountRequest()
 
     # Make the request
     response = client.create_billing_account(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END cloudbilling_v1_generated_CloudBilling_CreateBillingAccount_sync]

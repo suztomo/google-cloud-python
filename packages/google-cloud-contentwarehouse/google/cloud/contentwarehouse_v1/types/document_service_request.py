@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,12 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
-from google.cloud.contentwarehouse_v1.types import common
+from google.cloud.contentwarehouse_v1.types import common, filters, histogram
 from google.cloud.contentwarehouse_v1.types import document as gcc_document
-from google.cloud.contentwarehouse_v1.types import filters, histogram
 
 __protobuf__ = proto.module(
     package="google.cloud.contentwarehouse.v1",
@@ -58,12 +57,12 @@ class CloudAIDocumentOption(proto.Message):
         proto.BOOL,
         number=1,
     )
-    customized_entities_properties_conversions: MutableMapping[
-        str, str
-    ] = proto.MapField(
-        proto.STRING,
-        proto.STRING,
-        number=2,
+    customized_entities_properties_conversions: MutableMapping[str, str] = (
+        proto.MapField(
+            proto.STRING,
+            proto.STRING,
+            number=2,
+        )
     )
 
 
@@ -286,16 +285,16 @@ class SearchDocumentsRequest(proto.Message):
 
             Supported options are:
 
-            -  ``"relevance desc"``: By relevance descending, as
-               determined by the API algorithms.
-            -  ``"upload_date desc"``: By upload date descending.
-            -  ``"upload_date"``: By upload date ascending.
-            -  ``"update_date desc"``: By last updated date descending.
-            -  ``"update_date"``: By last updated date ascending.
-            -  ``"retrieval_importance desc"``: By retrieval importance
-               of properties descending. This feature is still under
-               development, please do not use unless otherwise
-               instructed to do so.
+            - ``"relevance desc"``: By relevance descending, as
+              determined by the API algorithms.
+            - ``"upload_date desc"``: By upload date descending.
+            - ``"upload_date"``: By upload date ascending.
+            - ``"update_date desc"``: By last updated date descending.
+            - ``"update_date"``: By last updated date ascending.
+            - ``"retrieval_importance desc"``: By retrieval importance
+              of properties descending. This feature is still under
+              development, please do not use unless otherwise instructed
+              to do so.
         histogram_queries (MutableSequence[google.cloud.contentwarehouse_v1.types.HistogramQuery]):
             An expression specifying a histogram request against
             matching documents. Expression syntax is an aggregation
@@ -303,31 +302,30 @@ class SearchDocumentsRequest(proto.Message):
 
             The following aggregation functions are supported:
 
-            -  ``count(string_histogram_facet)``: Count the number of
-               matching entities for each distinct attribute value.
+            - ``count(string_histogram_facet)``: Count the number of
+              matching entities for each distinct attribute value.
 
             Data types:
 
-            -  Histogram facet (aka filterable properties): Facet names
-               with format <schema id>.<facet>. Facets will have the
-               format of: ``[a-zA-Z][a-zA-Z0-9_:/-.]``. If the facet is
-               a child facet, then the parent hierarchy needs to be
-               specified separated by dots in the prefix after the
-               schema id. Thus, the format for a multi- level facet is:
-               <schema id>.<parent facet name>. <child facet name>.
-               Example:
-               schema123.root_parent_facet.middle_facet.child_facet
-            -  DocumentSchemaId: (with no schema id prefix) to get
-               histograms for each document type (returns the schema id
-               path, e.g.
-               projects/12345/locations/us-west/documentSchemas/abc123).
+            - Histogram facet (aka filterable properties): Facet names
+              with format <schema id>.<facet>. Facets will have the
+              format of: ``[a-zA-Z][a-zA-Z0-9_:/-.]``. If the facet is a
+              child facet, then the parent hierarchy needs to be
+              specified separated by dots in the prefix after the schema
+              id. Thus, the format for a multi- level facet is: <schema
+              id>.<parent facet name>. <child facet name>. Example:
+              schema123.root_parent_facet.middle_facet.child_facet
+            - DocumentSchemaId: (with no schema id prefix) to get
+              histograms for each document type (returns the schema id
+              path, e.g.
+              projects/12345/locations/us-west/documentSchemas/abc123).
 
             Example expression:
 
-            -  Document type counts: count('DocumentSchemaId')
+            - Document type counts: count('DocumentSchemaId')
 
-            -  For schema id, abc123, get the counts for MORTGAGE_TYPE:
-               count('abc123.MORTGAGE_TYPE')
+            - For schema id, abc123, get the counts for MORTGAGE_TYPE:
+              count('abc123.MORTGAGE_TYPE')
         require_total_size (bool):
             Controls if the search document request requires the return
             of a total size of matched documents. See
@@ -364,6 +362,7 @@ class SearchDocumentsRequest(proto.Message):
                 It may adversely impact performance. The
                 limit is 1000,000.
         """
+
         TOTAL_RESULT_SIZE_UNSPECIFIED = 0
         ESTIMATED_SIZE = 1
         ACTUAL_SIZE = 2
@@ -504,7 +503,7 @@ class SetAclRequest(proto.Message):
             ``>``, and ``>=`` where the left of the operator is
             ``DocumentSchemaId`` or property name and the right of the
             operator is a number or a quoted string. You must escape
-            backslash (\) and quote (") characters.
+            backslash (\\) and quote (") characters.
 
             Boolean expressions (AND/OR) are supported up to 3 levels of
             nesting (for example, "((A AND B AND C) OR D) AND E"), a

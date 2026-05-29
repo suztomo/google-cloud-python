@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_environment():
     client = dialogflow_v2.EnvironmentsAsyncClient()
 
     # Initialize request argument(s)
-    request = dialogflow_v2.UpdateEnvironmentRequest(
-    )
+    request = dialogflow_v2.UpdateEnvironmentRequest()
 
     # Make the request
     response = await client.update_environment(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END dialogflow_v2_generated_Environments_UpdateEnvironment_async]

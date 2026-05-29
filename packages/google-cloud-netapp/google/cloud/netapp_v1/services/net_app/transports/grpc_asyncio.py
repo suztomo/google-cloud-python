@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,12 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async, operations_v1
 from google.api_core import retry_async as retries
@@ -28,29 +31,31 @@ from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
+from google.cloud.netapp_v1.types import (
+    active_directory,
+    backup,
+    backup_policy,
+    backup_vault,
+    host_group,
+    kms,
+    ontap,
+    quota_rule,
+    replication,
+    snapshot,
+    storage_pool,
+    volume,
+)
 from google.cloud.netapp_v1.types import active_directory as gcn_active_directory
-from google.cloud.netapp_v1.types import active_directory
-from google.cloud.netapp_v1.types import backup
 from google.cloud.netapp_v1.types import backup as gcn_backup
-from google.cloud.netapp_v1.types import backup_policy
 from google.cloud.netapp_v1.types import backup_policy as gcn_backup_policy
-from google.cloud.netapp_v1.types import backup_vault
 from google.cloud.netapp_v1.types import backup_vault as gcn_backup_vault
-from google.cloud.netapp_v1.types import kms
-from google.cloud.netapp_v1.types import quota_rule
+from google.cloud.netapp_v1.types import host_group as gcn_host_group
 from google.cloud.netapp_v1.types import quota_rule as gcn_quota_rule
-from google.cloud.netapp_v1.types import replication
 from google.cloud.netapp_v1.types import replication as gcn_replication
-from google.cloud.netapp_v1.types import snapshot
 from google.cloud.netapp_v1.types import snapshot as gcn_snapshot
-from google.cloud.netapp_v1.types import storage_pool
 from google.cloud.netapp_v1.types import storage_pool as gcn_storage_pool
-from google.cloud.netapp_v1.types import volume
 from google.cloud.netapp_v1.types import volume as gcn_volume
 
 from .base import DEFAULT_CLIENT_INFO, NetAppTransport
@@ -80,7 +85,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -115,7 +120,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -167,8 +172,9 @@ class NetAppGrpcAsyncIOTransport(NetAppTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -219,9 +225,10 @@ class NetAppGrpcAsyncIOTransport(NetAppTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -253,6 +260,10 @@ class NetAppGrpcAsyncIOTransport(NetAppTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -533,12 +544,12 @@ class NetAppGrpcAsyncIOTransport(NetAppTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "validate_directory_service" not in self._stubs:
-            self._stubs[
-                "validate_directory_service"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.netapp.v1.NetApp/ValidateDirectoryService",
-                request_serializer=storage_pool.ValidateDirectoryServiceRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["validate_directory_service"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.netapp.v1.NetApp/ValidateDirectoryService",
+                    request_serializer=storage_pool.ValidateDirectoryServiceRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["validate_directory_service"]
 
@@ -565,12 +576,12 @@ class NetAppGrpcAsyncIOTransport(NetAppTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "switch_active_replica_zone" not in self._stubs:
-            self._stubs[
-                "switch_active_replica_zone"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.netapp.v1.NetApp/SwitchActiveReplicaZone",
-                request_serializer=storage_pool.SwitchActiveReplicaZoneRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["switch_active_replica_zone"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.netapp.v1.NetApp/SwitchActiveReplicaZone",
+                    request_serializer=storage_pool.SwitchActiveReplicaZoneRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["switch_active_replica_zone"]
 
@@ -735,6 +746,36 @@ class NetAppGrpcAsyncIOTransport(NetAppTransport):
                 response_deserializer=operations_pb2.Operation.FromString,
             )
         return self._stubs["revert_volume"]
+
+    @property
+    def establish_volume_peering(
+        self,
+    ) -> Callable[
+        [volume.EstablishVolumePeeringRequest], Awaitable[operations_pb2.Operation]
+    ]:
+        r"""Return a callable for the establish volume peering method over gRPC.
+
+        Establish volume peering. This is used to establish
+        cluster and svm peerings between the GCNV and OnPrem
+        clusters.
+
+        Returns:
+            Callable[[~.EstablishVolumePeeringRequest],
+                    Awaitable[~.Operation]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "establish_volume_peering" not in self._stubs:
+            self._stubs["establish_volume_peering"] = self._logged_channel.unary_unary(
+                "/google.cloud.netapp.v1.NetApp/EstablishVolumePeering",
+                request_serializer=volume.EstablishVolumePeeringRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["establish_volume_peering"]
 
     @property
     def list_snapshots(
@@ -1427,12 +1468,12 @@ class NetAppGrpcAsyncIOTransport(NetAppTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "reverse_replication_direction" not in self._stubs:
-            self._stubs[
-                "reverse_replication_direction"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.netapp.v1.NetApp/ReverseReplicationDirection",
-                request_serializer=replication.ReverseReplicationDirectionRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["reverse_replication_direction"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.netapp.v1.NetApp/ReverseReplicationDirection",
+                    request_serializer=replication.ReverseReplicationDirectionRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["reverse_replication_direction"]
 
@@ -2058,6 +2099,289 @@ class NetAppGrpcAsyncIOTransport(NetAppTransport):
             )
         return self._stubs["delete_quota_rule"]
 
+    @property
+    def restore_backup_files(
+        self,
+    ) -> Callable[
+        [volume.RestoreBackupFilesRequest], Awaitable[operations_pb2.Operation]
+    ]:
+        r"""Return a callable for the restore backup files method over gRPC.
+
+        Restore files from a backup to a volume.
+
+        Returns:
+            Callable[[~.RestoreBackupFilesRequest],
+                    Awaitable[~.Operation]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "restore_backup_files" not in self._stubs:
+            self._stubs["restore_backup_files"] = self._logged_channel.unary_unary(
+                "/google.cloud.netapp.v1.NetApp/RestoreBackupFiles",
+                request_serializer=volume.RestoreBackupFilesRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["restore_backup_files"]
+
+    @property
+    def list_host_groups(
+        self,
+    ) -> Callable[
+        [host_group.ListHostGroupsRequest], Awaitable[host_group.ListHostGroupsResponse]
+    ]:
+        r"""Return a callable for the list host groups method over gRPC.
+
+        Returns a list of host groups in a ``location``. Use ``-`` as
+        location to list host groups across all locations.
+
+        Returns:
+            Callable[[~.ListHostGroupsRequest],
+                    Awaitable[~.ListHostGroupsResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "list_host_groups" not in self._stubs:
+            self._stubs["list_host_groups"] = self._logged_channel.unary_unary(
+                "/google.cloud.netapp.v1.NetApp/ListHostGroups",
+                request_serializer=host_group.ListHostGroupsRequest.serialize,
+                response_deserializer=host_group.ListHostGroupsResponse.deserialize,
+            )
+        return self._stubs["list_host_groups"]
+
+    @property
+    def get_host_group(
+        self,
+    ) -> Callable[[host_group.GetHostGroupRequest], Awaitable[host_group.HostGroup]]:
+        r"""Return a callable for the get host group method over gRPC.
+
+        Returns details of the specified host group.
+
+        Returns:
+            Callable[[~.GetHostGroupRequest],
+                    Awaitable[~.HostGroup]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "get_host_group" not in self._stubs:
+            self._stubs["get_host_group"] = self._logged_channel.unary_unary(
+                "/google.cloud.netapp.v1.NetApp/GetHostGroup",
+                request_serializer=host_group.GetHostGroupRequest.serialize,
+                response_deserializer=host_group.HostGroup.deserialize,
+            )
+        return self._stubs["get_host_group"]
+
+    @property
+    def create_host_group(
+        self,
+    ) -> Callable[
+        [gcn_host_group.CreateHostGroupRequest], Awaitable[operations_pb2.Operation]
+    ]:
+        r"""Return a callable for the create host group method over gRPC.
+
+        Creates a new host group.
+
+        Returns:
+            Callable[[~.CreateHostGroupRequest],
+                    Awaitable[~.Operation]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "create_host_group" not in self._stubs:
+            self._stubs["create_host_group"] = self._logged_channel.unary_unary(
+                "/google.cloud.netapp.v1.NetApp/CreateHostGroup",
+                request_serializer=gcn_host_group.CreateHostGroupRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["create_host_group"]
+
+    @property
+    def update_host_group(
+        self,
+    ) -> Callable[
+        [gcn_host_group.UpdateHostGroupRequest], Awaitable[operations_pb2.Operation]
+    ]:
+        r"""Return a callable for the update host group method over gRPC.
+
+        Updates an existing host group.
+
+        Returns:
+            Callable[[~.UpdateHostGroupRequest],
+                    Awaitable[~.Operation]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "update_host_group" not in self._stubs:
+            self._stubs["update_host_group"] = self._logged_channel.unary_unary(
+                "/google.cloud.netapp.v1.NetApp/UpdateHostGroup",
+                request_serializer=gcn_host_group.UpdateHostGroupRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["update_host_group"]
+
+    @property
+    def delete_host_group(
+        self,
+    ) -> Callable[
+        [host_group.DeleteHostGroupRequest], Awaitable[operations_pb2.Operation]
+    ]:
+        r"""Return a callable for the delete host group method over gRPC.
+
+        Deletes a host group.
+
+        Returns:
+            Callable[[~.DeleteHostGroupRequest],
+                    Awaitable[~.Operation]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "delete_host_group" not in self._stubs:
+            self._stubs["delete_host_group"] = self._logged_channel.unary_unary(
+                "/google.cloud.netapp.v1.NetApp/DeleteHostGroup",
+                request_serializer=host_group.DeleteHostGroupRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["delete_host_group"]
+
+    @property
+    def execute_ontap_post(
+        self,
+    ) -> Callable[
+        [ontap.ExecuteOntapPostRequest], Awaitable[ontap.ExecuteOntapPostResponse]
+    ]:
+        r"""Return a callable for the execute ontap post method over gRPC.
+
+        ``ExecuteOntapPost`` dispatches the ONTAP ``POST`` request to
+        the ``StoragePool`` cluster.
+
+        Returns:
+            Callable[[~.ExecuteOntapPostRequest],
+                    Awaitable[~.ExecuteOntapPostResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "execute_ontap_post" not in self._stubs:
+            self._stubs["execute_ontap_post"] = self._logged_channel.unary_unary(
+                "/google.cloud.netapp.v1.NetApp/ExecuteOntapPost",
+                request_serializer=ontap.ExecuteOntapPostRequest.serialize,
+                response_deserializer=ontap.ExecuteOntapPostResponse.deserialize,
+            )
+        return self._stubs["execute_ontap_post"]
+
+    @property
+    def execute_ontap_get(
+        self,
+    ) -> Callable[
+        [ontap.ExecuteOntapGetRequest], Awaitable[ontap.ExecuteOntapGetResponse]
+    ]:
+        r"""Return a callable for the execute ontap get method over gRPC.
+
+        ``ExecuteOntapGet`` dispatches the ONTAP ``GET`` request to the
+        ``StoragePool`` cluster.
+
+        Returns:
+            Callable[[~.ExecuteOntapGetRequest],
+                    Awaitable[~.ExecuteOntapGetResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "execute_ontap_get" not in self._stubs:
+            self._stubs["execute_ontap_get"] = self._logged_channel.unary_unary(
+                "/google.cloud.netapp.v1.NetApp/ExecuteOntapGet",
+                request_serializer=ontap.ExecuteOntapGetRequest.serialize,
+                response_deserializer=ontap.ExecuteOntapGetResponse.deserialize,
+            )
+        return self._stubs["execute_ontap_get"]
+
+    @property
+    def execute_ontap_delete(
+        self,
+    ) -> Callable[
+        [ontap.ExecuteOntapDeleteRequest], Awaitable[ontap.ExecuteOntapDeleteResponse]
+    ]:
+        r"""Return a callable for the execute ontap delete method over gRPC.
+
+        ``ExecuteOntapDelete`` dispatches the ONTAP ``DELETE`` request
+        to the ``StoragePool`` cluster.
+
+        Returns:
+            Callable[[~.ExecuteOntapDeleteRequest],
+                    Awaitable[~.ExecuteOntapDeleteResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "execute_ontap_delete" not in self._stubs:
+            self._stubs["execute_ontap_delete"] = self._logged_channel.unary_unary(
+                "/google.cloud.netapp.v1.NetApp/ExecuteOntapDelete",
+                request_serializer=ontap.ExecuteOntapDeleteRequest.serialize,
+                response_deserializer=ontap.ExecuteOntapDeleteResponse.deserialize,
+            )
+        return self._stubs["execute_ontap_delete"]
+
+    @property
+    def execute_ontap_patch(
+        self,
+    ) -> Callable[
+        [ontap.ExecuteOntapPatchRequest], Awaitable[ontap.ExecuteOntapPatchResponse]
+    ]:
+        r"""Return a callable for the execute ontap patch method over gRPC.
+
+        ``ExecuteOntapPatch`` dispatches the ONTAP ``PATCH`` request to
+        the ``StoragePool`` cluster.
+
+        Returns:
+            Callable[[~.ExecuteOntapPatchRequest],
+                    Awaitable[~.ExecuteOntapPatchResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "execute_ontap_patch" not in self._stubs:
+            self._stubs["execute_ontap_patch"] = self._logged_channel.unary_unary(
+                "/google.cloud.netapp.v1.NetApp/ExecuteOntapPatch",
+                request_serializer=ontap.ExecuteOntapPatchRequest.serialize,
+                response_deserializer=ontap.ExecuteOntapPatchResponse.deserialize,
+            )
+        return self._stubs["execute_ontap_patch"]
+
     def _prep_wrapped_messages(self, client_info):
         """Precompute the wrapped methods, overriding the base class method to use async wrappers."""
         self._wrapped_methods = {
@@ -2160,6 +2484,11 @@ class NetAppGrpcAsyncIOTransport(NetAppTransport):
             self.revert_volume: self._wrap_method(
                 self.revert_volume,
                 default_timeout=60.0,
+                client_info=client_info,
+            ),
+            self.establish_volume_peering: self._wrap_method(
+                self.establish_volume_peering,
+                default_timeout=None,
                 client_info=client_info,
             ),
             self.list_snapshots: self._wrap_method(
@@ -2520,6 +2849,56 @@ class NetAppGrpcAsyncIOTransport(NetAppTransport):
             ),
             self.delete_quota_rule: self._wrap_method(
                 self.delete_quota_rule,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.restore_backup_files: self._wrap_method(
+                self.restore_backup_files,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_host_groups: self._wrap_method(
+                self.list_host_groups,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_host_group: self._wrap_method(
+                self.get_host_group,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.create_host_group: self._wrap_method(
+                self.create_host_group,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_host_group: self._wrap_method(
+                self.update_host_group,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.delete_host_group: self._wrap_method(
+                self.delete_host_group,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.execute_ontap_post: self._wrap_method(
+                self.execute_ontap_post,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.execute_ontap_get: self._wrap_method(
+                self.execute_ontap_get,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.execute_ontap_delete: self._wrap_method(
+                self.execute_ontap_delete,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.execute_ontap_patch: self._wrap_method(
+                self.execute_ontap_patch,
                 default_timeout=None,
                 client_info=client_info,
             ),

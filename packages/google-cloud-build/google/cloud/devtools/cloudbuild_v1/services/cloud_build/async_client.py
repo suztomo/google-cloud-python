@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.devtools.cloudbuild_v1 import gapic_version as package_version
 
@@ -44,12 +44,12 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 
 from google.cloud.devtools.cloudbuild_v1.services.cloud_build import pagers
 from google.cloud.devtools.cloudbuild_v1.types import cloudbuild
@@ -94,6 +94,12 @@ class CloudBuildAsyncClient:
     parse_build_trigger_path = staticmethod(CloudBuildClient.parse_build_trigger_path)
     crypto_key_path = staticmethod(CloudBuildClient.crypto_key_path)
     parse_crypto_key_path = staticmethod(CloudBuildClient.parse_crypto_key_path)
+    default_service_account_path = staticmethod(
+        CloudBuildClient.default_service_account_path
+    )
+    parse_default_service_account_path = staticmethod(
+        CloudBuildClient.parse_default_service_account_path
+    )
     github_enterprise_config_path = staticmethod(
         CloudBuildClient.github_enterprise_config_path
     )
@@ -156,7 +162,10 @@ class CloudBuildAsyncClient:
         Returns:
             CloudBuildAsyncClient: The constructed client.
         """
-        return CloudBuildClient.from_service_account_info.__func__(CloudBuildAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            CloudBuildClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(CloudBuildAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -172,7 +181,10 @@ class CloudBuildAsyncClient:
         Returns:
             CloudBuildAsyncClient: The constructed client.
         """
-        return CloudBuildClient.from_service_account_file.__func__(CloudBuildAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            CloudBuildClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(CloudBuildAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -222,7 +234,7 @@ class CloudBuildAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -336,6 +348,7 @@ class CloudBuildAsyncClient:
         *,
         project_id: Optional[str] = None,
         build: Optional[cloudbuild.Build] = None,
+        parent: Optional[str] = None,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
@@ -367,11 +380,11 @@ class CloudBuildAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_build(request=request)
+                operation = await client.create_build(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -387,6 +400,13 @@ class CloudBuildAsyncClient:
             build (:class:`google.cloud.devtools.cloudbuild_v1.types.Build`):
                 Required. Build resource to create.
                 This corresponds to the ``build`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            parent (:class:`str`):
+                The parent resource where this build will be created.
+                Format: ``projects/{project}/locations/{location}``
+
+                This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
@@ -413,26 +433,26 @@ class CloudBuildAsyncClient:
                    Fields can include the following variables, which
                    will be expanded when the build is created:
 
-                   -  $PROJECT_ID: the project ID of the build.
-                   -  $PROJECT_NUMBER: the project number of the build.
-                   -  $LOCATION: the location/region of the build.
-                   -  $BUILD_ID: the autogenerated ID of the build.
-                   -  $REPO_NAME: the source repository name specified
-                      by RepoSource.
-                   -  $BRANCH_NAME: the branch name specified by
-                      RepoSource.
-                   -  $TAG_NAME: the tag name specified by RepoSource.
-                   -  $REVISION_ID or $COMMIT_SHA: the commit SHA
-                      specified by RepoSource or resolved from the
-                      specified branch or tag.
-                   -  $SHORT_SHA: first 7 characters of $REVISION_ID or
-                      $COMMIT_SHA.
+                   - $PROJECT_ID: the project ID of the build.
+                   - $PROJECT_NUMBER: the project number of the build.
+                   - $LOCATION: the location/region of the build.
+                   - $BUILD_ID: the autogenerated ID of the build.
+                   - $REPO_NAME: the source repository name specified by
+                     RepoSource.
+                   - $BRANCH_NAME: the branch name specified by
+                     RepoSource.
+                   - $TAG_NAME: the tag name specified by RepoSource.
+                   - $REVISION_ID or $COMMIT_SHA: the commit SHA
+                     specified by RepoSource or resolved from the
+                     specified branch or tag.
+                   - $SHORT_SHA: first 7 characters of $REVISION_ID or
+                     $COMMIT_SHA.
 
         """
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
-        flattened_params = [project_id, build]
+        flattened_params = [project_id, build, parent]
         has_flattened_params = (
             len([param for param in flattened_params if param is not None]) > 0
         )
@@ -453,6 +473,8 @@ class CloudBuildAsyncClient:
             request.project_id = project_id
         if build is not None:
             request.build = build
+        if parent is not None:
+            request.parent = parent
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -502,6 +524,7 @@ class CloudBuildAsyncClient:
         *,
         project_id: Optional[str] = None,
         id: Optional[str] = None,
+        name: Optional[str] = None,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
@@ -552,6 +575,13 @@ class CloudBuildAsyncClient:
                 This corresponds to the ``id`` field
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
+            name (:class:`str`):
+                The name of the ``Build`` to retrieve. Format:
+                ``projects/{project}/locations/{location}/builds/{build}``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
             retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
                 should be retried.
             timeout (float): The timeout for this request.
@@ -572,26 +602,26 @@ class CloudBuildAsyncClient:
                    Fields can include the following variables, which
                    will be expanded when the build is created:
 
-                   -  $PROJECT_ID: the project ID of the build.
-                   -  $PROJECT_NUMBER: the project number of the build.
-                   -  $LOCATION: the location/region of the build.
-                   -  $BUILD_ID: the autogenerated ID of the build.
-                   -  $REPO_NAME: the source repository name specified
-                      by RepoSource.
-                   -  $BRANCH_NAME: the branch name specified by
-                      RepoSource.
-                   -  $TAG_NAME: the tag name specified by RepoSource.
-                   -  $REVISION_ID or $COMMIT_SHA: the commit SHA
-                      specified by RepoSource or resolved from the
-                      specified branch or tag.
-                   -  $SHORT_SHA: first 7 characters of $REVISION_ID or
-                      $COMMIT_SHA.
+                   - $PROJECT_ID: the project ID of the build.
+                   - $PROJECT_NUMBER: the project number of the build.
+                   - $LOCATION: the location/region of the build.
+                   - $BUILD_ID: the autogenerated ID of the build.
+                   - $REPO_NAME: the source repository name specified by
+                     RepoSource.
+                   - $BRANCH_NAME: the branch name specified by
+                     RepoSource.
+                   - $TAG_NAME: the tag name specified by RepoSource.
+                   - $REVISION_ID or $COMMIT_SHA: the commit SHA
+                     specified by RepoSource or resolved from the
+                     specified branch or tag.
+                   - $SHORT_SHA: first 7 characters of $REVISION_ID or
+                     $COMMIT_SHA.
 
         """
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
-        flattened_params = [project_id, id]
+        flattened_params = [project_id, id, name]
         has_flattened_params = (
             len([param for param in flattened_params if param is not None]) > 0
         )
@@ -612,6 +642,8 @@ class CloudBuildAsyncClient:
             request.project_id = project_id
         if id is not None:
             request.id = id
+        if name is not None:
+            request.name = name
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -797,6 +829,7 @@ class CloudBuildAsyncClient:
         *,
         project_id: Optional[str] = None,
         id: Optional[str] = None,
+        name: Optional[str] = None,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
@@ -843,6 +876,13 @@ class CloudBuildAsyncClient:
                 This corresponds to the ``id`` field
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
+            name (:class:`str`):
+                The name of the ``Build`` to cancel. Format:
+                ``projects/{project}/locations/{location}/builds/{build}``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
             retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
                 should be retried.
             timeout (float): The timeout for this request.
@@ -863,26 +903,26 @@ class CloudBuildAsyncClient:
                    Fields can include the following variables, which
                    will be expanded when the build is created:
 
-                   -  $PROJECT_ID: the project ID of the build.
-                   -  $PROJECT_NUMBER: the project number of the build.
-                   -  $LOCATION: the location/region of the build.
-                   -  $BUILD_ID: the autogenerated ID of the build.
-                   -  $REPO_NAME: the source repository name specified
-                      by RepoSource.
-                   -  $BRANCH_NAME: the branch name specified by
-                      RepoSource.
-                   -  $TAG_NAME: the tag name specified by RepoSource.
-                   -  $REVISION_ID or $COMMIT_SHA: the commit SHA
-                      specified by RepoSource or resolved from the
-                      specified branch or tag.
-                   -  $SHORT_SHA: first 7 characters of $REVISION_ID or
-                      $COMMIT_SHA.
+                   - $PROJECT_ID: the project ID of the build.
+                   - $PROJECT_NUMBER: the project number of the build.
+                   - $LOCATION: the location/region of the build.
+                   - $BUILD_ID: the autogenerated ID of the build.
+                   - $REPO_NAME: the source repository name specified by
+                     RepoSource.
+                   - $BRANCH_NAME: the branch name specified by
+                     RepoSource.
+                   - $TAG_NAME: the tag name specified by RepoSource.
+                   - $REVISION_ID or $COMMIT_SHA: the commit SHA
+                     specified by RepoSource or resolved from the
+                     specified branch or tag.
+                   - $SHORT_SHA: first 7 characters of $REVISION_ID or
+                     $COMMIT_SHA.
 
         """
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
-        flattened_params = [project_id, id]
+        flattened_params = [project_id, id, name]
         has_flattened_params = (
             len([param for param in flattened_params if param is not None]) > 0
         )
@@ -903,6 +943,8 @@ class CloudBuildAsyncClient:
             request.project_id = project_id
         if id is not None:
             request.id = id
+        if name is not None:
+            request.name = name
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -944,6 +986,7 @@ class CloudBuildAsyncClient:
         *,
         project_id: Optional[str] = None,
         id: Optional[str] = None,
+        name: Optional[str] = None,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
@@ -955,29 +998,29 @@ class CloudBuildAsyncClient:
 
         For triggered builds:
 
-        -  Triggered builds resolve to a precise revision; therefore a
-           retry of a triggered build will result in a build that uses
-           the same revision.
+        - Triggered builds resolve to a precise revision; therefore a
+          retry of a triggered build will result in a build that uses
+          the same revision.
 
         For non-triggered builds that specify ``RepoSource``:
 
-        -  If the original build built from the tip of a branch, the
-           retried build will build from the tip of that branch, which
-           may not be the same revision as the original build.
-        -  If the original build specified a commit sha or revision ID,
-           the retried build will use the identical source.
+        - If the original build built from the tip of a branch, the
+          retried build will build from the tip of that branch, which
+          may not be the same revision as the original build.
+        - If the original build specified a commit sha or revision ID,
+          the retried build will use the identical source.
 
         For builds that specify ``StorageSource``:
 
-        -  If the original build pulled source from Cloud Storage
-           without specifying the generation of the object, the new
-           build will use the current object, which may be different
-           from the original build source.
-        -  If the original build pulled source from Cloud Storage and
-           specified the generation of the object, the new build will
-           attempt to use the same object, which may or may not be
-           available depending on the bucket's lifecycle management
-           settings.
+        - If the original build pulled source from Cloud Storage without
+          specifying the generation of the object, the new build will
+          use the current object, which may be different from the
+          original build source.
+        - If the original build pulled source from Cloud Storage and
+          specified the generation of the object, the new build will
+          attempt to use the same object, which may or may not be
+          available depending on the bucket's lifecycle management
+          settings.
 
         .. code-block:: python
 
@@ -1001,11 +1044,11 @@ class CloudBuildAsyncClient:
                 )
 
                 # Make the request
-                operation = client.retry_build(request=request)
+                operation = await client.retry_build(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1023,6 +1066,13 @@ class CloudBuildAsyncClient:
                 build.
 
                 This corresponds to the ``id`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            name (:class:`str`):
+                The name of the ``Build`` to retry. Format:
+                ``projects/{project}/locations/{location}/builds/{build}``
+
+                This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
@@ -1049,26 +1099,26 @@ class CloudBuildAsyncClient:
                    Fields can include the following variables, which
                    will be expanded when the build is created:
 
-                   -  $PROJECT_ID: the project ID of the build.
-                   -  $PROJECT_NUMBER: the project number of the build.
-                   -  $LOCATION: the location/region of the build.
-                   -  $BUILD_ID: the autogenerated ID of the build.
-                   -  $REPO_NAME: the source repository name specified
-                      by RepoSource.
-                   -  $BRANCH_NAME: the branch name specified by
-                      RepoSource.
-                   -  $TAG_NAME: the tag name specified by RepoSource.
-                   -  $REVISION_ID or $COMMIT_SHA: the commit SHA
-                      specified by RepoSource or resolved from the
-                      specified branch or tag.
-                   -  $SHORT_SHA: first 7 characters of $REVISION_ID or
-                      $COMMIT_SHA.
+                   - $PROJECT_ID: the project ID of the build.
+                   - $PROJECT_NUMBER: the project number of the build.
+                   - $LOCATION: the location/region of the build.
+                   - $BUILD_ID: the autogenerated ID of the build.
+                   - $REPO_NAME: the source repository name specified by
+                     RepoSource.
+                   - $BRANCH_NAME: the branch name specified by
+                     RepoSource.
+                   - $TAG_NAME: the tag name specified by RepoSource.
+                   - $REVISION_ID or $COMMIT_SHA: the commit SHA
+                     specified by RepoSource or resolved from the
+                     specified branch or tag.
+                   - $SHORT_SHA: first 7 characters of $REVISION_ID or
+                     $COMMIT_SHA.
 
         """
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
-        flattened_params = [project_id, id]
+        flattened_params = [project_id, id, name]
         has_flattened_params = (
             len([param for param in flattened_params if param is not None]) > 0
         )
@@ -1089,6 +1139,8 @@ class CloudBuildAsyncClient:
             request.project_id = project_id
         if id is not None:
             request.id = id
+        if name is not None:
+            request.name = name
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1144,8 +1196,9 @@ class CloudBuildAsyncClient:
     ) -> operation_async.AsyncOperation:
         r"""Approves or rejects a pending build.
 
-        If approved, the returned LRO will be analogous to the
-        LRO returned from a CreateBuild call.
+        If approved, the returned long-running operation (LRO)
+        will be analogous to the LRO returned from a CreateBuild
+        call.
 
         If rejected, the returned LRO will be immediately done.
 
@@ -1170,11 +1223,11 @@ class CloudBuildAsyncClient:
                 )
 
                 # Make the request
-                operation = client.approve_build(request=request)
+                operation = await client.approve_build(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1219,20 +1272,20 @@ class CloudBuildAsyncClient:
                    Fields can include the following variables, which
                    will be expanded when the build is created:
 
-                   -  $PROJECT_ID: the project ID of the build.
-                   -  $PROJECT_NUMBER: the project number of the build.
-                   -  $LOCATION: the location/region of the build.
-                   -  $BUILD_ID: the autogenerated ID of the build.
-                   -  $REPO_NAME: the source repository name specified
-                      by RepoSource.
-                   -  $BRANCH_NAME: the branch name specified by
-                      RepoSource.
-                   -  $TAG_NAME: the tag name specified by RepoSource.
-                   -  $REVISION_ID or $COMMIT_SHA: the commit SHA
-                      specified by RepoSource or resolved from the
-                      specified branch or tag.
-                   -  $SHORT_SHA: first 7 characters of $REVISION_ID or
-                      $COMMIT_SHA.
+                   - $PROJECT_ID: the project ID of the build.
+                   - $PROJECT_NUMBER: the project number of the build.
+                   - $LOCATION: the location/region of the build.
+                   - $BUILD_ID: the autogenerated ID of the build.
+                   - $REPO_NAME: the source repository name specified by
+                     RepoSource.
+                   - $BRANCH_NAME: the branch name specified by
+                     RepoSource.
+                   - $TAG_NAME: the tag name specified by RepoSource.
+                   - $REVISION_ID or $COMMIT_SHA: the commit SHA
+                     specified by RepoSource or resolved from the
+                     specified branch or tag.
+                   - $SHORT_SHA: first 7 characters of $REVISION_ID or
+                     $COMMIT_SHA.
 
         """
         # Create or coerce a protobuf request object.
@@ -1308,13 +1361,12 @@ class CloudBuildAsyncClient:
         *,
         project_id: Optional[str] = None,
         trigger: Optional[cloudbuild.BuildTrigger] = None,
+        parent: Optional[str] = None,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> cloudbuild.BuildTrigger:
         r"""Creates a new ``BuildTrigger``.
-
-        This API is experimental.
 
         .. code-block:: python
 
@@ -1361,6 +1413,13 @@ class CloudBuildAsyncClient:
                 This corresponds to the ``trigger`` field
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
+            parent (:class:`str`):
+                The parent resource where this trigger will be created.
+                Format: ``projects/{project}/locations/{location}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
             retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
                 should be retried.
             timeout (float): The timeout for this request.
@@ -1379,7 +1438,7 @@ class CloudBuildAsyncClient:
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
-        flattened_params = [project_id, trigger]
+        flattened_params = [project_id, trigger, parent]
         has_flattened_params = (
             len([param for param in flattened_params if param is not None]) > 0
         )
@@ -1400,6 +1459,8 @@ class CloudBuildAsyncClient:
             request.project_id = project_id
         if trigger is not None:
             request.trigger = trigger
+        if parent is not None:
+            request.parent = parent
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1441,13 +1502,12 @@ class CloudBuildAsyncClient:
         *,
         project_id: Optional[str] = None,
         trigger_id: Optional[str] = None,
+        name: Optional[str] = None,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> cloudbuild.BuildTrigger:
         r"""Returns information about a ``BuildTrigger``.
-
-        This API is experimental.
 
         .. code-block:: python
 
@@ -1493,6 +1553,13 @@ class CloudBuildAsyncClient:
                 This corresponds to the ``trigger_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
+            name (:class:`str`):
+                The name of the ``Trigger`` to retrieve. Format:
+                ``projects/{project}/locations/{location}/triggers/{trigger}``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
             retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
                 should be retried.
             timeout (float): The timeout for this request.
@@ -1511,7 +1578,7 @@ class CloudBuildAsyncClient:
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
-        flattened_params = [project_id, trigger_id]
+        flattened_params = [project_id, trigger_id, name]
         has_flattened_params = (
             len([param for param in flattened_params if param is not None]) > 0
         )
@@ -1532,6 +1599,8 @@ class CloudBuildAsyncClient:
             request.project_id = project_id
         if trigger_id is not None:
             request.trigger_id = trigger_id
+        if name is not None:
+            request.name = name
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1577,8 +1646,6 @@ class CloudBuildAsyncClient:
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.ListBuildTriggersAsyncPager:
         r"""Lists existing ``BuildTrigger``\ s.
-
-        This API is experimental.
 
         .. code-block:: python
 
@@ -1707,13 +1774,12 @@ class CloudBuildAsyncClient:
         *,
         project_id: Optional[str] = None,
         trigger_id: Optional[str] = None,
+        name: Optional[str] = None,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> None:
         r"""Deletes a ``BuildTrigger`` by its project ID and trigger ID.
-
-        This API is experimental.
 
         .. code-block:: python
 
@@ -1754,6 +1820,13 @@ class CloudBuildAsyncClient:
                 This corresponds to the ``trigger_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
+            name (:class:`str`):
+                The name of the ``Trigger`` to delete. Format:
+                ``projects/{project}/locations/{location}/triggers/{trigger}``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
             retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
                 should be retried.
             timeout (float): The timeout for this request.
@@ -1765,7 +1838,7 @@ class CloudBuildAsyncClient:
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
-        flattened_params = [project_id, trigger_id]
+        flattened_params = [project_id, trigger_id, name]
         has_flattened_params = (
             len([param for param in flattened_params if param is not None]) > 0
         )
@@ -1786,6 +1859,8 @@ class CloudBuildAsyncClient:
             request.project_id = project_id
         if trigger_id is not None:
             request.trigger_id = trigger_id
+        if name is not None:
+            request.name = name
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1830,8 +1905,6 @@ class CloudBuildAsyncClient:
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> cloudbuild.BuildTrigger:
         r"""Updates a ``BuildTrigger`` by its project ID and trigger ID.
-
-        This API is experimental.
 
         .. code-block:: python
 
@@ -2001,11 +2074,11 @@ class CloudBuildAsyncClient:
                 )
 
                 # Make the request
-                operation = client.run_build_trigger(request=request)
+                operation = await client.run_build_trigger(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2056,20 +2129,20 @@ class CloudBuildAsyncClient:
                    Fields can include the following variables, which
                    will be expanded when the build is created:
 
-                   -  $PROJECT_ID: the project ID of the build.
-                   -  $PROJECT_NUMBER: the project number of the build.
-                   -  $LOCATION: the location/region of the build.
-                   -  $BUILD_ID: the autogenerated ID of the build.
-                   -  $REPO_NAME: the source repository name specified
-                      by RepoSource.
-                   -  $BRANCH_NAME: the branch name specified by
-                      RepoSource.
-                   -  $TAG_NAME: the tag name specified by RepoSource.
-                   -  $REVISION_ID or $COMMIT_SHA: the commit SHA
-                      specified by RepoSource or resolved from the
-                      specified branch or tag.
-                   -  $SHORT_SHA: first 7 characters of $REVISION_ID or
-                      $COMMIT_SHA.
+                   - $PROJECT_ID: the project ID of the build.
+                   - $PROJECT_NUMBER: the project number of the build.
+                   - $LOCATION: the location/region of the build.
+                   - $BUILD_ID: the autogenerated ID of the build.
+                   - $REPO_NAME: the source repository name specified by
+                     RepoSource.
+                   - $BRANCH_NAME: the branch name specified by
+                     RepoSource.
+                   - $TAG_NAME: the tag name specified by RepoSource.
+                   - $REVISION_ID or $COMMIT_SHA: the commit SHA
+                     specified by RepoSource or resolved from the
+                     specified branch or tag.
+                   - $SHORT_SHA: first 7 characters of $REVISION_ID or
+                     $COMMIT_SHA.
 
         """
         # Create or coerce a protobuf request object.
@@ -2268,11 +2341,11 @@ class CloudBuildAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_worker_pool(request=request)
+                operation = await client.create_worker_pool(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2327,12 +2400,12 @@ class CloudBuildAsyncClient:
 
                    If your build needs access to resources on a private
                    network, create and use a WorkerPool to run your
-                   builds. Private WorkerPools give your builds access
-                   to any single VPC network that you administer,
+                   builds. Private \`WorkerPool`s give your builds
+                   access to any single VPC network that you administer,
                    including any on-prem resources connected to that VPC
                    network. For an overview of private pools, see
                    [Private pools
-                   overview](\ https://cloud.google.com/build/docs/private-pools/private-pools-overview).
+                   overview](https://cloud.google.com/build/docs/private-pools/private-pools-overview).
 
         """
         # Create or coerce a protobuf request object.
@@ -2471,12 +2544,12 @@ class CloudBuildAsyncClient:
 
                    If your build needs access to resources on a private
                    network, create and use a WorkerPool to run your
-                   builds. Private WorkerPools give your builds access
-                   to any single VPC network that you administer,
+                   builds. Private \`WorkerPool`s give your builds
+                   access to any single VPC network that you administer,
                    including any on-prem resources connected to that VPC
                    network. For an overview of private pools, see
                    [Private pools
-                   overview](\ https://cloud.google.com/build/docs/private-pools/private-pools-overview).
+                   overview](https://cloud.google.com/build/docs/private-pools/private-pools-overview).
 
         """
         # Create or coerce a protobuf request object.
@@ -2568,11 +2641,11 @@ class CloudBuildAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_worker_pool(request=request)
+                operation = await client.delete_worker_pool(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2709,11 +2782,11 @@ class CloudBuildAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_worker_pool(request=request)
+                operation = await client.update_worker_pool(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2732,8 +2805,8 @@ class CloudBuildAsyncClient:
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             update_mask (:class:`google.protobuf.field_mask_pb2.FieldMask`):
-                A mask specifying which fields in ``worker_pool`` to
-                update.
+                Optional. A mask specifying which fields in
+                ``worker_pool`` to update.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2761,12 +2834,12 @@ class CloudBuildAsyncClient:
 
                    If your build needs access to resources on a private
                    network, create and use a WorkerPool to run your
-                   builds. Private WorkerPools give your builds access
-                   to any single VPC network that you administer,
+                   builds. Private \`WorkerPool`s give your builds
+                   access to any single VPC network that you administer,
                    including any on-prem resources connected to that VPC
                    network. For an overview of private pools, see
                    [Private pools
-                   overview](\ https://cloud.google.com/build/docs/private-pools/private-pools-overview).
+                   overview](https://cloud.google.com/build/docs/private-pools/private-pools-overview).
 
         """
         # Create or coerce a protobuf request object.
@@ -2961,6 +3034,126 @@ class CloudBuildAsyncClient:
             method=rpc,
             request=request,
             response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def get_default_service_account(
+        self,
+        request: Optional[
+            Union[cloudbuild.GetDefaultServiceAccountRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> cloudbuild.DefaultServiceAccount:
+        r"""Returns the ``DefaultServiceAccount`` used by the project.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud.devtools import cloudbuild_v1
+
+            async def sample_get_default_service_account():
+                # Create a client
+                client = cloudbuild_v1.CloudBuildAsyncClient()
+
+                # Initialize request argument(s)
+                request = cloudbuild_v1.GetDefaultServiceAccountRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = await client.get_default_service_account(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.devtools.cloudbuild_v1.types.GetDefaultServiceAccountRequest, dict]]):
+                The request object. Returns the default service account that will be used
+                for ``Builds``.
+            name (:class:`str`):
+                Required. The name of the ``DefaultServiceAccount`` to
+                retrieve. Format:
+                ``projects/{project}/locations/{location}/defaultServiceAccount``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.devtools.cloudbuild_v1.types.DefaultServiceAccount:
+                The default service account used for Builds.
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, cloudbuild.GetDefaultServiceAccountRequest):
+            request = cloudbuild.GetDefaultServiceAccountRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.get_default_service_account
+        ]
+
+        header_params = {}
+
+        routing_param_regex = re.compile(
+            "^projects/[^/]+/locations/(?P<location>[^/]+)/defaultServiceAccount$"
+        )
+        regex_match = routing_param_regex.match(request.name)
+        if regex_match and regex_match.group("location"):
+            header_params["location"] = regex_match.group("location")
+
+        if header_params:
+            metadata = tuple(metadata) + (
+                gapic_v1.routing_header.to_grpc_metadata(header_params),
+            )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,12 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async, operations_v1
 from google.api_core import retry_async as retries
@@ -27,10 +30,7 @@ from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
 from google.cloud.automl_v1beta1.types import prediction_service
 
@@ -61,7 +61,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -96,7 +96,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -151,8 +151,9 @@ class PredictionServiceGrpcAsyncIOTransport(PredictionServiceTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -203,9 +204,10 @@ class PredictionServiceGrpcAsyncIOTransport(PredictionServiceTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -237,6 +239,10 @@ class PredictionServiceGrpcAsyncIOTransport(PredictionServiceTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -361,23 +367,23 @@ class PredictionServiceGrpcAsyncIOTransport(PredictionServiceTransport):
         directly returned in the response. Available for following ML
         problems, and their expected request payloads:
 
-        -  Image Classification - Image in .JPEG, .GIF or .PNG format,
-           image_bytes up to 30MB.
-        -  Image Object Detection - Image in .JPEG, .GIF or .PNG format,
-           image_bytes up to 30MB.
-        -  Text Classification - TextSnippet, content up to 60,000
-           characters, UTF-8 encoded.
-        -  Text Extraction - TextSnippet, content up to 30,000
-           characters, UTF-8 NFC encoded.
-        -  Translation - TextSnippet, content up to 25,000 characters,
-           UTF-8 encoded.
-        -  Tables - Row, with column values matching the columns of the
-           model, up to 5MB. Not available for FORECASTING
+        - Image Classification - Image in .JPEG, .GIF or .PNG format,
+          image_bytes up to 30MB.
+        - Image Object Detection - Image in .JPEG, .GIF or .PNG format,
+          image_bytes up to 30MB.
+        - Text Classification - TextSnippet, content up to 60,000
+          characters, UTF-8 encoded.
+        - Text Extraction - TextSnippet, content up to 30,000
+          characters, UTF-8 NFC encoded.
+        - Translation - TextSnippet, content up to 25,000 characters,
+          UTF-8 encoded.
+        - Tables - Row, with column values matching the columns of the
+          model, up to 5MB. Not available for FORECASTING
 
         [prediction_type][google.cloud.automl.v1beta1.TablesModelMetadata.prediction_type].
 
-        -  Text Sentiment - TextSnippet, content up 500 characters,
-           UTF-8 encoded.
+        - Text Sentiment - TextSnippet, content up 500 characters, UTF-8
+          encoded.
 
         Returns:
             Callable[[~.PredictRequest],
@@ -417,11 +423,11 @@ class PredictionServiceGrpcAsyncIOTransport(PredictionServiceTransport):
         [response][google.longrunning.Operation.response] field.
         Available for following ML problems:
 
-        -  Image Classification
-        -  Image Object Detection
-        -  Video Classification
-        -  Video Object Tracking \* Text Extraction
-        -  Tables
+        - Image Classification
+        - Image Object Detection
+        - Video Classification
+        - Video Object Tracking \* Text Extraction
+        - Tables
 
         Returns:
             Callable[[~.BatchPredictRequest],

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.domains_v1beta1 import gapic_version as package_version
 
@@ -44,12 +44,12 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import money_pb2  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.money_pb2 as money_pb2  # type: ignore
 
 from google.cloud.domains_v1beta1.services.domains import pagers
 from google.cloud.domains_v1beta1.types import domains
@@ -114,7 +114,10 @@ class DomainsAsyncClient:
         Returns:
             DomainsAsyncClient: The constructed client.
         """
-        return DomainsClient.from_service_account_info.__func__(DomainsAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            DomainsClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(DomainsAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -130,7 +133,10 @@ class DomainsAsyncClient:
         Returns:
             DomainsAsyncClient: The constructed client.
         """
-        return DomainsClient.from_service_account_file.__func__(DomainsAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            DomainsClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(DomainsAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -180,7 +186,7 @@ class DomainsAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -594,11 +600,11 @@ class DomainsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.register_domain(request=request)
+                operation = await client.register_domain(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -922,11 +928,11 @@ class DomainsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.transfer_domain(request=request)
+                operation = await client.transfer_domain(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1340,11 +1346,11 @@ class DomainsAsyncClient:
         ``labels``. To update other fields, use the appropriate custom
         update method:
 
-        -  To update management settings, see
-           ``ConfigureManagementSettings``
-        -  To update DNS configuration, see ``ConfigureDnsSettings``
-        -  To update contact information, see
-           ``ConfigureContactSettings``
+        - To update management settings, see
+          ``ConfigureManagementSettings``
+        - To update DNS configuration, see ``ConfigureDnsSettings``
+        - To update contact information, see
+          ``ConfigureContactSettings``
 
         .. code-block:: python
 
@@ -1366,11 +1372,11 @@ class DomainsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_registration(request=request)
+                operation = await client.update_registration(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1525,11 +1531,11 @@ class DomainsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.configure_management_settings(request=request)
+                operation = await client.configure_management_settings(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1692,11 +1698,11 @@ class DomainsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.configure_dns_settings(request=request)
+                operation = await client.configure_dns_settings(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1867,11 +1873,11 @@ class DomainsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.configure_contact_settings(request=request)
+                operation = await client.configure_contact_settings(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2041,11 +2047,11 @@ class DomainsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.export_registration(request=request)
+                operation = await client.export_registration(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2173,9 +2179,9 @@ class DomainsAsyncClient:
         billing </domains/pricing#billing-models>`__, this method works
         if:
 
-        -  ``state`` is ``EXPORTED`` with ``expire_time`` in the past
-        -  ``state`` is ``REGISTRATION_FAILED``
-        -  ``state`` is ``TRANSFER_FAILED``
+        - ``state`` is ``EXPORTED`` with ``expire_time`` in the past
+        - ``state`` is ``REGISTRATION_FAILED``
+        - ``state`` is ``TRANSFER_FAILED``
 
         When an active registration is successfully deleted, you can
         continue to use the domain in `Google
@@ -2206,11 +2212,11 @@ class DomainsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_registration(request=request)
+                operation = await client.delete_registration(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)

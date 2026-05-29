@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,6 @@ async def sample_create_tls_route():
 
     # Initialize request argument(s)
     tls_route = network_services_v1.TlsRoute()
-    tls_route.name = "name_value"
     tls_route.rules.action.destinations.service_name = "service_name_value"
 
     request = network_services_v1.CreateTlsRouteRequest(
@@ -50,13 +49,14 @@ async def sample_create_tls_route():
     )
 
     # Make the request
-    operation = client.create_tls_route(request=request)
+    operation = await client.create_tls_route(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END networkservices_v1_generated_NetworkServices_CreateTlsRoute_async]

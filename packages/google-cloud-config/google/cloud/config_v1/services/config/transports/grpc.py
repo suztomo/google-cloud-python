@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,22 +16,24 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers, operations_v1
 import google.auth  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf.json_format import MessageToJson
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 import google.protobuf.message
 import grpc  # type: ignore
 import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers, operations_v1
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.grpc import SslCredentials  # type: ignore
+from google.cloud.location import locations_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
+from google.longrunning import operations_pb2  # type: ignore
+from google.protobuf.json_format import MessageToJson
 
 from google.cloud.config_v1.types import config
 
@@ -59,7 +61,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -94,7 +96,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -157,9 +159,10 @@ class ConfigGrpcTransport(ConfigTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -190,6 +193,10 @@ class ConfigGrpcTransport(ConfigTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -293,9 +300,10 @@ class ConfigGrpcTransport(ConfigTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -598,12 +606,12 @@ class ConfigGrpcTransport(ConfigTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "export_deployment_statefile" not in self._stubs:
-            self._stubs[
-                "export_deployment_statefile"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.config.v1.Config/ExportDeploymentStatefile",
-                request_serializer=config.ExportDeploymentStatefileRequest.serialize,
-                response_deserializer=config.Statefile.deserialize,
+            self._stubs["export_deployment_statefile"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.config.v1.Config/ExportDeploymentStatefile",
+                    request_serializer=config.ExportDeploymentStatefileRequest.serialize,
+                    response_deserializer=config.Statefile.deserialize,
+                )
             )
         return self._stubs["export_deployment_statefile"]
 
@@ -952,6 +960,449 @@ class ConfigGrpcTransport(ConfigTransport):
                 response_deserializer=config.TerraformVersion.deserialize,
             )
         return self._stubs["get_terraform_version"]
+
+    @property
+    def list_resource_changes(
+        self,
+    ) -> Callable[
+        [config.ListResourceChangesRequest], config.ListResourceChangesResponse
+    ]:
+        r"""Return a callable for the list resource changes method over gRPC.
+
+        Lists ResourceChanges for a given preview.
+
+        Returns:
+            Callable[[~.ListResourceChangesRequest],
+                    ~.ListResourceChangesResponse]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "list_resource_changes" not in self._stubs:
+            self._stubs["list_resource_changes"] = self._logged_channel.unary_unary(
+                "/google.cloud.config.v1.Config/ListResourceChanges",
+                request_serializer=config.ListResourceChangesRequest.serialize,
+                response_deserializer=config.ListResourceChangesResponse.deserialize,
+            )
+        return self._stubs["list_resource_changes"]
+
+    @property
+    def get_resource_change(
+        self,
+    ) -> Callable[[config.GetResourceChangeRequest], config.ResourceChange]:
+        r"""Return a callable for the get resource change method over gRPC.
+
+        Get a ResourceChange for a given preview.
+
+        Returns:
+            Callable[[~.GetResourceChangeRequest],
+                    ~.ResourceChange]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "get_resource_change" not in self._stubs:
+            self._stubs["get_resource_change"] = self._logged_channel.unary_unary(
+                "/google.cloud.config.v1.Config/GetResourceChange",
+                request_serializer=config.GetResourceChangeRequest.serialize,
+                response_deserializer=config.ResourceChange.deserialize,
+            )
+        return self._stubs["get_resource_change"]
+
+    @property
+    def list_resource_drifts(
+        self,
+    ) -> Callable[
+        [config.ListResourceDriftsRequest], config.ListResourceDriftsResponse
+    ]:
+        r"""Return a callable for the list resource drifts method over gRPC.
+
+        List ResourceDrifts for a given preview.
+
+        Returns:
+            Callable[[~.ListResourceDriftsRequest],
+                    ~.ListResourceDriftsResponse]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "list_resource_drifts" not in self._stubs:
+            self._stubs["list_resource_drifts"] = self._logged_channel.unary_unary(
+                "/google.cloud.config.v1.Config/ListResourceDrifts",
+                request_serializer=config.ListResourceDriftsRequest.serialize,
+                response_deserializer=config.ListResourceDriftsResponse.deserialize,
+            )
+        return self._stubs["list_resource_drifts"]
+
+    @property
+    def get_resource_drift(
+        self,
+    ) -> Callable[[config.GetResourceDriftRequest], config.ResourceDrift]:
+        r"""Return a callable for the get resource drift method over gRPC.
+
+        Get a ResourceDrift for a given preview.
+
+        Returns:
+            Callable[[~.GetResourceDriftRequest],
+                    ~.ResourceDrift]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "get_resource_drift" not in self._stubs:
+            self._stubs["get_resource_drift"] = self._logged_channel.unary_unary(
+                "/google.cloud.config.v1.Config/GetResourceDrift",
+                request_serializer=config.GetResourceDriftRequest.serialize,
+                response_deserializer=config.ResourceDrift.deserialize,
+            )
+        return self._stubs["get_resource_drift"]
+
+    @property
+    def get_auto_migration_config(
+        self,
+    ) -> Callable[[config.GetAutoMigrationConfigRequest], config.AutoMigrationConfig]:
+        r"""Return a callable for the get auto migration config method over gRPC.
+
+        Get the AutoMigrationConfig for a given project and
+        location.
+
+        Returns:
+            Callable[[~.GetAutoMigrationConfigRequest],
+                    ~.AutoMigrationConfig]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "get_auto_migration_config" not in self._stubs:
+            self._stubs["get_auto_migration_config"] = self._logged_channel.unary_unary(
+                "/google.cloud.config.v1.Config/GetAutoMigrationConfig",
+                request_serializer=config.GetAutoMigrationConfigRequest.serialize,
+                response_deserializer=config.AutoMigrationConfig.deserialize,
+            )
+        return self._stubs["get_auto_migration_config"]
+
+    @property
+    def update_auto_migration_config(
+        self,
+    ) -> Callable[[config.UpdateAutoMigrationConfigRequest], operations_pb2.Operation]:
+        r"""Return a callable for the update auto migration config method over gRPC.
+
+        Updates the AutoMigrationConfig for a given project
+        and location.
+
+        Returns:
+            Callable[[~.UpdateAutoMigrationConfigRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "update_auto_migration_config" not in self._stubs:
+            self._stubs["update_auto_migration_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.config.v1.Config/UpdateAutoMigrationConfig",
+                    request_serializer=config.UpdateAutoMigrationConfigRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
+            )
+        return self._stubs["update_auto_migration_config"]
+
+    @property
+    def get_deployment_group(
+        self,
+    ) -> Callable[[config.GetDeploymentGroupRequest], config.DeploymentGroup]:
+        r"""Return a callable for the get deployment group method over gRPC.
+
+        Get a DeploymentGroup for a given project and
+        location.
+
+        Returns:
+            Callable[[~.GetDeploymentGroupRequest],
+                    ~.DeploymentGroup]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "get_deployment_group" not in self._stubs:
+            self._stubs["get_deployment_group"] = self._logged_channel.unary_unary(
+                "/google.cloud.config.v1.Config/GetDeploymentGroup",
+                request_serializer=config.GetDeploymentGroupRequest.serialize,
+                response_deserializer=config.DeploymentGroup.deserialize,
+            )
+        return self._stubs["get_deployment_group"]
+
+    @property
+    def create_deployment_group(
+        self,
+    ) -> Callable[[config.CreateDeploymentGroupRequest], operations_pb2.Operation]:
+        r"""Return a callable for the create deployment group method over gRPC.
+
+        Creates a
+        [DeploymentGroup][google.cloud.config.v1.DeploymentGroup] The
+        newly created DeploymentGroup will be in the ``CREATING`` state
+        and can be retrieved via Get and List calls.
+
+        Returns:
+            Callable[[~.CreateDeploymentGroupRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "create_deployment_group" not in self._stubs:
+            self._stubs["create_deployment_group"] = self._logged_channel.unary_unary(
+                "/google.cloud.config.v1.Config/CreateDeploymentGroup",
+                request_serializer=config.CreateDeploymentGroupRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["create_deployment_group"]
+
+    @property
+    def update_deployment_group(
+        self,
+    ) -> Callable[[config.UpdateDeploymentGroupRequest], operations_pb2.Operation]:
+        r"""Return a callable for the update deployment group method over gRPC.
+
+        Updates a
+        [DeploymentGroup][google.cloud.config.v1.DeploymentGroup]
+
+        Returns:
+            Callable[[~.UpdateDeploymentGroupRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "update_deployment_group" not in self._stubs:
+            self._stubs["update_deployment_group"] = self._logged_channel.unary_unary(
+                "/google.cloud.config.v1.Config/UpdateDeploymentGroup",
+                request_serializer=config.UpdateDeploymentGroupRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["update_deployment_group"]
+
+    @property
+    def delete_deployment_group(
+        self,
+    ) -> Callable[[config.DeleteDeploymentGroupRequest], operations_pb2.Operation]:
+        r"""Return a callable for the delete deployment group method over gRPC.
+
+        Deletes a
+        [DeploymentGroup][google.cloud.config.v1.DeploymentGroup]
+
+        Returns:
+            Callable[[~.DeleteDeploymentGroupRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "delete_deployment_group" not in self._stubs:
+            self._stubs["delete_deployment_group"] = self._logged_channel.unary_unary(
+                "/google.cloud.config.v1.Config/DeleteDeploymentGroup",
+                request_serializer=config.DeleteDeploymentGroupRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["delete_deployment_group"]
+
+    @property
+    def list_deployment_groups(
+        self,
+    ) -> Callable[
+        [config.ListDeploymentGroupsRequest], config.ListDeploymentGroupsResponse
+    ]:
+        r"""Return a callable for the list deployment groups method over gRPC.
+
+        List DeploymentGroups for a given project and
+        location.
+
+        Returns:
+            Callable[[~.ListDeploymentGroupsRequest],
+                    ~.ListDeploymentGroupsResponse]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "list_deployment_groups" not in self._stubs:
+            self._stubs["list_deployment_groups"] = self._logged_channel.unary_unary(
+                "/google.cloud.config.v1.Config/ListDeploymentGroups",
+                request_serializer=config.ListDeploymentGroupsRequest.serialize,
+                response_deserializer=config.ListDeploymentGroupsResponse.deserialize,
+            )
+        return self._stubs["list_deployment_groups"]
+
+    @property
+    def provision_deployment_group(
+        self,
+    ) -> Callable[[config.ProvisionDeploymentGroupRequest], operations_pb2.Operation]:
+        r"""Return a callable for the provision deployment group method over gRPC.
+
+        Provisions a deployment group.
+
+        NOTE: As a first step of this operation, Infra Manager will
+        automatically delete any Deployments that were part of the *last
+        successful*
+        [DeploymentGroupRevision][google.cloud.config.v1.DeploymentGroupRevision]
+        but are *no longer* included in the *current*
+        [DeploymentGroup][google.cloud.config.v1.DeploymentGroup]
+        definition (e.g., following an ``UpdateDeploymentGroup`` call),
+        along with their actuated resources.
+
+        Returns:
+            Callable[[~.ProvisionDeploymentGroupRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "provision_deployment_group" not in self._stubs:
+            self._stubs["provision_deployment_group"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.config.v1.Config/ProvisionDeploymentGroup",
+                    request_serializer=config.ProvisionDeploymentGroupRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
+            )
+        return self._stubs["provision_deployment_group"]
+
+    @property
+    def deprovision_deployment_group(
+        self,
+    ) -> Callable[[config.DeprovisionDeploymentGroupRequest], operations_pb2.Operation]:
+        r"""Return a callable for the deprovision deployment group method over gRPC.
+
+        Deprovisions a deployment group.
+
+        NOTE: As a first step of this operation, Infra Manager will
+        automatically delete any Deployments that were part of the *last
+        successful*
+        [DeploymentGroupRevision][google.cloud.config.v1.DeploymentGroupRevision]
+        but are *no longer* included in the *current*
+        [DeploymentGroup][google.cloud.config.v1.DeploymentGroup]
+        definition (e.g., following an ``UpdateDeploymentGroup`` call),
+        along with their actuated resources.
+
+        Returns:
+            Callable[[~.DeprovisionDeploymentGroupRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "deprovision_deployment_group" not in self._stubs:
+            self._stubs["deprovision_deployment_group"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.config.v1.Config/DeprovisionDeploymentGroup",
+                    request_serializer=config.DeprovisionDeploymentGroupRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
+            )
+        return self._stubs["deprovision_deployment_group"]
+
+    @property
+    def get_deployment_group_revision(
+        self,
+    ) -> Callable[
+        [config.GetDeploymentGroupRevisionRequest], config.DeploymentGroupRevision
+    ]:
+        r"""Return a callable for the get deployment group revision method over gRPC.
+
+        Gets details about a
+        [DeploymentGroupRevision][google.cloud.config.v1.DeploymentGroupRevision].
+
+        Returns:
+            Callable[[~.GetDeploymentGroupRevisionRequest],
+                    ~.DeploymentGroupRevision]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "get_deployment_group_revision" not in self._stubs:
+            self._stubs["get_deployment_group_revision"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.config.v1.Config/GetDeploymentGroupRevision",
+                    request_serializer=config.GetDeploymentGroupRevisionRequest.serialize,
+                    response_deserializer=config.DeploymentGroupRevision.deserialize,
+                )
+            )
+        return self._stubs["get_deployment_group_revision"]
+
+    @property
+    def list_deployment_group_revisions(
+        self,
+    ) -> Callable[
+        [config.ListDeploymentGroupRevisionsRequest],
+        config.ListDeploymentGroupRevisionsResponse,
+    ]:
+        r"""Return a callable for the list deployment group
+        revisions method over gRPC.
+
+        Lists
+        [DeploymentGroupRevision][google.cloud.config.v1.DeploymentGroupRevision]s
+        in a given
+        [DeploymentGroup][google.cloud.config.v1.DeploymentGroup].
+
+        Returns:
+            Callable[[~.ListDeploymentGroupRevisionsRequest],
+                    ~.ListDeploymentGroupRevisionsResponse]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "list_deployment_group_revisions" not in self._stubs:
+            self._stubs["list_deployment_group_revisions"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.config.v1.Config/ListDeploymentGroupRevisions",
+                    request_serializer=config.ListDeploymentGroupRevisionsRequest.serialize,
+                    response_deserializer=config.ListDeploymentGroupRevisionsResponse.deserialize,
+                )
+            )
+        return self._stubs["list_deployment_group_revisions"]
 
     def close(self):
         self._logged_channel.close()

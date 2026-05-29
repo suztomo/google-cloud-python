@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -228,6 +228,7 @@ class Xss(proto.Message):
                 third-party host via a URL that is
                 user-controllable
         """
+
         ATTACK_VECTOR_UNSPECIFIED = 0
         LOCAL_STORAGE = 1
         SESSION_STORAGE = 2
@@ -287,6 +288,7 @@ class Xxe(proto.Message):
                 The XML payload replaced the complete request
                 body.
         """
+
         LOCATION_UNSPECIFIED = 0
         COMPLETE_REQUEST_BODY = 1
 

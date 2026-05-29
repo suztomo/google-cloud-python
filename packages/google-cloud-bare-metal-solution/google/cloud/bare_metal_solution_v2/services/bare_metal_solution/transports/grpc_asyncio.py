@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,41 +17,46 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async, operations_v1
 from google.api_core import retry_async as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
+from google.cloud.bare_metal_solution_v2.types import (
+    instance,
+    lun,
+    network,
+    nfs_share,
+    osimage,
+    provisioning,
+    ssh_key,
+    volume,
+    volume_snapshot,
+)
+from google.cloud.bare_metal_solution_v2.types import instance as gcb_instance
+from google.cloud.bare_metal_solution_v2.types import network as gcb_network
 from google.cloud.bare_metal_solution_v2.types import nfs_share as gcb_nfs_share
+from google.cloud.bare_metal_solution_v2.types import ssh_key as gcb_ssh_key
+from google.cloud.bare_metal_solution_v2.types import volume as gcb_volume
 from google.cloud.bare_metal_solution_v2.types import (
     volume_snapshot as gcb_volume_snapshot,
 )
-from google.cloud.bare_metal_solution_v2.types import instance
-from google.cloud.bare_metal_solution_v2.types import instance as gcb_instance
-from google.cloud.bare_metal_solution_v2.types import lun
-from google.cloud.bare_metal_solution_v2.types import network
-from google.cloud.bare_metal_solution_v2.types import network as gcb_network
-from google.cloud.bare_metal_solution_v2.types import nfs_share
-from google.cloud.bare_metal_solution_v2.types import osimage, provisioning
-from google.cloud.bare_metal_solution_v2.types import ssh_key
-from google.cloud.bare_metal_solution_v2.types import ssh_key as gcb_ssh_key
-from google.cloud.bare_metal_solution_v2.types import volume
-from google.cloud.bare_metal_solution_v2.types import volume as gcb_volume
-from google.cloud.bare_metal_solution_v2.types import volume_snapshot
 
 from .base import DEFAULT_CLIENT_INFO, BareMetalSolutionTransport
 from .grpc import BareMetalSolutionGrpcTransport
@@ -80,7 +85,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -115,7 +120,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -175,8 +180,9 @@ class BareMetalSolutionGrpcAsyncIOTransport(BareMetalSolutionTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -227,9 +233,10 @@ class BareMetalSolutionGrpcAsyncIOTransport(BareMetalSolutionTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -261,6 +268,10 @@ class BareMetalSolutionGrpcAsyncIOTransport(BareMetalSolutionTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -586,12 +597,12 @@ class BareMetalSolutionGrpcAsyncIOTransport(BareMetalSolutionTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "enable_interactive_serial_console" not in self._stubs:
-            self._stubs[
-                "enable_interactive_serial_console"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.baremetalsolution.v2.BareMetalSolution/EnableInteractiveSerialConsole",
-                request_serializer=instance.EnableInteractiveSerialConsoleRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["enable_interactive_serial_console"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.baremetalsolution.v2.BareMetalSolution/EnableInteractiveSerialConsole",
+                    request_serializer=instance.EnableInteractiveSerialConsoleRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["enable_interactive_serial_console"]
 
@@ -619,12 +630,12 @@ class BareMetalSolutionGrpcAsyncIOTransport(BareMetalSolutionTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "disable_interactive_serial_console" not in self._stubs:
-            self._stubs[
-                "disable_interactive_serial_console"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.baremetalsolution.v2.BareMetalSolution/DisableInteractiveSerialConsole",
-                request_serializer=instance.DisableInteractiveSerialConsoleRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["disable_interactive_serial_console"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.baremetalsolution.v2.BareMetalSolution/DisableInteractiveSerialConsole",
+                    request_serializer=instance.DisableInteractiveSerialConsoleRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["disable_interactive_serial_console"]
 
@@ -1459,12 +1470,12 @@ class BareMetalSolutionGrpcAsyncIOTransport(BareMetalSolutionTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "submit_provisioning_config" not in self._stubs:
-            self._stubs[
-                "submit_provisioning_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.baremetalsolution.v2.BareMetalSolution/SubmitProvisioningConfig",
-                request_serializer=provisioning.SubmitProvisioningConfigRequest.serialize,
-                response_deserializer=provisioning.SubmitProvisioningConfigResponse.deserialize,
+            self._stubs["submit_provisioning_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.baremetalsolution.v2.BareMetalSolution/SubmitProvisioningConfig",
+                    request_serializer=provisioning.SubmitProvisioningConfigRequest.serialize,
+                    response_deserializer=provisioning.SubmitProvisioningConfigResponse.deserialize,
+                )
             )
         return self._stubs["submit_provisioning_config"]
 
@@ -1519,12 +1530,12 @@ class BareMetalSolutionGrpcAsyncIOTransport(BareMetalSolutionTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_provisioning_config" not in self._stubs:
-            self._stubs[
-                "create_provisioning_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.baremetalsolution.v2.BareMetalSolution/CreateProvisioningConfig",
-                request_serializer=provisioning.CreateProvisioningConfigRequest.serialize,
-                response_deserializer=provisioning.ProvisioningConfig.deserialize,
+            self._stubs["create_provisioning_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.baremetalsolution.v2.BareMetalSolution/CreateProvisioningConfig",
+                    request_serializer=provisioning.CreateProvisioningConfigRequest.serialize,
+                    response_deserializer=provisioning.ProvisioningConfig.deserialize,
+                )
             )
         return self._stubs["create_provisioning_config"]
 
@@ -1550,12 +1561,12 @@ class BareMetalSolutionGrpcAsyncIOTransport(BareMetalSolutionTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_provisioning_config" not in self._stubs:
-            self._stubs[
-                "update_provisioning_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.baremetalsolution.v2.BareMetalSolution/UpdateProvisioningConfig",
-                request_serializer=provisioning.UpdateProvisioningConfigRequest.serialize,
-                response_deserializer=provisioning.ProvisioningConfig.deserialize,
+            self._stubs["update_provisioning_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.baremetalsolution.v2.BareMetalSolution/UpdateProvisioningConfig",
+                    request_serializer=provisioning.UpdateProvisioningConfigRequest.serialize,
+                    response_deserializer=provisioning.ProvisioningConfig.deserialize,
+                )
             )
         return self._stubs["update_provisioning_config"]
 

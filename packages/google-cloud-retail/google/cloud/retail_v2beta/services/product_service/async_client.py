@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.retail_v2beta import gapic_version as package_version
 
@@ -44,19 +44,25 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
 
 from google.cloud.retail_v2beta.services.product_service import pagers
-from google.cloud.retail_v2beta.types import common, export_config, import_config
-from google.cloud.retail_v2beta.types import product_service, promotion, purge_config
-from google.cloud.retail_v2beta.types import product
+from google.cloud.retail_v2beta.types import (
+    common,
+    export_config,
+    import_config,
+    product,
+    product_service,
+    promotion,
+    purge_config,
+)
 from google.cloud.retail_v2beta.types import product as gcr_product
 
 from .client import ProductServiceClient
@@ -129,7 +135,10 @@ class ProductServiceAsyncClient:
         Returns:
             ProductServiceAsyncClient: The constructed client.
         """
-        return ProductServiceClient.from_service_account_info.__func__(ProductServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ProductServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ProductServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -145,7 +154,10 @@ class ProductServiceAsyncClient:
         Returns:
             ProductServiceAsyncClient: The constructed client.
         """
-        return ProductServiceClient.from_service_account_file.__func__(ProductServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ProductServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(ProductServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -195,7 +207,7 @@ class ProductServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -1039,11 +1051,11 @@ class ProductServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.purge_products(request=request)
+                operation = await client.purge_products(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1152,11 +1164,11 @@ class ProductServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.import_products(request=request)
+                operation = await client.import_products(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1259,11 +1271,11 @@ class ProductServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.export_products(request=request)
+                operation = await client.export_products(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1418,11 +1430,11 @@ class ProductServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.set_inventory(request=request)
+                operation = await client.set_inventory(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1436,12 +1448,12 @@ class ProductServiceAsyncClient:
                 Required. The inventory information to update. The
                 allowable fields to update are:
 
-                -  [Product.price_info][google.cloud.retail.v2beta.Product.price_info]
-                -  [Product.availability][google.cloud.retail.v2beta.Product.availability]
-                -  [Product.available_quantity][google.cloud.retail.v2beta.Product.available_quantity]
-                -  [Product.fulfillment_info][google.cloud.retail.v2beta.Product.fulfillment_info]
-                   The updated inventory fields must be specified in
-                   [SetInventoryRequest.set_mask][google.cloud.retail.v2beta.SetInventoryRequest.set_mask].
+                - [Product.price_info][google.cloud.retail.v2beta.Product.price_info]
+                - [Product.availability][google.cloud.retail.v2beta.Product.availability]
+                - [Product.available_quantity][google.cloud.retail.v2beta.Product.available_quantity]
+                - [Product.fulfillment_info][google.cloud.retail.v2beta.Product.fulfillment_info]
+                  The updated inventory fields must be specified in
+                  [SetInventoryRequest.set_mask][google.cloud.retail.v2beta.SetInventoryRequest.set_mask].
 
                 If
                 [SetInventoryRequest.inventory.name][google.cloud.retail.v2beta.Product.name]
@@ -1468,31 +1480,31 @@ class ProductServiceAsyncClient:
                 The caller can replace place IDs for a subset of
                 fulfillment types in the following ways:
 
-                -  Adds "fulfillment_info" in
-                   [SetInventoryRequest.set_mask][google.cloud.retail.v2beta.SetInventoryRequest.set_mask]
-                -  Specifies only the desired fulfillment types and
-                   corresponding place IDs to update in
-                   [SetInventoryRequest.inventory.fulfillment_info][google.cloud.retail.v2beta.Product.fulfillment_info]
+                - Adds "fulfillment_info" in
+                  [SetInventoryRequest.set_mask][google.cloud.retail.v2beta.SetInventoryRequest.set_mask]
+                - Specifies only the desired fulfillment types and
+                  corresponding place IDs to update in
+                  [SetInventoryRequest.inventory.fulfillment_info][google.cloud.retail.v2beta.Product.fulfillment_info]
 
                 The caller can clear all place IDs from a subset of
                 fulfillment types in the following ways:
 
-                -  Adds "fulfillment_info" in
-                   [SetInventoryRequest.set_mask][google.cloud.retail.v2beta.SetInventoryRequest.set_mask]
-                -  Specifies only the desired fulfillment types to clear
-                   in
-                   [SetInventoryRequest.inventory.fulfillment_info][google.cloud.retail.v2beta.Product.fulfillment_info]
-                -  Checks that only the desired fulfillment info types
-                   have empty
-                   [SetInventoryRequest.inventory.fulfillment_info.place_ids][google.cloud.retail.v2beta.FulfillmentInfo.place_ids]
+                - Adds "fulfillment_info" in
+                  [SetInventoryRequest.set_mask][google.cloud.retail.v2beta.SetInventoryRequest.set_mask]
+                - Specifies only the desired fulfillment types to clear
+                  in
+                  [SetInventoryRequest.inventory.fulfillment_info][google.cloud.retail.v2beta.Product.fulfillment_info]
+                - Checks that only the desired fulfillment info types
+                  have empty
+                  [SetInventoryRequest.inventory.fulfillment_info.place_ids][google.cloud.retail.v2beta.FulfillmentInfo.place_ids]
 
                 The last update time is recorded for the following
                 inventory fields:
 
-                -  [Product.price_info][google.cloud.retail.v2beta.Product.price_info]
-                -  [Product.availability][google.cloud.retail.v2beta.Product.availability]
-                -  [Product.available_quantity][google.cloud.retail.v2beta.Product.available_quantity]
-                -  [Product.fulfillment_info][google.cloud.retail.v2beta.Product.fulfillment_info]
+                - [Product.price_info][google.cloud.retail.v2beta.Product.price_info]
+                - [Product.availability][google.cloud.retail.v2beta.Product.availability]
+                - [Product.available_quantity][google.cloud.retail.v2beta.Product.available_quantity]
+                - [Product.fulfillment_info][google.cloud.retail.v2beta.Product.fulfillment_info]
 
                 If a full overwrite of inventory information while
                 ignoring timestamps is needed,
@@ -1661,11 +1673,11 @@ class ProductServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.add_fulfillment_places(request=request)
+                operation = await client.add_fulfillment_places(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1830,11 +1842,11 @@ class ProductServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.remove_fulfillment_places(request=request)
+                operation = await client.remove_fulfillment_places(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1997,11 +2009,11 @@ class ProductServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.add_local_inventories(request=request)
+                operation = await client.add_local_inventories(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2164,11 +2176,11 @@ class ProductServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.remove_local_inventories(request=request)
+                operation = await client.remove_local_inventories(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2270,7 +2282,7 @@ class ProductServiceAsyncClient:
 
     async def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2296,8 +2308,12 @@ class ProductServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2306,7 +2322,7 @@ class ProductServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2314,7 +2330,7 @@ class ProductServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -2325,7 +2341,7 @@ class ProductServiceAsyncClient:
 
     async def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2351,8 +2367,12 @@ class ProductServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2361,7 +2381,7 @@ class ProductServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2369,7 +2389,7 @@ class ProductServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

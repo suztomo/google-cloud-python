@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ class GetCustomTargetingValueRequest(proto.Message):
         name (str):
             Required. The resource name of the CustomTargetingValue.
             Format:
-            ``networks/{network_code}/customTargetingKeys/{custom_targeting_key_id}/customTargetingValues/{custom_targeting_value_id}``
+            ``networks/{network_code}/customTargetingValues/{custom_targeting_value_id}``
     """
 
     name: str = proto.Field(
@@ -53,8 +53,7 @@ class ListCustomTargetingValuesRequest(proto.Message):
     Attributes:
         parent (str):
             Required. The parent, which owns this collection of
-            CustomTargetingValues. Format:
-            ``networks/{network_code}/customTargetingKeys/{custom_targeting_key_id}``
+            CustomTargetingValues. Format: ``networks/{network_code}``
         page_size (int):
             Optional. The maximum number of ``CustomTargetingValues`` to
             return. The service may return fewer than this value. If
@@ -73,6 +72,16 @@ class ListCustomTargetingValuesRequest(proto.Message):
             Optional. Expression to filter the response.
             See syntax details at
             https://developers.google.com/ad-manager/api/beta/filters
+
+            <b>Filterable fields:</b>
+            <ul style="list-style-type:none">
+              <li><code>adTagName</code></li>
+              <li><code>customTargetingKey</code></li>
+              <li><code>displayName</code></li>
+              <li><code>matchType</code></li>
+              <li><code>name</code></li>
+              <li><code>status</code></li>
+            </ul>
         order_by (str):
             Optional. Expression to specify sorting
             order. See syntax details at
@@ -125,8 +134,8 @@ class ListCustomTargetingValuesResponse(proto.Message):
             filter was included in the request, this reflects the total
             number after the filtering is applied.
 
-            ``total_size`` will not be calculated in the response unless
-            it has been included in a response field mask. The response
+            ``total_size`` won't be calculated in the response unless it
+            has been included in a response field mask. The response
             field mask can be provided to the method by using the URL
             parameter ``$fields`` or ``fields``, or by using the
             HTTP/gRPC header ``X-Goog-FieldMask``.

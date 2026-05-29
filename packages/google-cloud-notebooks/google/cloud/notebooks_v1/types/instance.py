@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.notebooks_v1.types import environment
@@ -61,6 +61,7 @@ class ReservationAffinity(proto.Message):
                 Must specify key value fields for specifying the
                 reservations.
         """
+
         TYPE_UNSPECIFIED = 0
         NO_RESERVATION = 1
         ANY_RESERVATION = 2
@@ -136,10 +137,10 @@ class Instance(proto.Message):
             `scopes <https://cloud.google.com/compute/docs/access/service-accounts#accesscopesiam>`__
             are defined:
 
-            -  https://www.googleapis.com/auth/cloud-platform
-            -  https://www.googleapis.com/auth/userinfo.email If not
-               using default scopes, you need at least:
-               https://www.googleapis.com/auth/compute
+            - https://www.googleapis.com/auth/cloud-platform
+            - https://www.googleapis.com/auth/userinfo.email If not
+              using default scopes, you need at least:
+              https://www.googleapis.com/auth/compute
         machine_type (str):
             Required. The `Compute Engine machine
             type <https://cloud.google.com/compute/docs/machine-types>`__
@@ -280,6 +281,7 @@ class Instance(proto.Message):
             TPU_V3 (7):
                 (Coming soon) Accelerator type is TPU V3.
         """
+
         ACCELERATOR_TYPE_UNSPECIFIED = 0
         NVIDIA_TESLA_K80 = 1
         NVIDIA_TESLA_P100 = 2
@@ -324,6 +326,7 @@ class Instance(proto.Message):
             SUSPENDED (11):
                 The instance is suspended.
         """
+
         STATE_UNSPECIFIED = 0
         STARTING = 1
         PROVISIONING = 2
@@ -352,6 +355,7 @@ class Instance(proto.Message):
             PD_EXTREME (4):
                 Extreme persistent disk type.
         """
+
         DISK_TYPE_UNSPECIFIED = 0
         PD_STANDARD = 1
         PD_SSD = 2
@@ -371,6 +375,7 @@ class Instance(proto.Message):
                 Use customer managed encryption keys to
                 encrypt the boot disk.
         """
+
         DISK_ENCRYPTION_UNSPECIFIED = 0
         GMEK = 1
         CMEK = 2
@@ -386,6 +391,7 @@ class Instance(proto.Message):
             GVNIC (2):
                 GVNIC
         """
+
         UNSPECIFIED_NIC_TYPE = 0
         VIRTIO_NET = 1
         GVNIC = 2
@@ -459,8 +465,8 @@ class Instance(proto.Message):
                 For performance characteristics of SCSI over NVMe, see Local
                 SSD performance. Valid values:
 
-                -  ``NVME``
-                -  ``SCSI``
+                - ``NVME``
+                - ``SCSI``
             kind (str):
                 Type of the resource. Always
                 compute#attachedDisk for attached disks.
@@ -474,8 +480,8 @@ class Instance(proto.Message):
                 or ``READ_ONLY``. If not specified, the default is to attach
                 the disk in ``READ_WRITE`` mode. Valid values:
 
-                -  ``READ_ONLY``
-                -  ``READ_WRITE``
+                - ``READ_ONLY``
+                - ``READ_WRITE``
             source (str):
                 Indicates a valid partial or full URL to an
                 existing Persistent Disk resource.
@@ -483,8 +489,8 @@ class Instance(proto.Message):
                 Indicates the type of the disk, either ``SCRATCH`` or
                 ``PERSISTENT``. Valid values:
 
-                -  ``PERSISTENT``
-                -  ``SCRATCH``
+                - ``PERSISTENT``
+                - ``SCRATCH``
         """
 
         class GuestOsFeature(proto.Message):
@@ -496,12 +502,12 @@ class Instance(proto.Message):
                     system features to see a list of available options. Valid
                     values:
 
-                    -  ``FEATURE_TYPE_UNSPECIFIED``
-                    -  ``MULTI_IP_SUBNET``
-                    -  ``SECURE_BOOT``
-                    -  ``UEFI_COMPATIBLE``
-                    -  ``VIRTIO_SCSI_MULTIQUEUE``
-                    -  ``WINDOWS``
+                    - ``FEATURE_TYPE_UNSPECIFIED``
+                    - ``MULTI_IP_SUBNET``
+                    - ``SECURE_BOOT``
+                    - ``UEFI_COMPATIBLE``
+                    - ``VIRTIO_SCSI_MULTIQUEUE``
+                    - ``WINDOWS``
             """
 
             type_: str = proto.Field(
@@ -525,12 +531,12 @@ class Instance(proto.Message):
             proto.INT64,
             number=4,
         )
-        guest_os_features: MutableSequence[
-            "Instance.Disk.GuestOsFeature"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=5,
-            message="Instance.Disk.GuestOsFeature",
+        guest_os_features: MutableSequence["Instance.Disk.GuestOsFeature"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=5,
+                message="Instance.Disk.GuestOsFeature",
+            )
         )
         index: int = proto.Field(
             proto.INT64,
@@ -648,6 +654,7 @@ class Instance(proto.Message):
                 FAILED (3):
                     The instance upgrade is failed.
             """
+
             STATE_UNSPECIFIED = 0
             STARTED = 1
             SUCCEEDED = 2
@@ -664,6 +671,7 @@ class Instance(proto.Message):
                 ROLLBACK (2):
                     Rollback.
             """
+
             ACTION_UNSPECIFIED = 0
             UPGRADE = 1
             ROLLBACK = 2

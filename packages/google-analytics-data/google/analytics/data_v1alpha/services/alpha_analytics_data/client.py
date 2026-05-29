@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.analytics.data_v1alpha import gapic_version as package_version
 
@@ -61,10 +61,10 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.analytics.data_v1alpha.services.alpha_analytics_data import pagers
 from google.analytics.data_v1alpha.types import analytics_data_api, data
@@ -83,9 +83,7 @@ class AlphaAnalyticsDataClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[AlphaAnalyticsDataTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[AlphaAnalyticsDataTransport]]
     _transport_registry["grpc"] = AlphaAnalyticsDataGrpcTransport
     _transport_registry["grpc_asyncio"] = AlphaAnalyticsDataGrpcAsyncIOTransport
     _transport_registry["rest"] = AlphaAnalyticsDataRestTransport
@@ -116,7 +114,7 @@ class AlphaAnalyticsDataClient(metaclass=AlphaAnalyticsDataClientMeta):
     """Google Analytics reporting data service."""
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -124,7 +122,7 @@ class AlphaAnalyticsDataClient(metaclass=AlphaAnalyticsDataClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -134,6 +132,10 @@ class AlphaAnalyticsDataClient(metaclass=AlphaAnalyticsDataClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -153,6 +155,34 @@ class AlphaAnalyticsDataClient(metaclass=AlphaAnalyticsDataClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "analyticsdata.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -218,6 +248,21 @@ class AlphaAnalyticsDataClient(metaclass=AlphaAnalyticsDataClientMeta):
         m = re.match(
             r"^properties/(?P<property>.+?)/audienceLists/(?P<audience_list>.+?)$", path
         )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def metadata_path(
+        property: str,
+    ) -> str:
+        """Returns a fully-qualified metadata string."""
+        return "properties/{property}/metadata".format(
+            property=property,
+        )
+
+    @staticmethod
+    def parse_metadata_path(path: str) -> Dict[str, str]:
+        """Parses a metadata path into its component segments."""
+        m = re.match(r"^properties/(?P<property>.+?)/metadata$", path)
         return m.groupdict() if m else {}
 
     @staticmethod
@@ -392,12 +437,8 @@ class AlphaAnalyticsDataClient(metaclass=AlphaAnalyticsDataClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = AlphaAnalyticsDataClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -405,7 +446,7 @@ class AlphaAnalyticsDataClient(metaclass=AlphaAnalyticsDataClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -437,20 +478,14 @@ class AlphaAnalyticsDataClient(metaclass=AlphaAnalyticsDataClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = AlphaAnalyticsDataClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -474,7 +509,7 @@ class AlphaAnalyticsDataClient(metaclass=AlphaAnalyticsDataClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -571,7 +606,7 @@ class AlphaAnalyticsDataClient(metaclass=AlphaAnalyticsDataClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -662,18 +697,16 @@ class AlphaAnalyticsDataClient(metaclass=AlphaAnalyticsDataClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = AlphaAnalyticsDataClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            AlphaAnalyticsDataClient._read_environment_variables()
+        )
         self._client_cert_source = AlphaAnalyticsDataClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = AlphaAnalyticsDataClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -701,8 +734,7 @@ class AlphaAnalyticsDataClient(metaclass=AlphaAnalyticsDataClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(AlphaAnalyticsDataTransport, transport)
             self._api_endpoint = self._transport.host
@@ -1144,138 +1176,6 @@ class AlphaAnalyticsDataClient(metaclass=AlphaAnalyticsDataClientMeta):
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
         rpc = self._transport._wrapped_methods[self._transport.query_audience_list]
-
-        # Certain fields should be provided within the metadata header;
-        # add these here.
-        metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
-        )
-
-        # Validate the universe domain.
-        self._validate_universe_domain()
-
-        # Send the request.
-        response = rpc(
-            request,
-            retry=retry,
-            timeout=timeout,
-            metadata=metadata,
-        )
-
-        # Done; return the response.
-        return response
-
-    def sheet_export_audience_list(
-        self,
-        request: Optional[
-            Union[analytics_data_api.SheetExportAudienceListRequest, dict]
-        ] = None,
-        *,
-        name: Optional[str] = None,
-        retry: OptionalRetry = gapic_v1.method.DEFAULT,
-        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
-    ) -> analytics_data_api.SheetExportAudienceListResponse:
-        r"""Exports an audience list of users to a Google Sheet. After
-        creating an audience, the users are not immediately available
-        for listing. First, a request to ``CreateAudienceList`` is
-        necessary to create an audience list of users, and then second,
-        this method is used to export those users in the audience list
-        to a Google Sheet.
-
-        See `Creating an Audience
-        List <https://developers.google.com/analytics/devguides/reporting/data/v1/audience-list-basics>`__
-        for an introduction to Audience Lists with examples.
-
-        Audiences in Google Analytics 4 allow you to segment your users
-        in the ways that are important to your business. To learn more,
-        see https://support.google.com/analytics/answer/9267572.
-
-        This method is introduced at alpha stability with the intention
-        of gathering feedback on syntax and capabilities before entering
-        beta. To give your feedback on this API, complete the `Google
-        Analytics Audience Export API
-        Feedback <https://forms.gle/EeA5u5LW6PEggtCEA>`__ form.
-
-        .. code-block:: python
-
-            # This snippet has been automatically generated and should be regarded as a
-            # code template only.
-            # It will require modifications to work:
-            # - It may require correct/in-range values for request initialization.
-            # - It may require specifying regional endpoints when creating the service
-            #   client as shown in:
-            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
-            from google.analytics import data_v1alpha
-
-            def sample_sheet_export_audience_list():
-                # Create a client
-                client = data_v1alpha.AlphaAnalyticsDataClient()
-
-                # Initialize request argument(s)
-                request = data_v1alpha.SheetExportAudienceListRequest(
-                    name="name_value",
-                )
-
-                # Make the request
-                response = client.sheet_export_audience_list(request=request)
-
-                # Handle the response
-                print(response)
-
-        Args:
-            request (Union[google.analytics.data_v1alpha.types.SheetExportAudienceListRequest, dict]):
-                The request object. A request to export users in an
-                audience list to a Google Sheet.
-            name (str):
-                Required. The name of the audience list to retrieve
-                users from. Format:
-                ``properties/{property}/audienceLists/{audience_list}``
-
-                This corresponds to the ``name`` field
-                on the ``request`` instance; if ``request`` is provided, this
-                should not be set.
-            retry (google.api_core.retry.Retry): Designation of what errors, if any,
-                should be retried.
-            timeout (float): The timeout for this request.
-            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
-                sent along with the request as metadata. Normally, each value must be of type `str`,
-                but for metadata keys ending with the suffix `-bin`, the corresponding values must
-                be of type `bytes`.
-
-        Returns:
-            google.analytics.data_v1alpha.types.SheetExportAudienceListResponse:
-                The created Google Sheet with the
-                list of users in an audience list.
-
-        """
-        # Create or coerce a protobuf request object.
-        # - Quick check: If we got a request object, we should *not* have
-        #   gotten any keyword arguments that map to the request.
-        flattened_params = [name]
-        has_flattened_params = (
-            len([param for param in flattened_params if param is not None]) > 0
-        )
-        if request is not None and has_flattened_params:
-            raise ValueError(
-                "If the `request` argument is set, then none of "
-                "the individual field arguments should be set."
-            )
-
-        # - Use the request object if provided (there's no risk of modifying the input as
-        #   there are no flattened fields), or create one.
-        if not isinstance(request, analytics_data_api.SheetExportAudienceListRequest):
-            request = analytics_data_api.SheetExportAudienceListRequest(request)
-            # If we have keyword arguments corresponding to fields on the
-            # request, apply these.
-            if name is not None:
-                request.name = name
-
-        # Wrap the RPC method; this adds retry and timeout information,
-        # and friendly error handling.
-        rpc = self._transport._wrapped_methods[
-            self._transport.sheet_export_audience_list
-        ]
 
         # Certain fields should be provided within the metadata header;
         # add these here.
@@ -2588,6 +2488,226 @@ class AlphaAnalyticsDataClient(metaclass=AlphaAnalyticsDataClientMeta):
             method=rpc,
             request=request,
             response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def run_report(
+        self,
+        request: Optional[Union[analytics_data_api.RunReportRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> analytics_data_api.RunReportResponse:
+        r"""Returns a customized report of your Google Analytics
+        event data. Reports contain statistics derived from data
+        collected by the Google Analytics tracking code. The
+        data returned from the API is as a table with columns
+        for the requested dimensions and metrics. Metrics are
+        individual measurements of user activity on your
+        property, such as active users or event count.
+        Dimensions break down metrics across some common
+        criteria, such as country or event name.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.analytics import data_v1alpha
+
+            def sample_run_report():
+                # Create a client
+                client = data_v1alpha.AlphaAnalyticsDataClient()
+
+                # Initialize request argument(s)
+                request = data_v1alpha.RunReportRequest(
+                    property="property_value",
+                )
+
+                # Make the request
+                response = client.run_report(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.analytics.data_v1alpha.types.RunReportRequest, dict]):
+                The request object. The request to generate a report.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.analytics.data_v1alpha.types.RunReportResponse:
+                The response report table
+                corresponding to a request.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, analytics_data_api.RunReportRequest):
+            request = analytics_data_api.RunReportRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.run_report]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("property", request.property),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_metadata(
+        self,
+        request: Optional[Union[analytics_data_api.GetMetadataRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> analytics_data_api.Metadata:
+        r"""Returns metadata for dimensions and metrics available in
+        reporting methods. Used to explore the dimensions and metrics.
+        In this method, a Google Analytics property identifier is
+        specified in the request, and the metadata response includes
+        Custom dimensions and metrics as well as Universal metadata.
+
+        For example if a custom metric with parameter name
+        ``levels_unlocked`` is registered to a property, the Metadata
+        response will contain ``customEvent:levels_unlocked``. Universal
+        metadata are dimensions and metrics applicable to any property
+        such as ``country`` and ``totalUsers``.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.analytics import data_v1alpha
+
+            def sample_get_metadata():
+                # Create a client
+                client = data_v1alpha.AlphaAnalyticsDataClient()
+
+                # Initialize request argument(s)
+                request = data_v1alpha.GetMetadataRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = client.get_metadata(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.analytics.data_v1alpha.types.GetMetadataRequest, dict]):
+                The request object. Request for a property's dimension
+                and metric metadata.
+            name (str):
+                Required. The resource name of the metadata to retrieve.
+                This name field is specified in the URL path and not URL
+                parameters. Property is a numeric Google Analytics
+                property identifier. To learn more, see `where to find
+                your Property
+                ID <https://developers.google.com/analytics/devguides/reporting/data/v1/property-id>`__.
+
+                Example: properties/1234/metadata
+
+                Set the Property ID to 0 for dimensions and metrics
+                common to all properties. In this special mode, this
+                method will not return custom dimensions and metrics.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.analytics.data_v1alpha.types.Metadata:
+                The dimensions, metrics and
+                comparisons currently accepted in
+                reporting methods.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, analytics_data_api.GetMetadataRequest):
+            request = analytics_data_api.GetMetadataRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.get_metadata]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

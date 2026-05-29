@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,9 +22,7 @@ from .grpc_asyncio import CertificateManagerGrpcAsyncIOTransport
 from .rest import CertificateManagerRestInterceptor, CertificateManagerRestTransport
 
 # Compile a registry of transports.
-_transport_registry = (
-    OrderedDict()
-)  # type: Dict[str, Type[CertificateManagerTransport]]
+_transport_registry = OrderedDict()  # type: Dict[str, Type[CertificateManagerTransport]]
 _transport_registry["grpc"] = CertificateManagerGrpcTransport
 _transport_registry["grpc_asyncio"] = CertificateManagerGrpcAsyncIOTransport
 _transport_registry["rest"] = CertificateManagerRestTransport

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import dayofweek_pb2  # type: ignore
-from google.type import month_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.dayofweek_pb2 as dayofweek_pb2  # type: ignore
+import google.type.month_pb2 as month_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.oracledatabase_v1.types import common
@@ -47,8 +47,10 @@ class CloudExadataInfrastructure(proto.Message):
             Optional. User friendly name for this
             resource.
         gcp_oracle_zone (str):
-            Optional. Google Cloud Platform location
-            where Oracle Exadata is hosted.
+            Optional. The GCP Oracle zone where Oracle
+            Exadata Infrastructure is hosted. Example:
+            us-east4-b-r2. If not specified, the system will
+            pick a zone based on availability.
         entitlement_id (str):
             Output only. Entitlement ID of the private
             offer against which this infrastructure resource
@@ -187,6 +189,15 @@ class CloudExadataInfrastructureProperties(proto.Message):
             Output only. The monthly software version of
             the database servers (dom0) in the Exadata
             Infrastructure. Example: 20.1.15
+        compute_model (google.cloud.oracledatabase_v1.types.ComputeModel):
+            Output only. The compute model of the Exadata
+            Infrastructure.
+        database_server_type (str):
+            Output only. The database server type of the
+            Exadata Infrastructure.
+        storage_server_type (str):
+            Output only. The storage server type of the
+            Exadata Infrastructure.
     """
 
     class State(proto.Enum):
@@ -214,6 +225,7 @@ class CloudExadataInfrastructureProperties(proto.Message):
             MAINTENANCE_IN_PROGRESS (7):
                 The Exadata Infrastructure is in maintenance.
         """
+
         STATE_UNSPECIFIED = 0
         PROVISIONING = 1
         AVAILABLE = 2
@@ -336,6 +348,19 @@ class CloudExadataInfrastructureProperties(proto.Message):
         proto.STRING,
         number=27,
     )
+    compute_model: common.ComputeModel = proto.Field(
+        proto.ENUM,
+        number=31,
+        enum=common.ComputeModel,
+    )
+    database_server_type: str = proto.Field(
+        proto.STRING,
+        number=29,
+    )
+    storage_server_type: str = proto.Field(
+        proto.STRING,
+        number=30,
+    )
 
 
 class MaintenanceWindow(proto.Message):
@@ -364,12 +389,12 @@ class MaintenanceWindow(proto.Message):
             when maintenance should be performed. The window
             is a 4 hour slot. Valid values are:
 
-            0 - represents time slot 0:00 - 3:59 UTC
-            4 - represents time slot 4:00 - 7:59 UTC
-            8 - represents time slot 8:00 - 11:59 UTC
-            12 - represents time slot 12:00 - 15:59 UTC
-            16 - represents time slot 16:00 - 19:59 UTC
-            20 - represents time slot 20:00 - 23:59 UTC
+              0 - represents time slot 0:00 - 3:59 UTC
+              4 - represents time slot 4:00 - 7:59 UTC
+              8 - represents time slot 8:00 - 11:59 UTC
+              12 - represents time slot 12:00 - 15:59 UTC
+            16 - represents time slot 16:00 - 19:59 UTC   20
+            - represents time slot 20:00 - 23:59 UTC
         lead_time_week (int):
             Optional. Lead time window allows user to set
             a lead time to prepare for a down time. The lead
@@ -402,6 +427,7 @@ class MaintenanceWindow(proto.Message):
             NO_PREFERENCE (2):
                 No preference.
         """
+
         MAINTENANCE_WINDOW_PREFERENCE_UNSPECIFIED = 0
         CUSTOM_PREFERENCE = 1
         NO_PREFERENCE = 2
@@ -420,6 +446,7 @@ class MaintenanceWindow(proto.Message):
                 updates your storage servers at the same time,
                 then your database servers at the same time.
         """
+
         PATCHING_MODE_UNSPECIFIED = 0
         ROLLING = 1
         NON_ROLLING = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +38,19 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.options_pb2 as options_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.expr_pb2 as expr_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,25 +59,13 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import options_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import expr_pb2  # type: ignore
 
 from google.cloud.artifactregistry_v1.services.artifact_registry import (
     ArtifactRegistryAsyncClient,
@@ -78,25 +73,30 @@ from google.cloud.artifactregistry_v1.services.artifact_registry import (
     pagers,
     transports,
 )
-from google.cloud.artifactregistry_v1.types import vpcsc_config as gda_vpcsc_config
-from google.cloud.artifactregistry_v1.types import apt_artifact, artifact
-from google.cloud.artifactregistry_v1.types import attachment
+from google.cloud.artifactregistry_v1.types import (
+    apt_artifact,
+    artifact,
+    attachment,
+    export,
+    file,
+    package,
+    repository,
+    rule,
+    service,
+    settings,
+    tag,
+    version,
+    vpcsc_config,
+    yum_artifact,
+)
 from google.cloud.artifactregistry_v1.types import attachment as gda_attachment
-from google.cloud.artifactregistry_v1.types import file
 from google.cloud.artifactregistry_v1.types import file as gda_file
-from google.cloud.artifactregistry_v1.types import package
 from google.cloud.artifactregistry_v1.types import package as gda_package
-from google.cloud.artifactregistry_v1.types import repository
 from google.cloud.artifactregistry_v1.types import repository as gda_repository
-from google.cloud.artifactregistry_v1.types import rule
 from google.cloud.artifactregistry_v1.types import rule as gda_rule
-from google.cloud.artifactregistry_v1.types import service, settings
-from google.cloud.artifactregistry_v1.types import tag
 from google.cloud.artifactregistry_v1.types import tag as gda_tag
-from google.cloud.artifactregistry_v1.types import version
 from google.cloud.artifactregistry_v1.types import version as gda_version
-from google.cloud.artifactregistry_v1.types import vpcsc_config
-from google.cloud.artifactregistry_v1.types import yum_artifact
+from google.cloud.artifactregistry_v1.types import vpcsc_config as gda_vpcsc_config
 
 CRED_INFO_JSON = {
     "credential_source": "/path/to/file",
@@ -146,12 +146,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert ArtifactRegistryClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -173,6 +189,10 @@ def test__get_default_mtls_endpoint():
     assert (
         ArtifactRegistryClient._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
+    )
+    assert (
+        ArtifactRegistryClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -196,12 +216,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            ArtifactRegistryClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                ArtifactRegistryClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert ArtifactRegistryClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert ArtifactRegistryClient._read_environment_variables() == (
@@ -238,6 +265,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert ArtifactRegistryClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert ArtifactRegistryClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert ArtifactRegistryClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert ArtifactRegistryClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert ArtifactRegistryClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert ArtifactRegistryClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert ArtifactRegistryClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert ArtifactRegistryClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert ArtifactRegistryClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                ArtifactRegistryClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert ArtifactRegistryClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert ArtifactRegistryClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -609,17 +735,6 @@ def test_artifact_registry_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -855,6 +970,117 @@ def test_artifact_registry_client_get_mtls_endpoint_and_cert_source(client_class
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -887,10 +1113,9 @@ def test_artifact_registry_client_get_mtls_endpoint_and_cert_source(client_class
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -903,18 +1128,6 @@ def test_artifact_registry_client_get_mtls_endpoint_and_cert_source(client_class
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1150,13 +1363,13 @@ def test_artifact_registry_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1184,8 +1397,8 @@ def test_artifact_registry_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        artifact.ListDockerImagesRequest,
-        dict,
+        artifact.ListDockerImagesRequest(),
+        {},
     ],
 )
 def test_list_docker_images(request_type, transport: str = "grpc"):
@@ -1196,7 +1409,7 @@ def test_list_docker_images(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1246,11 +1459,12 @@ def test_list_docker_images_non_empty_request_with_auto_populated_field():
         client.list_docker_images(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == artifact.ListDockerImagesRequest(
+        request_msg = artifact.ListDockerImagesRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_docker_images_use_cached_wrapped_rpc():
@@ -1276,9 +1490,9 @@ def test_list_docker_images_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_docker_images
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_docker_images] = (
+            mock_rpc
+        )
         request = {}
         client.list_docker_images(request)
 
@@ -1335,9 +1549,14 @@ async def test_list_docker_images_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_docker_images_async(
-    transport: str = "grpc_asyncio", request_type=artifact.ListDockerImagesRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        artifact.ListDockerImagesRequest(),
+        {},
+    ],
+)
+async def test_list_docker_images_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1345,7 +1564,7 @@ async def test_list_docker_images_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1368,11 +1587,6 @@ async def test_list_docker_images_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListDockerImagesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_docker_images_async_from_dict():
-    await test_list_docker_images_async(request_type=dict)
 
 
 def test_list_docker_images_field_headers():
@@ -1718,11 +1932,7 @@ async def test_list_docker_images_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_docker_images(request={})
-        ).pages:
+        async for page_ in (await client.list_docker_images(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -1731,8 +1941,8 @@ async def test_list_docker_images_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        artifact.GetDockerImageRequest,
-        dict,
+        artifact.GetDockerImageRequest(),
+        {},
     ],
 )
 def test_get_docker_image(request_type, transport: str = "grpc"):
@@ -1743,7 +1953,7 @@ def test_get_docker_image(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_docker_image), "__call__") as call:
@@ -1754,6 +1964,7 @@ def test_get_docker_image(request_type, transport: str = "grpc"):
             tags=["tags_value"],
             image_size_bytes=1699,
             media_type="media_type_value",
+            artifact_type="artifact_type_value",
         )
         response = client.get_docker_image(request)
 
@@ -1770,6 +1981,7 @@ def test_get_docker_image(request_type, transport: str = "grpc"):
     assert response.tags == ["tags_value"]
     assert response.image_size_bytes == 1699
     assert response.media_type == "media_type_value"
+    assert response.artifact_type == "artifact_type_value"
 
 
 def test_get_docker_image_non_empty_request_with_auto_populated_field():
@@ -1795,9 +2007,10 @@ def test_get_docker_image_non_empty_request_with_auto_populated_field():
         client.get_docker_image(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == artifact.GetDockerImageRequest(
+        request_msg = artifact.GetDockerImageRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_docker_image_use_cached_wrapped_rpc():
@@ -1821,9 +2034,9 @@ def test_get_docker_image_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_docker_image
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_docker_image] = (
+            mock_rpc
+        )
         request = {}
         client.get_docker_image(request)
 
@@ -1880,9 +2093,14 @@ async def test_get_docker_image_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_docker_image_async(
-    transport: str = "grpc_asyncio", request_type=artifact.GetDockerImageRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        artifact.GetDockerImageRequest(),
+        {},
+    ],
+)
+async def test_get_docker_image_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1890,7 +2108,7 @@ async def test_get_docker_image_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_docker_image), "__call__") as call:
@@ -1902,6 +2120,7 @@ async def test_get_docker_image_async(
                 tags=["tags_value"],
                 image_size_bytes=1699,
                 media_type="media_type_value",
+                artifact_type="artifact_type_value",
             )
         )
         response = await client.get_docker_image(request)
@@ -1919,11 +2138,7 @@ async def test_get_docker_image_async(
     assert response.tags == ["tags_value"]
     assert response.image_size_bytes == 1699
     assert response.media_type == "media_type_value"
-
-
-@pytest.mark.asyncio
-async def test_get_docker_image_async_from_dict():
-    await test_get_docker_image_async(request_type=dict)
+    assert response.artifact_type == "artifact_type_value"
 
 
 def test_get_docker_image_field_headers():
@@ -2072,8 +2287,8 @@ async def test_get_docker_image_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        artifact.ListMavenArtifactsRequest,
-        dict,
+        artifact.ListMavenArtifactsRequest(),
+        {},
     ],
 )
 def test_list_maven_artifacts(request_type, transport: str = "grpc"):
@@ -2084,7 +2299,7 @@ def test_list_maven_artifacts(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2133,10 +2348,11 @@ def test_list_maven_artifacts_non_empty_request_with_auto_populated_field():
         client.list_maven_artifacts(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == artifact.ListMavenArtifactsRequest(
+        request_msg = artifact.ListMavenArtifactsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_maven_artifacts_use_cached_wrapped_rpc():
@@ -2162,9 +2378,9 @@ def test_list_maven_artifacts_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_maven_artifacts
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_maven_artifacts] = (
+            mock_rpc
+        )
         request = {}
         client.list_maven_artifacts(request)
 
@@ -2221,8 +2437,15 @@ async def test_list_maven_artifacts_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        artifact.ListMavenArtifactsRequest(),
+        {},
+    ],
+)
 async def test_list_maven_artifacts_async(
-    transport: str = "grpc_asyncio", request_type=artifact.ListMavenArtifactsRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -2231,7 +2454,7 @@ async def test_list_maven_artifacts_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2254,11 +2477,6 @@ async def test_list_maven_artifacts_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListMavenArtifactsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_maven_artifacts_async_from_dict():
-    await test_list_maven_artifacts_async(request_type=dict)
 
 
 def test_list_maven_artifacts_field_headers():
@@ -2604,11 +2822,7 @@ async def test_list_maven_artifacts_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_maven_artifacts(request={})
-        ).pages:
+        async for page_ in (await client.list_maven_artifacts(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -2617,8 +2831,8 @@ async def test_list_maven_artifacts_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        artifact.GetMavenArtifactRequest,
-        dict,
+        artifact.GetMavenArtifactRequest(),
+        {},
     ],
 )
 def test_get_maven_artifact(request_type, transport: str = "grpc"):
@@ -2629,7 +2843,7 @@ def test_get_maven_artifact(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2685,9 +2899,10 @@ def test_get_maven_artifact_non_empty_request_with_auto_populated_field():
         client.get_maven_artifact(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == artifact.GetMavenArtifactRequest(
+        request_msg = artifact.GetMavenArtifactRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_maven_artifact_use_cached_wrapped_rpc():
@@ -2713,9 +2928,9 @@ def test_get_maven_artifact_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_maven_artifact
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_maven_artifact] = (
+            mock_rpc
+        )
         request = {}
         client.get_maven_artifact(request)
 
@@ -2772,9 +2987,14 @@ async def test_get_maven_artifact_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_maven_artifact_async(
-    transport: str = "grpc_asyncio", request_type=artifact.GetMavenArtifactRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        artifact.GetMavenArtifactRequest(),
+        {},
+    ],
+)
+async def test_get_maven_artifact_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2782,7 +3002,7 @@ async def test_get_maven_artifact_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2813,11 +3033,6 @@ async def test_get_maven_artifact_async(
     assert response.group_id == "group_id_value"
     assert response.artifact_id == "artifact_id_value"
     assert response.version == "version_value"
-
-
-@pytest.mark.asyncio
-async def test_get_maven_artifact_async_from_dict():
-    await test_get_maven_artifact_async(request_type=dict)
 
 
 def test_get_maven_artifact_field_headers():
@@ -2974,8 +3189,8 @@ async def test_get_maven_artifact_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        artifact.ListNpmPackagesRequest,
-        dict,
+        artifact.ListNpmPackagesRequest(),
+        {},
     ],
 )
 def test_list_npm_packages(request_type, transport: str = "grpc"):
@@ -2986,7 +3201,7 @@ def test_list_npm_packages(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3035,10 +3250,11 @@ def test_list_npm_packages_non_empty_request_with_auto_populated_field():
         client.list_npm_packages(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == artifact.ListNpmPackagesRequest(
+        request_msg = artifact.ListNpmPackagesRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_npm_packages_use_cached_wrapped_rpc():
@@ -3062,9 +3278,9 @@ def test_list_npm_packages_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_npm_packages
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_npm_packages] = (
+            mock_rpc
+        )
         request = {}
         client.list_npm_packages(request)
 
@@ -3121,9 +3337,14 @@ async def test_list_npm_packages_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_npm_packages_async(
-    transport: str = "grpc_asyncio", request_type=artifact.ListNpmPackagesRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        artifact.ListNpmPackagesRequest(),
+        {},
+    ],
+)
+async def test_list_npm_packages_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3131,7 +3352,7 @@ async def test_list_npm_packages_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3154,11 +3375,6 @@ async def test_list_npm_packages_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListNpmPackagesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_npm_packages_async_from_dict():
-    await test_list_npm_packages_async(request_type=dict)
 
 
 def test_list_npm_packages_field_headers():
@@ -3504,11 +3720,7 @@ async def test_list_npm_packages_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_npm_packages(request={})
-        ).pages:
+        async for page_ in (await client.list_npm_packages(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -3517,8 +3729,8 @@ async def test_list_npm_packages_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        artifact.GetNpmPackageRequest,
-        dict,
+        artifact.GetNpmPackageRequest(),
+        {},
     ],
 )
 def test_get_npm_package(request_type, transport: str = "grpc"):
@@ -3529,7 +3741,7 @@ def test_get_npm_package(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_npm_package), "__call__") as call:
@@ -3579,9 +3791,10 @@ def test_get_npm_package_non_empty_request_with_auto_populated_field():
         client.get_npm_package(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == artifact.GetNpmPackageRequest(
+        request_msg = artifact.GetNpmPackageRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_npm_package_use_cached_wrapped_rpc():
@@ -3662,9 +3875,14 @@ async def test_get_npm_package_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_npm_package_async(
-    transport: str = "grpc_asyncio", request_type=artifact.GetNpmPackageRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        artifact.GetNpmPackageRequest(),
+        {},
+    ],
+)
+async def test_get_npm_package_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3672,7 +3890,7 @@ async def test_get_npm_package_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_npm_package), "__call__") as call:
@@ -3699,11 +3917,6 @@ async def test_get_npm_package_async(
     assert response.package_name == "package_name_value"
     assert response.version == "version_value"
     assert response.tags == ["tags_value"]
-
-
-@pytest.mark.asyncio
-async def test_get_npm_package_async_from_dict():
-    await test_get_npm_package_async(request_type=dict)
 
 
 def test_get_npm_package_field_headers():
@@ -3848,8 +4061,8 @@ async def test_get_npm_package_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        artifact.ListPythonPackagesRequest,
-        dict,
+        artifact.ListPythonPackagesRequest(),
+        {},
     ],
 )
 def test_list_python_packages(request_type, transport: str = "grpc"):
@@ -3860,7 +4073,7 @@ def test_list_python_packages(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3909,10 +4122,11 @@ def test_list_python_packages_non_empty_request_with_auto_populated_field():
         client.list_python_packages(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == artifact.ListPythonPackagesRequest(
+        request_msg = artifact.ListPythonPackagesRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_python_packages_use_cached_wrapped_rpc():
@@ -3938,9 +4152,9 @@ def test_list_python_packages_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_python_packages
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_python_packages] = (
+            mock_rpc
+        )
         request = {}
         client.list_python_packages(request)
 
@@ -3997,8 +4211,15 @@ async def test_list_python_packages_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        artifact.ListPythonPackagesRequest(),
+        {},
+    ],
+)
 async def test_list_python_packages_async(
-    transport: str = "grpc_asyncio", request_type=artifact.ListPythonPackagesRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -4007,7 +4228,7 @@ async def test_list_python_packages_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4030,11 +4251,6 @@ async def test_list_python_packages_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListPythonPackagesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_python_packages_async_from_dict():
-    await test_list_python_packages_async(request_type=dict)
 
 
 def test_list_python_packages_field_headers():
@@ -4380,11 +4596,7 @@ async def test_list_python_packages_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_python_packages(request={})
-        ).pages:
+        async for page_ in (await client.list_python_packages(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -4393,8 +4605,8 @@ async def test_list_python_packages_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        artifact.GetPythonPackageRequest,
-        dict,
+        artifact.GetPythonPackageRequest(),
+        {},
     ],
 )
 def test_get_python_package(request_type, transport: str = "grpc"):
@@ -4405,7 +4617,7 @@ def test_get_python_package(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4459,9 +4671,10 @@ def test_get_python_package_non_empty_request_with_auto_populated_field():
         client.get_python_package(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == artifact.GetPythonPackageRequest(
+        request_msg = artifact.GetPythonPackageRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_python_package_use_cached_wrapped_rpc():
@@ -4487,9 +4700,9 @@ def test_get_python_package_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_python_package
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_python_package] = (
+            mock_rpc
+        )
         request = {}
         client.get_python_package(request)
 
@@ -4546,9 +4759,14 @@ async def test_get_python_package_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_python_package_async(
-    transport: str = "grpc_asyncio", request_type=artifact.GetPythonPackageRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        artifact.GetPythonPackageRequest(),
+        {},
+    ],
+)
+async def test_get_python_package_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4556,7 +4774,7 @@ async def test_get_python_package_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4585,11 +4803,6 @@ async def test_get_python_package_async(
     assert response.uri == "uri_value"
     assert response.package_name == "package_name_value"
     assert response.version == "version_value"
-
-
-@pytest.mark.asyncio
-async def test_get_python_package_async_from_dict():
-    await test_get_python_package_async(request_type=dict)
 
 
 def test_get_python_package_field_headers():
@@ -4746,8 +4959,8 @@ async def test_get_python_package_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        apt_artifact.ImportAptArtifactsRequest,
-        dict,
+        apt_artifact.ImportAptArtifactsRequest(),
+        {},
     ],
 )
 def test_import_apt_artifacts(request_type, transport: str = "grpc"):
@@ -4758,7 +4971,7 @@ def test_import_apt_artifacts(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4803,9 +5016,10 @@ def test_import_apt_artifacts_non_empty_request_with_auto_populated_field():
         client.import_apt_artifacts(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == apt_artifact.ImportAptArtifactsRequest(
+        request_msg = apt_artifact.ImportAptArtifactsRequest(
             parent="parent_value",
         )
+        assert args[0] == request_msg
 
 
 def test_import_apt_artifacts_use_cached_wrapped_rpc():
@@ -4831,9 +5045,9 @@ def test_import_apt_artifacts_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.import_apt_artifacts
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.import_apt_artifacts] = (
+            mock_rpc
+        )
         request = {}
         client.import_apt_artifacts(request)
 
@@ -4900,8 +5114,15 @@ async def test_import_apt_artifacts_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        apt_artifact.ImportAptArtifactsRequest(),
+        {},
+    ],
+)
 async def test_import_apt_artifacts_async(
-    transport: str = "grpc_asyncio", request_type=apt_artifact.ImportAptArtifactsRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -4910,7 +5131,7 @@ async def test_import_apt_artifacts_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4930,11 +5151,6 @@ async def test_import_apt_artifacts_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_import_apt_artifacts_async_from_dict():
-    await test_import_apt_artifacts_async(request_type=dict)
 
 
 def test_import_apt_artifacts_field_headers():
@@ -5005,8 +5221,8 @@ async def test_import_apt_artifacts_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        yum_artifact.ImportYumArtifactsRequest,
-        dict,
+        yum_artifact.ImportYumArtifactsRequest(),
+        {},
     ],
 )
 def test_import_yum_artifacts(request_type, transport: str = "grpc"):
@@ -5017,7 +5233,7 @@ def test_import_yum_artifacts(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5062,9 +5278,10 @@ def test_import_yum_artifacts_non_empty_request_with_auto_populated_field():
         client.import_yum_artifacts(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == yum_artifact.ImportYumArtifactsRequest(
+        request_msg = yum_artifact.ImportYumArtifactsRequest(
             parent="parent_value",
         )
+        assert args[0] == request_msg
 
 
 def test_import_yum_artifacts_use_cached_wrapped_rpc():
@@ -5090,9 +5307,9 @@ def test_import_yum_artifacts_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.import_yum_artifacts
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.import_yum_artifacts] = (
+            mock_rpc
+        )
         request = {}
         client.import_yum_artifacts(request)
 
@@ -5159,8 +5376,15 @@ async def test_import_yum_artifacts_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        yum_artifact.ImportYumArtifactsRequest(),
+        {},
+    ],
+)
 async def test_import_yum_artifacts_async(
-    transport: str = "grpc_asyncio", request_type=yum_artifact.ImportYumArtifactsRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -5169,7 +5393,7 @@ async def test_import_yum_artifacts_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5189,11 +5413,6 @@ async def test_import_yum_artifacts_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_import_yum_artifacts_async_from_dict():
-    await test_import_yum_artifacts_async(request_type=dict)
 
 
 def test_import_yum_artifacts_field_headers():
@@ -5264,8 +5483,8 @@ async def test_import_yum_artifacts_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        repository.ListRepositoriesRequest,
-        dict,
+        repository.ListRepositoriesRequest(),
+        {},
     ],
 )
 def test_list_repositories(request_type, transport: str = "grpc"):
@@ -5276,7 +5495,7 @@ def test_list_repositories(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5327,12 +5546,13 @@ def test_list_repositories_non_empty_request_with_auto_populated_field():
         client.list_repositories(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == repository.ListRepositoriesRequest(
+        request_msg = repository.ListRepositoriesRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_repositories_use_cached_wrapped_rpc():
@@ -5356,9 +5576,9 @@ def test_list_repositories_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_repositories
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_repositories] = (
+            mock_rpc
+        )
         request = {}
         client.list_repositories(request)
 
@@ -5415,9 +5635,14 @@ async def test_list_repositories_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_repositories_async(
-    transport: str = "grpc_asyncio", request_type=repository.ListRepositoriesRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        repository.ListRepositoriesRequest(),
+        {},
+    ],
+)
+async def test_list_repositories_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -5425,7 +5650,7 @@ async def test_list_repositories_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5448,11 +5673,6 @@ async def test_list_repositories_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListRepositoriesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_repositories_async_from_dict():
-    await test_list_repositories_async(request_type=dict)
 
 
 def test_list_repositories_field_headers():
@@ -5798,11 +6018,7 @@ async def test_list_repositories_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_repositories(request={})
-        ).pages:
+        async for page_ in (await client.list_repositories(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -5811,8 +6027,8 @@ async def test_list_repositories_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        repository.GetRepositoryRequest,
-        dict,
+        repository.GetRepositoryRequest(),
+        {},
     ],
 )
 def test_get_repository(request_type, transport: str = "grpc"):
@@ -5823,7 +6039,7 @@ def test_get_repository(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_repository), "__call__") as call:
@@ -5887,9 +6103,10 @@ def test_get_repository_non_empty_request_with_auto_populated_field():
         client.get_repository(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == repository.GetRepositoryRequest(
+        request_msg = repository.GetRepositoryRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_repository_use_cached_wrapped_rpc():
@@ -5970,9 +6187,14 @@ async def test_get_repository_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_repository_async(
-    transport: str = "grpc_asyncio", request_type=repository.GetRepositoryRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        repository.GetRepositoryRequest(),
+        {},
+    ],
+)
+async def test_get_repository_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -5980,7 +6202,7 @@ async def test_get_repository_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_repository), "__call__") as call:
@@ -6021,11 +6243,6 @@ async def test_get_repository_async(
     assert response.disallow_unspecified_mode is True
     assert response.satisfies_pzi is True
     assert response.registry_uri == "registry_uri_value"
-
-
-@pytest.mark.asyncio
-async def test_get_repository_async_from_dict():
-    await test_get_repository_async(request_type=dict)
 
 
 def test_get_repository_field_headers():
@@ -6174,8 +6391,8 @@ async def test_get_repository_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gda_repository.CreateRepositoryRequest,
-        dict,
+        gda_repository.CreateRepositoryRequest(),
+        {},
     ],
 )
 def test_create_repository(request_type, transport: str = "grpc"):
@@ -6186,7 +6403,7 @@ def test_create_repository(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6232,10 +6449,11 @@ def test_create_repository_non_empty_request_with_auto_populated_field():
         client.create_repository(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gda_repository.CreateRepositoryRequest(
+        request_msg = gda_repository.CreateRepositoryRequest(
             parent="parent_value",
             repository_id="repository_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_repository_use_cached_wrapped_rpc():
@@ -6259,9 +6477,9 @@ def test_create_repository_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_repository
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_repository] = (
+            mock_rpc
+        )
         request = {}
         client.create_repository(request)
 
@@ -6328,9 +6546,14 @@ async def test_create_repository_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_repository_async(
-    transport: str = "grpc_asyncio", request_type=gda_repository.CreateRepositoryRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gda_repository.CreateRepositoryRequest(),
+        {},
+    ],
+)
+async def test_create_repository_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -6338,7 +6561,7 @@ async def test_create_repository_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6358,11 +6581,6 @@ async def test_create_repository_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_repository_async_from_dict():
-    await test_create_repository_async(request_type=dict)
 
 
 def test_create_repository_field_headers():
@@ -6563,8 +6781,8 @@ async def test_create_repository_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gda_repository.UpdateRepositoryRequest,
-        dict,
+        gda_repository.UpdateRepositoryRequest(),
+        {},
     ],
 )
 def test_update_repository(request_type, transport: str = "grpc"):
@@ -6575,7 +6793,7 @@ def test_update_repository(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6641,7 +6859,8 @@ def test_update_repository_non_empty_request_with_auto_populated_field():
         client.update_repository(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gda_repository.UpdateRepositoryRequest()
+        request_msg = gda_repository.UpdateRepositoryRequest()
+        assert args[0] == request_msg
 
 
 def test_update_repository_use_cached_wrapped_rpc():
@@ -6665,9 +6884,9 @@ def test_update_repository_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_repository
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_repository] = (
+            mock_rpc
+        )
         request = {}
         client.update_repository(request)
 
@@ -6724,9 +6943,14 @@ async def test_update_repository_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_repository_async(
-    transport: str = "grpc_asyncio", request_type=gda_repository.UpdateRepositoryRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gda_repository.UpdateRepositoryRequest(),
+        {},
+    ],
+)
+async def test_update_repository_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -6734,7 +6958,7 @@ async def test_update_repository_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6777,11 +7001,6 @@ async def test_update_repository_async(
     assert response.disallow_unspecified_mode is True
     assert response.satisfies_pzi is True
     assert response.registry_uri == "registry_uri_value"
-
-
-@pytest.mark.asyncio
-async def test_update_repository_async_from_dict():
-    await test_update_repository_async(request_type=dict)
 
 
 def test_update_repository_field_headers():
@@ -6972,8 +7191,8 @@ async def test_update_repository_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        repository.DeleteRepositoryRequest,
-        dict,
+        repository.DeleteRepositoryRequest(),
+        {},
     ],
 )
 def test_delete_repository(request_type, transport: str = "grpc"):
@@ -6984,7 +7203,7 @@ def test_delete_repository(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -7029,9 +7248,10 @@ def test_delete_repository_non_empty_request_with_auto_populated_field():
         client.delete_repository(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == repository.DeleteRepositoryRequest(
+        request_msg = repository.DeleteRepositoryRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_repository_use_cached_wrapped_rpc():
@@ -7055,9 +7275,9 @@ def test_delete_repository_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_repository
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_repository] = (
+            mock_rpc
+        )
         request = {}
         client.delete_repository(request)
 
@@ -7124,9 +7344,14 @@ async def test_delete_repository_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_repository_async(
-    transport: str = "grpc_asyncio", request_type=repository.DeleteRepositoryRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        repository.DeleteRepositoryRequest(),
+        {},
+    ],
+)
+async def test_delete_repository_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -7134,7 +7359,7 @@ async def test_delete_repository_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -7154,11 +7379,6 @@ async def test_delete_repository_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_repository_async_from_dict():
-    await test_delete_repository_async(request_type=dict)
 
 
 def test_delete_repository_field_headers():
@@ -7315,8 +7535,8 @@ async def test_delete_repository_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        package.ListPackagesRequest,
-        dict,
+        package.ListPackagesRequest(),
+        {},
     ],
 )
 def test_list_packages(request_type, transport: str = "grpc"):
@@ -7327,7 +7547,7 @@ def test_list_packages(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_packages), "__call__") as call:
@@ -7374,12 +7594,13 @@ def test_list_packages_non_empty_request_with_auto_populated_field():
         client.list_packages(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == package.ListPackagesRequest(
+        request_msg = package.ListPackagesRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_packages_use_cached_wrapped_rpc():
@@ -7460,9 +7681,14 @@ async def test_list_packages_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_packages_async(
-    transport: str = "grpc_asyncio", request_type=package.ListPackagesRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        package.ListPackagesRequest(),
+        {},
+    ],
+)
+async def test_list_packages_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -7470,7 +7696,7 @@ async def test_list_packages_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_packages), "__call__") as call:
@@ -7491,11 +7717,6 @@ async def test_list_packages_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListPackagesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_packages_async_from_dict():
-    await test_list_packages_async(request_type=dict)
 
 
 def test_list_packages_field_headers():
@@ -7825,11 +8046,7 @@ async def test_list_packages_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_packages(request={})
-        ).pages:
+        async for page_ in (await client.list_packages(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -7838,8 +8055,8 @@ async def test_list_packages_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        package.GetPackageRequest,
-        dict,
+        package.GetPackageRequest(),
+        {},
     ],
 )
 def test_get_package(request_type, transport: str = "grpc"):
@@ -7850,7 +8067,7 @@ def test_get_package(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_package), "__call__") as call:
@@ -7896,9 +8113,10 @@ def test_get_package_non_empty_request_with_auto_populated_field():
         client.get_package(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == package.GetPackageRequest(
+        request_msg = package.GetPackageRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_package_use_cached_wrapped_rpc():
@@ -7979,9 +8197,14 @@ async def test_get_package_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_package_async(
-    transport: str = "grpc_asyncio", request_type=package.GetPackageRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        package.GetPackageRequest(),
+        {},
+    ],
+)
+async def test_get_package_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -7989,7 +8212,7 @@ async def test_get_package_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_package), "__call__") as call:
@@ -8012,11 +8235,6 @@ async def test_get_package_async(
     assert isinstance(response, package.Package)
     assert response.name == "name_value"
     assert response.display_name == "display_name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_package_async_from_dict():
-    await test_get_package_async(request_type=dict)
 
 
 def test_get_package_field_headers():
@@ -8161,8 +8379,8 @@ async def test_get_package_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        package.DeletePackageRequest,
-        dict,
+        package.DeletePackageRequest(),
+        {},
     ],
 )
 def test_delete_package(request_type, transport: str = "grpc"):
@@ -8173,7 +8391,7 @@ def test_delete_package(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_package), "__call__") as call:
@@ -8214,9 +8432,10 @@ def test_delete_package_non_empty_request_with_auto_populated_field():
         client.delete_package(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == package.DeletePackageRequest(
+        request_msg = package.DeletePackageRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_package_use_cached_wrapped_rpc():
@@ -8307,9 +8526,14 @@ async def test_delete_package_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_package_async(
-    transport: str = "grpc_asyncio", request_type=package.DeletePackageRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        package.DeletePackageRequest(),
+        {},
+    ],
+)
+async def test_delete_package_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -8317,7 +8541,7 @@ async def test_delete_package_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_package), "__call__") as call:
@@ -8335,11 +8559,6 @@ async def test_delete_package_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_package_async_from_dict():
-    await test_delete_package_async(request_type=dict)
 
 
 def test_delete_package_field_headers():
@@ -8488,8 +8707,8 @@ async def test_delete_package_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        version.ListVersionsRequest,
-        dict,
+        version.ListVersionsRequest(),
+        {},
     ],
 )
 def test_list_versions(request_type, transport: str = "grpc"):
@@ -8500,7 +8719,7 @@ def test_list_versions(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_versions), "__call__") as call:
@@ -8547,12 +8766,13 @@ def test_list_versions_non_empty_request_with_auto_populated_field():
         client.list_versions(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == version.ListVersionsRequest(
+        request_msg = version.ListVersionsRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_versions_use_cached_wrapped_rpc():
@@ -8633,9 +8853,14 @@ async def test_list_versions_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_versions_async(
-    transport: str = "grpc_asyncio", request_type=version.ListVersionsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        version.ListVersionsRequest(),
+        {},
+    ],
+)
+async def test_list_versions_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -8643,7 +8868,7 @@ async def test_list_versions_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_versions), "__call__") as call:
@@ -8664,11 +8889,6 @@ async def test_list_versions_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListVersionsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_versions_async_from_dict():
-    await test_list_versions_async(request_type=dict)
 
 
 def test_list_versions_field_headers():
@@ -8998,11 +9218,7 @@ async def test_list_versions_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_versions(request={})
-        ).pages:
+        async for page_ in (await client.list_versions(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -9011,8 +9227,8 @@ async def test_list_versions_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        version.GetVersionRequest,
-        dict,
+        version.GetVersionRequest(),
+        {},
     ],
 )
 def test_get_version(request_type, transport: str = "grpc"):
@@ -9023,7 +9239,7 @@ def test_get_version(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_version), "__call__") as call:
@@ -9069,9 +9285,10 @@ def test_get_version_non_empty_request_with_auto_populated_field():
         client.get_version(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == version.GetVersionRequest(
+        request_msg = version.GetVersionRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_version_use_cached_wrapped_rpc():
@@ -9152,9 +9369,14 @@ async def test_get_version_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_version_async(
-    transport: str = "grpc_asyncio", request_type=version.GetVersionRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        version.GetVersionRequest(),
+        {},
+    ],
+)
+async def test_get_version_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -9162,7 +9384,7 @@ async def test_get_version_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_version), "__call__") as call:
@@ -9185,11 +9407,6 @@ async def test_get_version_async(
     assert isinstance(response, version.Version)
     assert response.name == "name_value"
     assert response.description == "description_value"
-
-
-@pytest.mark.asyncio
-async def test_get_version_async_from_dict():
-    await test_get_version_async(request_type=dict)
 
 
 def test_get_version_field_headers():
@@ -9334,8 +9551,8 @@ async def test_get_version_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        version.DeleteVersionRequest,
-        dict,
+        version.DeleteVersionRequest(),
+        {},
     ],
 )
 def test_delete_version(request_type, transport: str = "grpc"):
@@ -9346,7 +9563,7 @@ def test_delete_version(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_version), "__call__") as call:
@@ -9387,9 +9604,10 @@ def test_delete_version_non_empty_request_with_auto_populated_field():
         client.delete_version(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == version.DeleteVersionRequest(
+        request_msg = version.DeleteVersionRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_version_use_cached_wrapped_rpc():
@@ -9480,9 +9698,14 @@ async def test_delete_version_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_version_async(
-    transport: str = "grpc_asyncio", request_type=version.DeleteVersionRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        version.DeleteVersionRequest(),
+        {},
+    ],
+)
+async def test_delete_version_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -9490,7 +9713,7 @@ async def test_delete_version_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_version), "__call__") as call:
@@ -9508,11 +9731,6 @@ async def test_delete_version_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_version_async_from_dict():
-    await test_delete_version_async(request_type=dict)
 
 
 def test_delete_version_field_headers():
@@ -9661,8 +9879,8 @@ async def test_delete_version_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        version.BatchDeleteVersionsRequest,
-        dict,
+        version.BatchDeleteVersionsRequest(),
+        {},
     ],
 )
 def test_batch_delete_versions(request_type, transport: str = "grpc"):
@@ -9673,7 +9891,7 @@ def test_batch_delete_versions(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9718,9 +9936,10 @@ def test_batch_delete_versions_non_empty_request_with_auto_populated_field():
         client.batch_delete_versions(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == version.BatchDeleteVersionsRequest(
+        request_msg = version.BatchDeleteVersionsRequest(
             parent="parent_value",
         )
+        assert args[0] == request_msg
 
 
 def test_batch_delete_versions_use_cached_wrapped_rpc():
@@ -9747,9 +9966,9 @@ def test_batch_delete_versions_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.batch_delete_versions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.batch_delete_versions] = (
+            mock_rpc
+        )
         request = {}
         client.batch_delete_versions(request)
 
@@ -9816,8 +10035,15 @@ async def test_batch_delete_versions_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        version.BatchDeleteVersionsRequest(),
+        {},
+    ],
+)
 async def test_batch_delete_versions_async(
-    transport: str = "grpc_asyncio", request_type=version.BatchDeleteVersionsRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -9826,7 +10052,7 @@ async def test_batch_delete_versions_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9846,11 +10072,6 @@ async def test_batch_delete_versions_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_batch_delete_versions_async_from_dict():
-    await test_batch_delete_versions_async(request_type=dict)
 
 
 def test_batch_delete_versions_field_headers():
@@ -10017,8 +10238,8 @@ async def test_batch_delete_versions_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gda_version.UpdateVersionRequest,
-        dict,
+        gda_version.UpdateVersionRequest(),
+        {},
     ],
 )
 def test_update_version(request_type, transport: str = "grpc"):
@@ -10029,7 +10250,7 @@ def test_update_version(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_version), "__call__") as call:
@@ -10073,7 +10294,8 @@ def test_update_version_non_empty_request_with_auto_populated_field():
         client.update_version(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gda_version.UpdateVersionRequest()
+        request_msg = gda_version.UpdateVersionRequest()
+        assert args[0] == request_msg
 
 
 def test_update_version_use_cached_wrapped_rpc():
@@ -10154,9 +10376,14 @@ async def test_update_version_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_version_async(
-    transport: str = "grpc_asyncio", request_type=gda_version.UpdateVersionRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gda_version.UpdateVersionRequest(),
+        {},
+    ],
+)
+async def test_update_version_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10164,7 +10391,7 @@ async def test_update_version_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_version), "__call__") as call:
@@ -10187,11 +10414,6 @@ async def test_update_version_async(
     assert isinstance(response, gda_version.Version)
     assert response.name == "name_value"
     assert response.description == "description_value"
-
-
-@pytest.mark.asyncio
-async def test_update_version_async_from_dict():
-    await test_update_version_async(request_type=dict)
 
 
 def test_update_version_field_headers():
@@ -10346,8 +10568,8 @@ async def test_update_version_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        file.ListFilesRequest,
-        dict,
+        file.ListFilesRequest(),
+        {},
     ],
 )
 def test_list_files(request_type, transport: str = "grpc"):
@@ -10358,7 +10580,7 @@ def test_list_files(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_files), "__call__") as call:
@@ -10405,12 +10627,13 @@ def test_list_files_non_empty_request_with_auto_populated_field():
         client.list_files(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == file.ListFilesRequest(
+        request_msg = file.ListFilesRequest(
             parent="parent_value",
             filter="filter_value",
             page_token="page_token_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_files_use_cached_wrapped_rpc():
@@ -10489,9 +10712,14 @@ async def test_list_files_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_list_files_async(
-    transport: str = "grpc_asyncio", request_type=file.ListFilesRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        file.ListFilesRequest(),
+        {},
+    ],
+)
+async def test_list_files_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10499,7 +10727,7 @@ async def test_list_files_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_files), "__call__") as call:
@@ -10520,11 +10748,6 @@ async def test_list_files_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListFilesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_files_async_from_dict():
-    await test_list_files_async(request_type=dict)
 
 
 def test_list_files_field_headers():
@@ -10854,11 +11077,7 @@ async def test_list_files_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_files(request={})
-        ).pages:
+        async for page_ in (await client.list_files(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -10867,8 +11086,8 @@ async def test_list_files_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        file.GetFileRequest,
-        dict,
+        file.GetFileRequest(),
+        {},
     ],
 )
 def test_get_file(request_type, transport: str = "grpc"):
@@ -10879,7 +11098,7 @@ def test_get_file(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_file), "__call__") as call:
@@ -10927,9 +11146,10 @@ def test_get_file_non_empty_request_with_auto_populated_field():
         client.get_file(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == file.GetFileRequest(
+        request_msg = file.GetFileRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_file_use_cached_wrapped_rpc():
@@ -11008,9 +11228,14 @@ async def test_get_file_async_use_cached_wrapped_rpc(transport: str = "grpc_asyn
 
 
 @pytest.mark.asyncio
-async def test_get_file_async(
-    transport: str = "grpc_asyncio", request_type=file.GetFileRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        file.GetFileRequest(),
+        {},
+    ],
+)
+async def test_get_file_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -11018,7 +11243,7 @@ async def test_get_file_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_file), "__call__") as call:
@@ -11043,11 +11268,6 @@ async def test_get_file_async(
     assert response.name == "name_value"
     assert response.size_bytes == 1089
     assert response.owner == "owner_value"
-
-
-@pytest.mark.asyncio
-async def test_get_file_async_from_dict():
-    await test_get_file_async(request_type=dict)
 
 
 def test_get_file_field_headers():
@@ -11192,8 +11412,8 @@ async def test_get_file_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        file.DeleteFileRequest,
-        dict,
+        file.DeleteFileRequest(),
+        {},
     ],
 )
 def test_delete_file(request_type, transport: str = "grpc"):
@@ -11204,7 +11424,7 @@ def test_delete_file(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_file), "__call__") as call:
@@ -11245,9 +11465,10 @@ def test_delete_file_non_empty_request_with_auto_populated_field():
         client.delete_file(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == file.DeleteFileRequest(
+        request_msg = file.DeleteFileRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_file_use_cached_wrapped_rpc():
@@ -11338,9 +11559,14 @@ async def test_delete_file_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_file_async(
-    transport: str = "grpc_asyncio", request_type=file.DeleteFileRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        file.DeleteFileRequest(),
+        {},
+    ],
+)
+async def test_delete_file_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -11348,7 +11574,7 @@ async def test_delete_file_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_file), "__call__") as call:
@@ -11366,11 +11592,6 @@ async def test_delete_file_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_file_async_from_dict():
-    await test_delete_file_async(request_type=dict)
 
 
 def test_delete_file_field_headers():
@@ -11519,8 +11740,8 @@ async def test_delete_file_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gda_file.UpdateFileRequest,
-        dict,
+        gda_file.UpdateFileRequest(),
+        {},
     ],
 )
 def test_update_file(request_type, transport: str = "grpc"):
@@ -11531,7 +11752,7 @@ def test_update_file(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_file), "__call__") as call:
@@ -11577,7 +11798,8 @@ def test_update_file_non_empty_request_with_auto_populated_field():
         client.update_file(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gda_file.UpdateFileRequest()
+        request_msg = gda_file.UpdateFileRequest()
+        assert args[0] == request_msg
 
 
 def test_update_file_use_cached_wrapped_rpc():
@@ -11658,9 +11880,14 @@ async def test_update_file_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_file_async(
-    transport: str = "grpc_asyncio", request_type=gda_file.UpdateFileRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gda_file.UpdateFileRequest(),
+        {},
+    ],
+)
+async def test_update_file_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -11668,7 +11895,7 @@ async def test_update_file_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_file), "__call__") as call:
@@ -11693,11 +11920,6 @@ async def test_update_file_async(
     assert response.name == "name_value"
     assert response.size_bytes == 1089
     assert response.owner == "owner_value"
-
-
-@pytest.mark.asyncio
-async def test_update_file_async_from_dict():
-    await test_update_file_async(request_type=dict)
 
 
 def test_update_file_field_headers():
@@ -11852,8 +12074,8 @@ async def test_update_file_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        tag.ListTagsRequest,
-        dict,
+        tag.ListTagsRequest(),
+        {},
     ],
 )
 def test_list_tags(request_type, transport: str = "grpc"):
@@ -11864,7 +12086,7 @@ def test_list_tags(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_tags), "__call__") as call:
@@ -11910,11 +12132,12 @@ def test_list_tags_non_empty_request_with_auto_populated_field():
         client.list_tags(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == tag.ListTagsRequest(
+        request_msg = tag.ListTagsRequest(
             parent="parent_value",
             filter="filter_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_tags_use_cached_wrapped_rpc():
@@ -11993,9 +12216,14 @@ async def test_list_tags_async_use_cached_wrapped_rpc(transport: str = "grpc_asy
 
 
 @pytest.mark.asyncio
-async def test_list_tags_async(
-    transport: str = "grpc_asyncio", request_type=tag.ListTagsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        tag.ListTagsRequest(),
+        {},
+    ],
+)
+async def test_list_tags_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -12003,7 +12231,7 @@ async def test_list_tags_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_tags), "__call__") as call:
@@ -12024,11 +12252,6 @@ async def test_list_tags_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListTagsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_tags_async_from_dict():
-    await test_list_tags_async(request_type=dict)
 
 
 def test_list_tags_field_headers():
@@ -12358,11 +12581,7 @@ async def test_list_tags_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_tags(request={})
-        ).pages:
+        async for page_ in (await client.list_tags(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -12371,8 +12590,8 @@ async def test_list_tags_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        tag.GetTagRequest,
-        dict,
+        tag.GetTagRequest(),
+        {},
     ],
 )
 def test_get_tag(request_type, transport: str = "grpc"):
@@ -12383,7 +12602,7 @@ def test_get_tag(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_tag), "__call__") as call:
@@ -12429,9 +12648,10 @@ def test_get_tag_non_empty_request_with_auto_populated_field():
         client.get_tag(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == tag.GetTagRequest(
+        request_msg = tag.GetTagRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_tag_use_cached_wrapped_rpc():
@@ -12510,9 +12730,14 @@ async def test_get_tag_async_use_cached_wrapped_rpc(transport: str = "grpc_async
 
 
 @pytest.mark.asyncio
-async def test_get_tag_async(
-    transport: str = "grpc_asyncio", request_type=tag.GetTagRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        tag.GetTagRequest(),
+        {},
+    ],
+)
+async def test_get_tag_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -12520,7 +12745,7 @@ async def test_get_tag_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_tag), "__call__") as call:
@@ -12543,11 +12768,6 @@ async def test_get_tag_async(
     assert isinstance(response, tag.Tag)
     assert response.name == "name_value"
     assert response.version == "version_value"
-
-
-@pytest.mark.asyncio
-async def test_get_tag_async_from_dict():
-    await test_get_tag_async(request_type=dict)
 
 
 def test_get_tag_field_headers():
@@ -12692,8 +12912,8 @@ async def test_get_tag_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gda_tag.CreateTagRequest,
-        dict,
+        gda_tag.CreateTagRequest(),
+        {},
     ],
 )
 def test_create_tag(request_type, transport: str = "grpc"):
@@ -12704,7 +12924,7 @@ def test_create_tag(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_tag), "__call__") as call:
@@ -12751,10 +12971,11 @@ def test_create_tag_non_empty_request_with_auto_populated_field():
         client.create_tag(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gda_tag.CreateTagRequest(
+        request_msg = gda_tag.CreateTagRequest(
             parent="parent_value",
             tag_id="tag_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_tag_use_cached_wrapped_rpc():
@@ -12833,9 +13054,14 @@ async def test_create_tag_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_create_tag_async(
-    transport: str = "grpc_asyncio", request_type=gda_tag.CreateTagRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gda_tag.CreateTagRequest(),
+        {},
+    ],
+)
+async def test_create_tag_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -12843,7 +13069,7 @@ async def test_create_tag_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_tag), "__call__") as call:
@@ -12866,11 +13092,6 @@ async def test_create_tag_async(
     assert isinstance(response, gda_tag.Tag)
     assert response.name == "name_value"
     assert response.version == "version_value"
-
-
-@pytest.mark.asyncio
-async def test_create_tag_async_from_dict():
-    await test_create_tag_async(request_type=dict)
 
 
 def test_create_tag_field_headers():
@@ -13035,8 +13256,8 @@ async def test_create_tag_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gda_tag.UpdateTagRequest,
-        dict,
+        gda_tag.UpdateTagRequest(),
+        {},
     ],
 )
 def test_update_tag(request_type, transport: str = "grpc"):
@@ -13047,7 +13268,7 @@ def test_update_tag(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_tag), "__call__") as call:
@@ -13091,7 +13312,8 @@ def test_update_tag_non_empty_request_with_auto_populated_field():
         client.update_tag(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gda_tag.UpdateTagRequest()
+        request_msg = gda_tag.UpdateTagRequest()
+        assert args[0] == request_msg
 
 
 def test_update_tag_use_cached_wrapped_rpc():
@@ -13170,9 +13392,14 @@ async def test_update_tag_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_update_tag_async(
-    transport: str = "grpc_asyncio", request_type=gda_tag.UpdateTagRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gda_tag.UpdateTagRequest(),
+        {},
+    ],
+)
+async def test_update_tag_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -13180,7 +13407,7 @@ async def test_update_tag_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_tag), "__call__") as call:
@@ -13203,11 +13430,6 @@ async def test_update_tag_async(
     assert isinstance(response, gda_tag.Tag)
     assert response.name == "name_value"
     assert response.version == "version_value"
-
-
-@pytest.mark.asyncio
-async def test_update_tag_async_from_dict():
-    await test_update_tag_async(request_type=dict)
 
 
 def test_update_tag_field_headers():
@@ -13362,8 +13584,8 @@ async def test_update_tag_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        tag.DeleteTagRequest,
-        dict,
+        tag.DeleteTagRequest(),
+        {},
     ],
 )
 def test_delete_tag(request_type, transport: str = "grpc"):
@@ -13374,7 +13596,7 @@ def test_delete_tag(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_tag), "__call__") as call:
@@ -13415,9 +13637,10 @@ def test_delete_tag_non_empty_request_with_auto_populated_field():
         client.delete_tag(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == tag.DeleteTagRequest(
+        request_msg = tag.DeleteTagRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_tag_use_cached_wrapped_rpc():
@@ -13496,9 +13719,14 @@ async def test_delete_tag_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_delete_tag_async(
-    transport: str = "grpc_asyncio", request_type=tag.DeleteTagRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        tag.DeleteTagRequest(),
+        {},
+    ],
+)
+async def test_delete_tag_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -13506,7 +13734,7 @@ async def test_delete_tag_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_tag), "__call__") as call:
@@ -13522,11 +13750,6 @@ async def test_delete_tag_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_tag_async_from_dict():
-    await test_delete_tag_async(request_type=dict)
 
 
 def test_delete_tag_field_headers():
@@ -13671,8 +13894,8 @@ async def test_delete_tag_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gda_rule.CreateRuleRequest,
-        dict,
+        gda_rule.CreateRuleRequest(),
+        {},
     ],
 )
 def test_create_rule(request_type, transport: str = "grpc"):
@@ -13683,7 +13906,7 @@ def test_create_rule(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_rule), "__call__") as call:
@@ -13734,10 +13957,11 @@ def test_create_rule_non_empty_request_with_auto_populated_field():
         client.create_rule(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gda_rule.CreateRuleRequest(
+        request_msg = gda_rule.CreateRuleRequest(
             parent="parent_value",
             rule_id="rule_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_rule_use_cached_wrapped_rpc():
@@ -13818,9 +14042,14 @@ async def test_create_rule_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_rule_async(
-    transport: str = "grpc_asyncio", request_type=gda_rule.CreateRuleRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gda_rule.CreateRuleRequest(),
+        {},
+    ],
+)
+async def test_create_rule_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -13828,7 +14057,7 @@ async def test_create_rule_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_rule), "__call__") as call:
@@ -13855,11 +14084,6 @@ async def test_create_rule_async(
     assert response.action == gda_rule.Rule.Action.ALLOW
     assert response.operation == gda_rule.Rule.Operation.DOWNLOAD
     assert response.package_id == "package_id_value"
-
-
-@pytest.mark.asyncio
-async def test_create_rule_async_from_dict():
-    await test_create_rule_async(request_type=dict)
 
 
 def test_create_rule_field_headers():
@@ -14024,8 +14248,8 @@ async def test_create_rule_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        rule.ListRulesRequest,
-        dict,
+        rule.ListRulesRequest(),
+        {},
     ],
 )
 def test_list_rules(request_type, transport: str = "grpc"):
@@ -14036,7 +14260,7 @@ def test_list_rules(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_rules), "__call__") as call:
@@ -14081,10 +14305,11 @@ def test_list_rules_non_empty_request_with_auto_populated_field():
         client.list_rules(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == rule.ListRulesRequest(
+        request_msg = rule.ListRulesRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_rules_use_cached_wrapped_rpc():
@@ -14163,9 +14388,14 @@ async def test_list_rules_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_list_rules_async(
-    transport: str = "grpc_asyncio", request_type=rule.ListRulesRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        rule.ListRulesRequest(),
+        {},
+    ],
+)
+async def test_list_rules_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -14173,7 +14403,7 @@ async def test_list_rules_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_rules), "__call__") as call:
@@ -14194,11 +14424,6 @@ async def test_list_rules_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListRulesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_rules_async_from_dict():
-    await test_list_rules_async(request_type=dict)
 
 
 def test_list_rules_field_headers():
@@ -14528,11 +14753,7 @@ async def test_list_rules_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_rules(request={})
-        ).pages:
+        async for page_ in (await client.list_rules(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -14541,8 +14762,8 @@ async def test_list_rules_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        rule.GetRuleRequest,
-        dict,
+        rule.GetRuleRequest(),
+        {},
     ],
 )
 def test_get_rule(request_type, transport: str = "grpc"):
@@ -14553,7 +14774,7 @@ def test_get_rule(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_rule), "__call__") as call:
@@ -14603,9 +14824,10 @@ def test_get_rule_non_empty_request_with_auto_populated_field():
         client.get_rule(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == rule.GetRuleRequest(
+        request_msg = rule.GetRuleRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_rule_use_cached_wrapped_rpc():
@@ -14684,9 +14906,14 @@ async def test_get_rule_async_use_cached_wrapped_rpc(transport: str = "grpc_asyn
 
 
 @pytest.mark.asyncio
-async def test_get_rule_async(
-    transport: str = "grpc_asyncio", request_type=rule.GetRuleRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        rule.GetRuleRequest(),
+        {},
+    ],
+)
+async def test_get_rule_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -14694,7 +14921,7 @@ async def test_get_rule_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_rule), "__call__") as call:
@@ -14721,11 +14948,6 @@ async def test_get_rule_async(
     assert response.action == rule.Rule.Action.ALLOW
     assert response.operation == rule.Rule.Operation.DOWNLOAD
     assert response.package_id == "package_id_value"
-
-
-@pytest.mark.asyncio
-async def test_get_rule_async_from_dict():
-    await test_get_rule_async(request_type=dict)
 
 
 def test_get_rule_field_headers():
@@ -14870,8 +15092,8 @@ async def test_get_rule_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gda_rule.UpdateRuleRequest,
-        dict,
+        gda_rule.UpdateRuleRequest(),
+        {},
     ],
 )
 def test_update_rule(request_type, transport: str = "grpc"):
@@ -14882,7 +15104,7 @@ def test_update_rule(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_rule), "__call__") as call:
@@ -14930,7 +15152,8 @@ def test_update_rule_non_empty_request_with_auto_populated_field():
         client.update_rule(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gda_rule.UpdateRuleRequest()
+        request_msg = gda_rule.UpdateRuleRequest()
+        assert args[0] == request_msg
 
 
 def test_update_rule_use_cached_wrapped_rpc():
@@ -15011,9 +15234,14 @@ async def test_update_rule_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_rule_async(
-    transport: str = "grpc_asyncio", request_type=gda_rule.UpdateRuleRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gda_rule.UpdateRuleRequest(),
+        {},
+    ],
+)
+async def test_update_rule_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -15021,7 +15249,7 @@ async def test_update_rule_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_rule), "__call__") as call:
@@ -15048,11 +15276,6 @@ async def test_update_rule_async(
     assert response.action == gda_rule.Rule.Action.ALLOW
     assert response.operation == gda_rule.Rule.Operation.DOWNLOAD
     assert response.package_id == "package_id_value"
-
-
-@pytest.mark.asyncio
-async def test_update_rule_async_from_dict():
-    await test_update_rule_async(request_type=dict)
 
 
 def test_update_rule_field_headers():
@@ -15207,8 +15430,8 @@ async def test_update_rule_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        rule.DeleteRuleRequest,
-        dict,
+        rule.DeleteRuleRequest(),
+        {},
     ],
 )
 def test_delete_rule(request_type, transport: str = "grpc"):
@@ -15219,7 +15442,7 @@ def test_delete_rule(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_rule), "__call__") as call:
@@ -15260,9 +15483,10 @@ def test_delete_rule_non_empty_request_with_auto_populated_field():
         client.delete_rule(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == rule.DeleteRuleRequest(
+        request_msg = rule.DeleteRuleRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_rule_use_cached_wrapped_rpc():
@@ -15343,9 +15567,14 @@ async def test_delete_rule_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_rule_async(
-    transport: str = "grpc_asyncio", request_type=rule.DeleteRuleRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        rule.DeleteRuleRequest(),
+        {},
+    ],
+)
+async def test_delete_rule_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -15353,7 +15582,7 @@ async def test_delete_rule_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_rule), "__call__") as call:
@@ -15369,11 +15598,6 @@ async def test_delete_rule_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_rule_async_from_dict():
-    await test_delete_rule_async(request_type=dict)
 
 
 def test_delete_rule_field_headers():
@@ -15518,8 +15742,8 @@ async def test_delete_rule_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        iam_policy_pb2.SetIamPolicyRequest,
-        dict,
+        iam_policy_pb2.SetIamPolicyRequest(),
+        {},
     ],
 )
 def test_set_iam_policy(request_type, transport: str = "grpc"):
@@ -15530,7 +15754,7 @@ def test_set_iam_policy(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
@@ -15576,9 +15800,10 @@ def test_set_iam_policy_non_empty_request_with_auto_populated_field():
         client.set_iam_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == iam_policy_pb2.SetIamPolicyRequest(
+        request_msg = iam_policy_pb2.SetIamPolicyRequest(
             resource="resource_value",
         )
+        assert args[0] == request_msg
 
 
 def test_set_iam_policy_use_cached_wrapped_rpc():
@@ -15659,9 +15884,14 @@ async def test_set_iam_policy_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_set_iam_policy_async(
-    transport: str = "grpc_asyncio", request_type=iam_policy_pb2.SetIamPolicyRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        iam_policy_pb2.SetIamPolicyRequest(),
+        {},
+    ],
+)
+async def test_set_iam_policy_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -15669,7 +15899,7 @@ async def test_set_iam_policy_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
@@ -15692,11 +15922,6 @@ async def test_set_iam_policy_async(
     assert isinstance(response, policy_pb2.Policy)
     assert response.version == 774
     assert response.etag == b"etag_blob"
-
-
-@pytest.mark.asyncio
-async def test_set_iam_policy_async_from_dict():
-    await test_set_iam_policy_async(request_type=dict)
 
 
 def test_set_iam_policy_field_headers():
@@ -15779,8 +16004,8 @@ def test_set_iam_policy_from_dict_foreign():
 @pytest.mark.parametrize(
     "request_type",
     [
-        iam_policy_pb2.GetIamPolicyRequest,
-        dict,
+        iam_policy_pb2.GetIamPolicyRequest(),
+        {},
     ],
 )
 def test_get_iam_policy(request_type, transport: str = "grpc"):
@@ -15791,7 +16016,7 @@ def test_get_iam_policy(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
@@ -15837,9 +16062,10 @@ def test_get_iam_policy_non_empty_request_with_auto_populated_field():
         client.get_iam_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == iam_policy_pb2.GetIamPolicyRequest(
+        request_msg = iam_policy_pb2.GetIamPolicyRequest(
             resource="resource_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_iam_policy_use_cached_wrapped_rpc():
@@ -15920,9 +16146,14 @@ async def test_get_iam_policy_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_iam_policy_async(
-    transport: str = "grpc_asyncio", request_type=iam_policy_pb2.GetIamPolicyRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        iam_policy_pb2.GetIamPolicyRequest(),
+        {},
+    ],
+)
+async def test_get_iam_policy_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -15930,7 +16161,7 @@ async def test_get_iam_policy_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
@@ -15953,11 +16184,6 @@ async def test_get_iam_policy_async(
     assert isinstance(response, policy_pb2.Policy)
     assert response.version == 774
     assert response.etag == b"etag_blob"
-
-
-@pytest.mark.asyncio
-async def test_get_iam_policy_async_from_dict():
-    await test_get_iam_policy_async(request_type=dict)
 
 
 def test_get_iam_policy_field_headers():
@@ -16039,8 +16265,8 @@ def test_get_iam_policy_from_dict_foreign():
 @pytest.mark.parametrize(
     "request_type",
     [
-        iam_policy_pb2.TestIamPermissionsRequest,
-        dict,
+        iam_policy_pb2.TestIamPermissionsRequest(),
+        {},
     ],
 )
 def test_test_iam_permissions(request_type, transport: str = "grpc"):
@@ -16051,7 +16277,7 @@ def test_test_iam_permissions(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -16099,9 +16325,10 @@ def test_test_iam_permissions_non_empty_request_with_auto_populated_field():
         client.test_iam_permissions(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == iam_policy_pb2.TestIamPermissionsRequest(
+        request_msg = iam_policy_pb2.TestIamPermissionsRequest(
             resource="resource_value",
         )
+        assert args[0] == request_msg
 
 
 def test_test_iam_permissions_use_cached_wrapped_rpc():
@@ -16127,9 +16354,9 @@ def test_test_iam_permissions_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.test_iam_permissions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.test_iam_permissions] = (
+            mock_rpc
+        )
         request = {}
         client.test_iam_permissions(request)
 
@@ -16186,9 +16413,15 @@ async def test_test_iam_permissions_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        iam_policy_pb2.TestIamPermissionsRequest(),
+        {},
+    ],
+)
 async def test_test_iam_permissions_async(
-    transport: str = "grpc_asyncio",
-    request_type=iam_policy_pb2.TestIamPermissionsRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -16197,7 +16430,7 @@ async def test_test_iam_permissions_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -16220,11 +16453,6 @@ async def test_test_iam_permissions_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, iam_policy_pb2.TestIamPermissionsResponse)
     assert response.permissions == ["permissions_value"]
-
-
-@pytest.mark.asyncio
-async def test_test_iam_permissions_async_from_dict():
-    await test_test_iam_permissions_async(request_type=dict)
 
 
 def test_test_iam_permissions_field_headers():
@@ -16314,8 +16542,8 @@ def test_test_iam_permissions_from_dict_foreign():
 @pytest.mark.parametrize(
     "request_type",
     [
-        settings.GetProjectSettingsRequest,
-        dict,
+        settings.GetProjectSettingsRequest(),
+        {},
     ],
 )
 def test_get_project_settings(request_type, transport: str = "grpc"):
@@ -16326,7 +16554,7 @@ def test_get_project_settings(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -16381,9 +16609,10 @@ def test_get_project_settings_non_empty_request_with_auto_populated_field():
         client.get_project_settings(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == settings.GetProjectSettingsRequest(
+        request_msg = settings.GetProjectSettingsRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_project_settings_use_cached_wrapped_rpc():
@@ -16409,9 +16638,9 @@ def test_get_project_settings_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_project_settings
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_project_settings] = (
+            mock_rpc
+        )
         request = {}
         client.get_project_settings(request)
 
@@ -16468,8 +16697,15 @@ async def test_get_project_settings_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        settings.GetProjectSettingsRequest(),
+        {},
+    ],
+)
 async def test_get_project_settings_async(
-    transport: str = "grpc_asyncio", request_type=settings.GetProjectSettingsRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -16478,7 +16714,7 @@ async def test_get_project_settings_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -16508,11 +16744,6 @@ async def test_get_project_settings_async(
         == settings.ProjectSettings.RedirectionState.REDIRECTION_FROM_GCR_IO_DISABLED
     )
     assert response.pull_percent == 1293
-
-
-@pytest.mark.asyncio
-async def test_get_project_settings_async_from_dict():
-    await test_get_project_settings_async(request_type=dict)
 
 
 def test_get_project_settings_field_headers():
@@ -16669,8 +16900,8 @@ async def test_get_project_settings_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        settings.UpdateProjectSettingsRequest,
-        dict,
+        settings.UpdateProjectSettingsRequest(),
+        {},
     ],
 )
 def test_update_project_settings(request_type, transport: str = "grpc"):
@@ -16681,7 +16912,7 @@ def test_update_project_settings(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -16734,7 +16965,8 @@ def test_update_project_settings_non_empty_request_with_auto_populated_field():
         client.update_project_settings(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == settings.UpdateProjectSettingsRequest()
+        request_msg = settings.UpdateProjectSettingsRequest()
+        assert args[0] == request_msg
 
 
 def test_update_project_settings_use_cached_wrapped_rpc():
@@ -16820,8 +17052,15 @@ async def test_update_project_settings_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        settings.UpdateProjectSettingsRequest(),
+        {},
+    ],
+)
 async def test_update_project_settings_async(
-    transport: str = "grpc_asyncio", request_type=settings.UpdateProjectSettingsRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -16830,7 +17069,7 @@ async def test_update_project_settings_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -16860,11 +17099,6 @@ async def test_update_project_settings_async(
         == settings.ProjectSettings.RedirectionState.REDIRECTION_FROM_GCR_IO_DISABLED
     )
     assert response.pull_percent == 1293
-
-
-@pytest.mark.asyncio
-async def test_update_project_settings_async_from_dict():
-    await test_update_project_settings_async(request_type=dict)
 
 
 def test_update_project_settings_field_headers():
@@ -17031,8 +17265,8 @@ async def test_update_project_settings_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        vpcsc_config.GetVPCSCConfigRequest,
-        dict,
+        vpcsc_config.GetVPCSCConfigRequest(),
+        {},
     ],
 )
 def test_get_vpcsc_config(request_type, transport: str = "grpc"):
@@ -17043,7 +17277,7 @@ def test_get_vpcsc_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_vpcsc_config), "__call__") as call:
@@ -17089,9 +17323,10 @@ def test_get_vpcsc_config_non_empty_request_with_auto_populated_field():
         client.get_vpcsc_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == vpcsc_config.GetVPCSCConfigRequest(
+        request_msg = vpcsc_config.GetVPCSCConfigRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_vpcsc_config_use_cached_wrapped_rpc():
@@ -17115,9 +17350,9 @@ def test_get_vpcsc_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_vpcsc_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_vpcsc_config] = (
+            mock_rpc
+        )
         request = {}
         client.get_vpcsc_config(request)
 
@@ -17174,9 +17409,14 @@ async def test_get_vpcsc_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_vpcsc_config_async(
-    transport: str = "grpc_asyncio", request_type=vpcsc_config.GetVPCSCConfigRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        vpcsc_config.GetVPCSCConfigRequest(),
+        {},
+    ],
+)
+async def test_get_vpcsc_config_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -17184,7 +17424,7 @@ async def test_get_vpcsc_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_vpcsc_config), "__call__") as call:
@@ -17207,11 +17447,6 @@ async def test_get_vpcsc_config_async(
     assert isinstance(response, vpcsc_config.VPCSCConfig)
     assert response.name == "name_value"
     assert response.vpcsc_policy == vpcsc_config.VPCSCConfig.VPCSCPolicy.DENY
-
-
-@pytest.mark.asyncio
-async def test_get_vpcsc_config_async_from_dict():
-    await test_get_vpcsc_config_async(request_type=dict)
 
 
 def test_get_vpcsc_config_field_headers():
@@ -17360,8 +17595,8 @@ async def test_get_vpcsc_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gda_vpcsc_config.UpdateVPCSCConfigRequest,
-        dict,
+        gda_vpcsc_config.UpdateVPCSCConfigRequest(),
+        {},
     ],
 )
 def test_update_vpcsc_config(request_type, transport: str = "grpc"):
@@ -17372,7 +17607,7 @@ def test_update_vpcsc_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -17420,7 +17655,8 @@ def test_update_vpcsc_config_non_empty_request_with_auto_populated_field():
         client.update_vpcsc_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gda_vpcsc_config.UpdateVPCSCConfigRequest()
+        request_msg = gda_vpcsc_config.UpdateVPCSCConfigRequest()
+        assert args[0] == request_msg
 
 
 def test_update_vpcsc_config_use_cached_wrapped_rpc():
@@ -17446,9 +17682,9 @@ def test_update_vpcsc_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_vpcsc_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_vpcsc_config] = (
+            mock_rpc
+        )
         request = {}
         client.update_vpcsc_config(request)
 
@@ -17505,10 +17741,14 @@ async def test_update_vpcsc_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_vpcsc_config_async(
-    transport: str = "grpc_asyncio",
-    request_type=gda_vpcsc_config.UpdateVPCSCConfigRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gda_vpcsc_config.UpdateVPCSCConfigRequest(),
+        {},
+    ],
+)
+async def test_update_vpcsc_config_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -17516,7 +17756,7 @@ async def test_update_vpcsc_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -17541,11 +17781,6 @@ async def test_update_vpcsc_config_async(
     assert isinstance(response, gda_vpcsc_config.VPCSCConfig)
     assert response.name == "name_value"
     assert response.vpcsc_policy == gda_vpcsc_config.VPCSCConfig.VPCSCPolicy.DENY
-
-
-@pytest.mark.asyncio
-async def test_update_vpcsc_config_async_from_dict():
-    await test_update_vpcsc_config_async(request_type=dict)
 
 
 def test_update_vpcsc_config_field_headers():
@@ -17712,8 +17947,8 @@ async def test_update_vpcsc_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gda_package.UpdatePackageRequest,
-        dict,
+        gda_package.UpdatePackageRequest(),
+        {},
     ],
 )
 def test_update_package(request_type, transport: str = "grpc"):
@@ -17724,7 +17959,7 @@ def test_update_package(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_package), "__call__") as call:
@@ -17768,7 +18003,8 @@ def test_update_package_non_empty_request_with_auto_populated_field():
         client.update_package(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gda_package.UpdatePackageRequest()
+        request_msg = gda_package.UpdatePackageRequest()
+        assert args[0] == request_msg
 
 
 def test_update_package_use_cached_wrapped_rpc():
@@ -17849,9 +18085,14 @@ async def test_update_package_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_package_async(
-    transport: str = "grpc_asyncio", request_type=gda_package.UpdatePackageRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gda_package.UpdatePackageRequest(),
+        {},
+    ],
+)
+async def test_update_package_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -17859,7 +18100,7 @@ async def test_update_package_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_package), "__call__") as call:
@@ -17882,11 +18123,6 @@ async def test_update_package_async(
     assert isinstance(response, gda_package.Package)
     assert response.name == "name_value"
     assert response.display_name == "display_name_value"
-
-
-@pytest.mark.asyncio
-async def test_update_package_async_from_dict():
-    await test_update_package_async(request_type=dict)
 
 
 def test_update_package_field_headers():
@@ -18041,8 +18277,8 @@ async def test_update_package_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        attachment.ListAttachmentsRequest,
-        dict,
+        attachment.ListAttachmentsRequest(),
+        {},
     ],
 )
 def test_list_attachments(request_type, transport: str = "grpc"):
@@ -18053,7 +18289,7 @@ def test_list_attachments(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_attachments), "__call__") as call:
@@ -18099,11 +18335,12 @@ def test_list_attachments_non_empty_request_with_auto_populated_field():
         client.list_attachments(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == attachment.ListAttachmentsRequest(
+        request_msg = attachment.ListAttachmentsRequest(
             parent="parent_value",
             filter="filter_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_attachments_use_cached_wrapped_rpc():
@@ -18127,9 +18364,9 @@ def test_list_attachments_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_attachments
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_attachments] = (
+            mock_rpc
+        )
         request = {}
         client.list_attachments(request)
 
@@ -18186,9 +18423,14 @@ async def test_list_attachments_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_attachments_async(
-    transport: str = "grpc_asyncio", request_type=attachment.ListAttachmentsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        attachment.ListAttachmentsRequest(),
+        {},
+    ],
+)
+async def test_list_attachments_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -18196,7 +18438,7 @@ async def test_list_attachments_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_attachments), "__call__") as call:
@@ -18217,11 +18459,6 @@ async def test_list_attachments_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListAttachmentsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_attachments_async_from_dict():
-    await test_list_attachments_async(request_type=dict)
 
 
 def test_list_attachments_field_headers():
@@ -18551,11 +18788,7 @@ async def test_list_attachments_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_attachments(request={})
-        ).pages:
+        async for page_ in (await client.list_attachments(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -18564,8 +18797,8 @@ async def test_list_attachments_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        attachment.GetAttachmentRequest,
-        dict,
+        attachment.GetAttachmentRequest(),
+        {},
     ],
 )
 def test_get_attachment(request_type, transport: str = "grpc"):
@@ -18576,7 +18809,7 @@ def test_get_attachment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_attachment), "__call__") as call:
@@ -18630,9 +18863,10 @@ def test_get_attachment_non_empty_request_with_auto_populated_field():
         client.get_attachment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == attachment.GetAttachmentRequest(
+        request_msg = attachment.GetAttachmentRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_attachment_use_cached_wrapped_rpc():
@@ -18713,9 +18947,14 @@ async def test_get_attachment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_attachment_async(
-    transport: str = "grpc_asyncio", request_type=attachment.GetAttachmentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        attachment.GetAttachmentRequest(),
+        {},
+    ],
+)
+async def test_get_attachment_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -18723,7 +18962,7 @@ async def test_get_attachment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_attachment), "__call__") as call:
@@ -18754,11 +18993,6 @@ async def test_get_attachment_async(
     assert response.attachment_namespace == "attachment_namespace_value"
     assert response.files == ["files_value"]
     assert response.oci_version_name == "oci_version_name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_attachment_async_from_dict():
-    await test_get_attachment_async(request_type=dict)
 
 
 def test_get_attachment_field_headers():
@@ -18907,8 +19141,8 @@ async def test_get_attachment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        gda_attachment.CreateAttachmentRequest,
-        dict,
+        gda_attachment.CreateAttachmentRequest(),
+        {},
     ],
 )
 def test_create_attachment(request_type, transport: str = "grpc"):
@@ -18919,7 +19153,7 @@ def test_create_attachment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -18965,10 +19199,11 @@ def test_create_attachment_non_empty_request_with_auto_populated_field():
         client.create_attachment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == gda_attachment.CreateAttachmentRequest(
+        request_msg = gda_attachment.CreateAttachmentRequest(
             parent="parent_value",
             attachment_id="attachment_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_attachment_use_cached_wrapped_rpc():
@@ -18992,9 +19227,9 @@ def test_create_attachment_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_attachment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_attachment] = (
+            mock_rpc
+        )
         request = {}
         client.create_attachment(request)
 
@@ -19061,9 +19296,14 @@ async def test_create_attachment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_attachment_async(
-    transport: str = "grpc_asyncio", request_type=gda_attachment.CreateAttachmentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gda_attachment.CreateAttachmentRequest(),
+        {},
+    ],
+)
+async def test_create_attachment_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -19071,7 +19311,7 @@ async def test_create_attachment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -19091,11 +19331,6 @@ async def test_create_attachment_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_attachment_async_from_dict():
-    await test_create_attachment_async(request_type=dict)
 
 
 def test_create_attachment_field_headers():
@@ -19272,8 +19507,8 @@ async def test_create_attachment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        attachment.DeleteAttachmentRequest,
-        dict,
+        attachment.DeleteAttachmentRequest(),
+        {},
     ],
 )
 def test_delete_attachment(request_type, transport: str = "grpc"):
@@ -19284,7 +19519,7 @@ def test_delete_attachment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -19329,9 +19564,10 @@ def test_delete_attachment_non_empty_request_with_auto_populated_field():
         client.delete_attachment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == attachment.DeleteAttachmentRequest(
+        request_msg = attachment.DeleteAttachmentRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_attachment_use_cached_wrapped_rpc():
@@ -19355,9 +19591,9 @@ def test_delete_attachment_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_attachment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_attachment] = (
+            mock_rpc
+        )
         request = {}
         client.delete_attachment(request)
 
@@ -19424,9 +19660,14 @@ async def test_delete_attachment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_attachment_async(
-    transport: str = "grpc_asyncio", request_type=attachment.DeleteAttachmentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        attachment.DeleteAttachmentRequest(),
+        {},
+    ],
+)
+async def test_delete_attachment_async(request_type, transport: str = "grpc_asyncio"):
     client = ArtifactRegistryAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -19434,7 +19675,7 @@ async def test_delete_attachment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -19454,11 +19695,6 @@ async def test_delete_attachment_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_attachment_async_from_dict():
-    await test_delete_attachment_async(request_type=dict)
 
 
 def test_delete_attachment_field_headers():
@@ -19612,6 +19848,258 @@ async def test_delete_attachment_flattened_error_async():
         )
 
 
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        export.ExportArtifactRequest(),
+        {},
+    ],
+)
+def test_export_artifact(request_type, transport: str = "grpc"):
+    client = ArtifactRegistryClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.export_artifact), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.export_artifact(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = export.ExportArtifactRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_export_artifact_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = ArtifactRegistryClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = export.ExportArtifactRequest(
+        source_version="source_version_value",
+        source_tag="source_tag_value",
+        gcs_path="gcs_path_value",
+        repository="repository_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.export_artifact), "__call__") as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.export_artifact(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = export.ExportArtifactRequest(
+            source_version="source_version_value",
+            source_tag="source_tag_value",
+            gcs_path="gcs_path_value",
+            repository="repository_value",
+        )
+        assert args[0] == request_msg
+
+
+def test_export_artifact_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = ArtifactRegistryClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.export_artifact in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.export_artifact] = mock_rpc
+        request = {}
+        client.export_artifact(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.export_artifact(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_export_artifact_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = ArtifactRegistryAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.export_artifact
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.export_artifact
+        ] = mock_rpc
+
+        request = {}
+        await client.export_artifact(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.export_artifact(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        export.ExportArtifactRequest(),
+        {},
+    ],
+)
+async def test_export_artifact_async(request_type, transport: str = "grpc_asyncio"):
+    client = ArtifactRegistryAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.export_artifact), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.export_artifact(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = export.ExportArtifactRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_export_artifact_field_headers():
+    client = ArtifactRegistryClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = export.ExportArtifactRequest()
+
+    request.repository = "repository_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.export_artifact), "__call__") as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.export_artifact(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "repository=repository_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_export_artifact_field_headers_async():
+    client = ArtifactRegistryAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = export.ExportArtifactRequest()
+
+    request.repository = "repository_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.export_artifact), "__call__") as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.export_artifact(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "repository=repository_value",
+    ) in kw["metadata"]
+
+
 def test_list_docker_images_rest_use_cached_wrapped_rpc():
     # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
     # instead of constructing them on each call
@@ -19635,9 +20123,9 @@ def test_list_docker_images_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_docker_images
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_docker_images] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_docker_images(request)
@@ -19732,7 +20220,7 @@ def test_list_docker_images_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_docker_images_rest_unset_required_fields():
@@ -19897,9 +20385,9 @@ def test_get_docker_image_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_docker_image
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_docker_image] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_docker_image(request)
@@ -19986,7 +20474,7 @@ def test_get_docker_image_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_docker_image_rest_unset_required_fields():
@@ -20081,9 +20569,9 @@ def test_list_maven_artifacts_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_maven_artifacts
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_maven_artifacts] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_maven_artifacts(request)
@@ -20177,7 +20665,7 @@ def test_list_maven_artifacts_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_maven_artifacts_rest_unset_required_fields():
@@ -20345,9 +20833,9 @@ def test_get_maven_artifact_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_maven_artifact
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_maven_artifact] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_maven_artifact(request)
@@ -20434,7 +20922,7 @@ def test_get_maven_artifact_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_maven_artifact_rest_unset_required_fields():
@@ -20527,9 +21015,9 @@ def test_list_npm_packages_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_npm_packages
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_npm_packages] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_npm_packages(request)
@@ -20623,7 +21111,7 @@ def test_list_npm_packages_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_npm_packages_rest_unset_required_fields():
@@ -20874,7 +21362,7 @@ def test_get_npm_package_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_npm_package_rest_unset_required_fields():
@@ -20969,9 +21457,9 @@ def test_list_python_packages_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_python_packages
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_python_packages] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_python_packages(request)
@@ -21065,7 +21553,7 @@ def test_list_python_packages_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_python_packages_rest_unset_required_fields():
@@ -21233,9 +21721,9 @@ def test_get_python_package_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_python_package
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_python_package] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_python_package(request)
@@ -21322,7 +21810,7 @@ def test_get_python_package_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_python_package_rest_unset_required_fields():
@@ -21417,9 +21905,9 @@ def test_import_apt_artifacts_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.import_apt_artifacts
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.import_apt_artifacts] = (
+            mock_rpc
+        )
 
         request = {}
         client.import_apt_artifacts(request)
@@ -21461,9 +21949,9 @@ def test_import_yum_artifacts_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.import_yum_artifacts
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.import_yum_artifacts] = (
+            mock_rpc
+        )
 
         request = {}
         client.import_yum_artifacts(request)
@@ -21503,9 +21991,9 @@ def test_list_repositories_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_repositories
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_repositories] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_repositories(request)
@@ -21601,7 +22089,7 @@ def test_list_repositories_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_repositories_rest_unset_required_fields():
@@ -21852,7 +22340,7 @@ def test_get_repository_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_repository_rest_unset_required_fields():
@@ -21945,9 +22433,9 @@ def test_create_repository_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_repository
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_repository] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_repository(request)
@@ -22051,7 +22539,7 @@ def test_create_repository_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_repository_rest_unset_required_fields():
@@ -22161,9 +22649,9 @@ def test_update_repository_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_repository
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_repository] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_repository(request)
@@ -22271,9 +22759,9 @@ def test_delete_repository_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_repository
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_repository] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_repository(request)
@@ -22361,7 +22849,7 @@ def test_delete_repository_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_repository_rest_unset_required_fields():
@@ -22546,7 +23034,7 @@ def test_list_packages_rest_required_fields(request_type=package.ListPackagesReq
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_packages_rest_unset_required_fields():
@@ -22797,7 +23285,7 @@ def test_get_package_rest_required_fields(request_type=package.GetPackageRequest
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_package_rest_unset_required_fields():
@@ -22976,7 +23464,7 @@ def test_delete_package_rest_required_fields(request_type=package.DeletePackageR
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_package_rest_unset_required_fields():
@@ -23423,9 +23911,9 @@ def test_batch_delete_versions_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.batch_delete_versions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.batch_delete_versions] = (
+            mock_rpc
+        )
 
         request = {}
         client.batch_delete_versions(request)
@@ -23514,7 +24002,7 @@ def test_batch_delete_versions_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_batch_delete_versions_rest_unset_required_fields():
@@ -23692,7 +24180,7 @@ def test_update_version_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_version_rest_unset_required_fields():
@@ -23883,7 +24371,7 @@ def test_list_files_rest_required_fields(request_type=file.ListFilesRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_files_rest_unset_required_fields():
@@ -24134,7 +24622,7 @@ def test_get_file_rest_required_fields(request_type=file.GetFileRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_file_rest_unset_required_fields():
@@ -24313,7 +24801,7 @@ def test_delete_file_rest_required_fields(request_type=file.DeleteFileRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_file_rest_unset_required_fields():
@@ -24487,7 +24975,7 @@ def test_update_file_rest_required_fields(request_type=gda_file.UpdateFileReques
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_file_rest_unset_required_fields():
@@ -25229,7 +25717,7 @@ def test_create_rule_rest_required_fields(request_type=gda_rule.CreateRuleReques
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_rule_rest_unset_required_fields():
@@ -25418,7 +25906,7 @@ def test_list_rules_rest_required_fields(request_type=rule.ListRulesRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_rules_rest_unset_required_fields():
@@ -25667,7 +26155,7 @@ def test_get_rule_rest_required_fields(request_type=rule.GetRuleRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_rule_rest_unset_required_fields():
@@ -25942,7 +26430,7 @@ def test_delete_rule_rest_required_fields(request_type=rule.DeleteRuleRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_rule_rest_unset_required_fields():
@@ -26119,7 +26607,7 @@ def test_set_iam_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_iam_policy_rest_unset_required_fields():
@@ -26247,7 +26735,7 @@ def test_get_iam_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_iam_policy_rest_unset_required_fields():
@@ -26282,9 +26770,9 @@ def test_test_iam_permissions_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.test_iam_permissions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.test_iam_permissions] = (
+            mock_rpc
+        )
 
         request = {}
         client.test_iam_permissions(request)
@@ -26374,7 +26862,7 @@ def test_test_iam_permissions_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_test_iam_permissions_rest_unset_required_fields():
@@ -26417,9 +26905,9 @@ def test_get_project_settings_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_project_settings
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_project_settings] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_project_settings(request)
@@ -26506,7 +26994,7 @@ def test_get_project_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_project_settings_rest_unset_required_fields():
@@ -26698,9 +27186,9 @@ def test_get_vpcsc_config_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_vpcsc_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_vpcsc_config] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_vpcsc_config(request)
@@ -26787,7 +27275,7 @@ def test_get_vpcsc_config_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_vpcsc_config_rest_unset_required_fields():
@@ -26879,9 +27367,9 @@ def test_update_vpcsc_config_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_vpcsc_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_vpcsc_config] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_vpcsc_config(request)
@@ -27079,9 +27567,9 @@ def test_list_attachments_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_attachments
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_attachments] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_attachments(request)
@@ -27176,7 +27664,7 @@ def test_list_attachments_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_attachments_rest_unset_required_fields():
@@ -27430,7 +27918,7 @@ def test_get_attachment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_attachment_rest_unset_required_fields():
@@ -27523,9 +28011,9 @@ def test_create_attachment_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_attachment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_attachment] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_attachment(request)
@@ -27629,7 +28117,7 @@ def test_create_attachment_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_attachment_rest_unset_required_fields():
@@ -27733,9 +28221,9 @@ def test_delete_attachment_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_attachment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_attachment] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_attachment(request)
@@ -27823,7 +28311,7 @@ def test_delete_attachment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_attachment_rest_unset_required_fields():
@@ -27891,6 +28379,128 @@ def test_delete_attachment_rest_flattened_error(transport: str = "rest"):
             attachment.DeleteAttachmentRequest(),
             name="name_value",
         )
+
+
+def test_export_artifact_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = ArtifactRegistryClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.export_artifact in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.export_artifact] = mock_rpc
+
+        request = {}
+        client.export_artifact(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.export_artifact(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_export_artifact_rest_required_fields(
+    request_type=export.ExportArtifactRequest,
+):
+    transport_class = transports.ArtifactRegistryRestTransport
+
+    request_init = {}
+    request_init["repository"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).export_artifact._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["repository"] = "repository_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).export_artifact._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "repository" in jsonified_request
+    assert jsonified_request["repository"] == "repository_value"
+
+    client = ArtifactRegistryClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.export_artifact(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_export_artifact_rest_unset_required_fields():
+    transport = transports.ArtifactRegistryRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.export_artifact._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("repository",)))
 
 
 def test_credentials_transport_error():
@@ -28018,7 +28628,6 @@ def test_list_docker_images_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.ListDockerImagesRequest()
-
         assert args[0] == request_msg
 
 
@@ -28039,7 +28648,6 @@ def test_get_docker_image_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.GetDockerImageRequest()
-
         assert args[0] == request_msg
 
 
@@ -28062,7 +28670,6 @@ def test_list_maven_artifacts_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.ListMavenArtifactsRequest()
-
         assert args[0] == request_msg
 
 
@@ -28085,7 +28692,6 @@ def test_get_maven_artifact_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.GetMavenArtifactRequest()
-
         assert args[0] == request_msg
 
 
@@ -28108,7 +28714,6 @@ def test_list_npm_packages_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.ListNpmPackagesRequest()
-
         assert args[0] == request_msg
 
 
@@ -28129,7 +28734,6 @@ def test_get_npm_package_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.GetNpmPackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -28152,7 +28756,6 @@ def test_list_python_packages_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.ListPythonPackagesRequest()
-
         assert args[0] == request_msg
 
 
@@ -28175,7 +28778,6 @@ def test_get_python_package_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.GetPythonPackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -28198,7 +28800,6 @@ def test_import_apt_artifacts_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = apt_artifact.ImportAptArtifactsRequest()
-
         assert args[0] == request_msg
 
 
@@ -28221,7 +28822,6 @@ def test_import_yum_artifacts_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = yum_artifact.ImportYumArtifactsRequest()
-
         assert args[0] == request_msg
 
 
@@ -28244,7 +28844,6 @@ def test_list_repositories_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = repository.ListRepositoriesRequest()
-
         assert args[0] == request_msg
 
 
@@ -28265,7 +28864,6 @@ def test_get_repository_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = repository.GetRepositoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -28288,7 +28886,6 @@ def test_create_repository_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_repository.CreateRepositoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -28311,7 +28908,6 @@ def test_update_repository_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_repository.UpdateRepositoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -28334,7 +28930,6 @@ def test_delete_repository_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = repository.DeleteRepositoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -28355,7 +28950,6 @@ def test_list_packages_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = package.ListPackagesRequest()
-
         assert args[0] == request_msg
 
 
@@ -28376,7 +28970,6 @@ def test_get_package_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = package.GetPackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -28397,7 +28990,6 @@ def test_delete_package_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = package.DeletePackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -28418,7 +29010,6 @@ def test_list_versions_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = version.ListVersionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -28439,7 +29030,6 @@ def test_get_version_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = version.GetVersionRequest()
-
         assert args[0] == request_msg
 
 
@@ -28460,7 +29050,6 @@ def test_delete_version_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = version.DeleteVersionRequest()
-
         assert args[0] == request_msg
 
 
@@ -28483,7 +29072,6 @@ def test_batch_delete_versions_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = version.BatchDeleteVersionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -28504,7 +29092,6 @@ def test_update_version_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_version.UpdateVersionRequest()
-
         assert args[0] == request_msg
 
 
@@ -28525,7 +29112,6 @@ def test_list_files_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = file.ListFilesRequest()
-
         assert args[0] == request_msg
 
 
@@ -28546,7 +29132,6 @@ def test_get_file_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = file.GetFileRequest()
-
         assert args[0] == request_msg
 
 
@@ -28567,7 +29152,6 @@ def test_delete_file_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = file.DeleteFileRequest()
-
         assert args[0] == request_msg
 
 
@@ -28588,7 +29172,6 @@ def test_update_file_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_file.UpdateFileRequest()
-
         assert args[0] == request_msg
 
 
@@ -28609,7 +29192,6 @@ def test_list_tags_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = tag.ListTagsRequest()
-
         assert args[0] == request_msg
 
 
@@ -28630,7 +29212,6 @@ def test_get_tag_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = tag.GetTagRequest()
-
         assert args[0] == request_msg
 
 
@@ -28651,7 +29232,6 @@ def test_create_tag_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_tag.CreateTagRequest()
-
         assert args[0] == request_msg
 
 
@@ -28672,7 +29252,6 @@ def test_update_tag_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_tag.UpdateTagRequest()
-
         assert args[0] == request_msg
 
 
@@ -28693,7 +29272,6 @@ def test_delete_tag_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = tag.DeleteTagRequest()
-
         assert args[0] == request_msg
 
 
@@ -28714,7 +29292,6 @@ def test_create_rule_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_rule.CreateRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -28735,7 +29312,6 @@ def test_list_rules_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = rule.ListRulesRequest()
-
         assert args[0] == request_msg
 
 
@@ -28756,7 +29332,6 @@ def test_get_rule_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = rule.GetRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -28777,7 +29352,6 @@ def test_update_rule_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_rule.UpdateRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -28798,7 +29372,6 @@ def test_delete_rule_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = rule.DeleteRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -28819,7 +29392,6 @@ def test_set_iam_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.SetIamPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -28840,7 +29412,6 @@ def test_get_iam_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.GetIamPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -28863,7 +29434,6 @@ def test_test_iam_permissions_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.TestIamPermissionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -28886,7 +29456,6 @@ def test_get_project_settings_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = settings.GetProjectSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -28909,7 +29478,6 @@ def test_update_project_settings_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = settings.UpdateProjectSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -28930,7 +29498,6 @@ def test_get_vpcsc_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = vpcsc_config.GetVPCSCConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -28953,7 +29520,6 @@ def test_update_vpcsc_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_vpcsc_config.UpdateVPCSCConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -28974,7 +29540,6 @@ def test_update_package_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_package.UpdatePackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -28995,7 +29560,6 @@ def test_list_attachments_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = attachment.ListAttachmentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -29016,7 +29580,6 @@ def test_get_attachment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = attachment.GetAttachmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -29039,7 +29602,6 @@ def test_create_attachment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_attachment.CreateAttachmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -29062,7 +29624,26 @@ def test_delete_attachment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = attachment.DeleteAttachmentRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_export_artifact_empty_call_grpc():
+    client = ArtifactRegistryClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.export_artifact), "__call__") as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.export_artifact(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = export.ExportArtifactRequest()
         assert args[0] == request_msg
 
 
@@ -29105,7 +29686,6 @@ async def test_list_docker_images_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.ListDockerImagesRequest()
-
         assert args[0] == request_msg
 
 
@@ -29128,6 +29708,7 @@ async def test_get_docker_image_empty_call_grpc_asyncio():
                 tags=["tags_value"],
                 image_size_bytes=1699,
                 media_type="media_type_value",
+                artifact_type="artifact_type_value",
             )
         )
         await client.get_docker_image(request=None)
@@ -29136,7 +29717,6 @@ async def test_get_docker_image_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.GetDockerImageRequest()
-
         assert args[0] == request_msg
 
 
@@ -29165,7 +29745,6 @@ async def test_list_maven_artifacts_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.ListMavenArtifactsRequest()
-
         assert args[0] == request_msg
 
 
@@ -29198,7 +29777,6 @@ async def test_get_maven_artifact_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.GetMavenArtifactRequest()
-
         assert args[0] == request_msg
 
 
@@ -29227,7 +29805,6 @@ async def test_list_npm_packages_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.ListNpmPackagesRequest()
-
         assert args[0] == request_msg
 
 
@@ -29257,7 +29834,6 @@ async def test_get_npm_package_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.GetNpmPackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -29286,7 +29862,6 @@ async def test_list_python_packages_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.ListPythonPackagesRequest()
-
         assert args[0] == request_msg
 
 
@@ -29318,7 +29893,6 @@ async def test_get_python_package_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.GetPythonPackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -29345,7 +29919,6 @@ async def test_import_apt_artifacts_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = apt_artifact.ImportAptArtifactsRequest()
-
         assert args[0] == request_msg
 
 
@@ -29372,7 +29945,6 @@ async def test_import_yum_artifacts_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = yum_artifact.ImportYumArtifactsRequest()
-
         assert args[0] == request_msg
 
 
@@ -29401,7 +29973,6 @@ async def test_list_repositories_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = repository.ListRepositoriesRequest()
-
         assert args[0] == request_msg
 
 
@@ -29438,7 +30009,6 @@ async def test_get_repository_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = repository.GetRepositoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -29465,7 +30035,6 @@ async def test_create_repository_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_repository.CreateRepositoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -29504,7 +30073,6 @@ async def test_update_repository_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_repository.UpdateRepositoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -29531,7 +30099,6 @@ async def test_delete_repository_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = repository.DeleteRepositoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -29558,7 +30125,6 @@ async def test_list_packages_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = package.ListPackagesRequest()
-
         assert args[0] == request_msg
 
 
@@ -29586,7 +30152,6 @@ async def test_get_package_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = package.GetPackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -29611,7 +30176,6 @@ async def test_delete_package_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = package.DeletePackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -29638,7 +30202,6 @@ async def test_list_versions_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = version.ListVersionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -29666,7 +30229,6 @@ async def test_get_version_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = version.GetVersionRequest()
-
         assert args[0] == request_msg
 
 
@@ -29691,7 +30253,6 @@ async def test_delete_version_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = version.DeleteVersionRequest()
-
         assert args[0] == request_msg
 
 
@@ -29718,7 +30279,6 @@ async def test_batch_delete_versions_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = version.BatchDeleteVersionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -29746,7 +30306,6 @@ async def test_update_version_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_version.UpdateVersionRequest()
-
         assert args[0] == request_msg
 
 
@@ -29773,7 +30332,6 @@ async def test_list_files_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = file.ListFilesRequest()
-
         assert args[0] == request_msg
 
 
@@ -29802,7 +30360,6 @@ async def test_get_file_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = file.GetFileRequest()
-
         assert args[0] == request_msg
 
 
@@ -29827,7 +30384,6 @@ async def test_delete_file_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = file.DeleteFileRequest()
-
         assert args[0] == request_msg
 
 
@@ -29856,7 +30412,6 @@ async def test_update_file_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_file.UpdateFileRequest()
-
         assert args[0] == request_msg
 
 
@@ -29883,7 +30438,6 @@ async def test_list_tags_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = tag.ListTagsRequest()
-
         assert args[0] == request_msg
 
 
@@ -29911,7 +30465,6 @@ async def test_get_tag_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = tag.GetTagRequest()
-
         assert args[0] == request_msg
 
 
@@ -29939,7 +30492,6 @@ async def test_create_tag_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_tag.CreateTagRequest()
-
         assert args[0] == request_msg
 
 
@@ -29967,7 +30519,6 @@ async def test_update_tag_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_tag.UpdateTagRequest()
-
         assert args[0] == request_msg
 
 
@@ -29990,7 +30541,6 @@ async def test_delete_tag_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = tag.DeleteTagRequest()
-
         assert args[0] == request_msg
 
 
@@ -30020,7 +30570,6 @@ async def test_create_rule_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_rule.CreateRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -30047,7 +30596,6 @@ async def test_list_rules_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = rule.ListRulesRequest()
-
         assert args[0] == request_msg
 
 
@@ -30077,7 +30625,6 @@ async def test_get_rule_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = rule.GetRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -30107,7 +30654,6 @@ async def test_update_rule_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_rule.UpdateRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -30130,7 +30676,6 @@ async def test_delete_rule_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = rule.DeleteRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -30158,7 +30703,6 @@ async def test_set_iam_policy_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.SetIamPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -30186,7 +30730,6 @@ async def test_get_iam_policy_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.GetIamPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -30215,7 +30758,6 @@ async def test_test_iam_permissions_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.TestIamPermissionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -30246,7 +30788,6 @@ async def test_get_project_settings_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = settings.GetProjectSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -30277,7 +30818,6 @@ async def test_update_project_settings_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = settings.UpdateProjectSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -30305,7 +30845,6 @@ async def test_get_vpcsc_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = vpcsc_config.GetVPCSCConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -30335,7 +30874,6 @@ async def test_update_vpcsc_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_vpcsc_config.UpdateVPCSCConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -30363,7 +30901,6 @@ async def test_update_package_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_package.UpdatePackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -30390,7 +30927,6 @@ async def test_list_attachments_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = attachment.ListAttachmentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -30422,7 +30958,6 @@ async def test_get_attachment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = attachment.GetAttachmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -30449,7 +30984,6 @@ async def test_create_attachment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_attachment.CreateAttachmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -30476,7 +31010,30 @@ async def test_delete_attachment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = attachment.DeleteAttachmentRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_export_artifact_empty_call_grpc_asyncio():
+    client = ArtifactRegistryAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.export_artifact), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.export_artifact(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = export.ExportArtifactRequest()
         assert args[0] == request_msg
 
 
@@ -30498,8 +31055,9 @@ def test_list_docker_images_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30562,18 +31120,20 @@ def test_list_docker_images_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_docker_images"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_list_docker_images_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_list_docker_images"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_list_docker_images"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_list_docker_images_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_list_docker_images"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30628,8 +31188,9 @@ def test_get_docker_image_rest_bad_request(request_type=artifact.GetDockerImageR
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30669,6 +31230,7 @@ def test_get_docker_image_rest_call_success(request_type):
             tags=["tags_value"],
             image_size_bytes=1699,
             media_type="media_type_value",
+            artifact_type="artifact_type_value",
         )
 
         # Wrap the value into a proper Response obj
@@ -30690,6 +31252,7 @@ def test_get_docker_image_rest_call_success(request_type):
     assert response.tags == ["tags_value"]
     assert response.image_size_bytes == 1699
     assert response.media_type == "media_type_value"
+    assert response.artifact_type == "artifact_type_value"
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -30702,18 +31265,20 @@ def test_get_docker_image_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_docker_image"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_get_docker_image_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_get_docker_image"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_docker_image"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_get_docker_image_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_get_docker_image"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30764,8 +31329,9 @@ def test_list_maven_artifacts_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30828,18 +31394,20 @@ def test_list_maven_artifacts_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_maven_artifacts"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_list_maven_artifacts_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_list_maven_artifacts"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_list_maven_artifacts"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_list_maven_artifacts_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_list_maven_artifacts"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30899,8 +31467,9 @@ def test_get_maven_artifact_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30973,18 +31542,20 @@ def test_get_maven_artifact_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_maven_artifact"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_get_maven_artifact_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_get_maven_artifact"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_maven_artifact"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_get_maven_artifact_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_get_maven_artifact"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31037,8 +31608,9 @@ def test_list_npm_packages_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31101,18 +31673,20 @@ def test_list_npm_packages_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_npm_packages"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_list_npm_packages_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_list_npm_packages"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_list_npm_packages"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_list_npm_packages_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_list_npm_packages"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31167,8 +31741,9 @@ def test_get_npm_package_rest_bad_request(request_type=artifact.GetNpmPackageReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31239,17 +31814,20 @@ def test_get_npm_package_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_npm_package"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_npm_package_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_get_npm_package"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_npm_package"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_get_npm_package_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_get_npm_package"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31300,8 +31878,9 @@ def test_list_python_packages_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31364,18 +31943,20 @@ def test_list_python_packages_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_python_packages"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_list_python_packages_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_list_python_packages"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_list_python_packages"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_list_python_packages_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_list_python_packages"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31435,8 +32016,9 @@ def test_get_python_package_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31507,18 +32089,20 @@ def test_get_python_package_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_python_package"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_get_python_package_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_get_python_package"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_python_package"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_get_python_package_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_get_python_package"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31571,8 +32155,9 @@ def test_import_apt_artifacts_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31629,20 +32214,21 @@ def test_import_apt_artifacts_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_import_apt_artifacts"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_import_apt_artifacts_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_import_apt_artifacts"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_import_apt_artifacts"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_import_apt_artifacts_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_import_apt_artifacts"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31695,8 +32281,9 @@ def test_import_yum_artifacts_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31753,20 +32340,21 @@ def test_import_yum_artifacts_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_import_yum_artifacts"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_import_yum_artifacts_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_import_yum_artifacts"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_import_yum_artifacts"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_import_yum_artifacts_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_import_yum_artifacts"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31819,8 +32407,9 @@ def test_list_repositories_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31883,18 +32472,20 @@ def test_list_repositories_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_repositories"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_list_repositories_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_list_repositories"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_list_repositories"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_list_repositories_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_list_repositories"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31950,8 +32541,9 @@ def test_get_repository_rest_bad_request(request_type=repository.GetRepositoryRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -32034,17 +32626,20 @@ def test_get_repository_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_repository"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_repository_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_get_repository"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_repository"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_get_repository_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_get_repository"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -32097,8 +32692,9 @@ def test_create_repository_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -32293,20 +32889,21 @@ def test_create_repository_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_create_repository"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_create_repository_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_create_repository"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_create_repository"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_create_repository_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_create_repository"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -32363,8 +32960,9 @@ def test_update_repository_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -32589,18 +33187,20 @@ def test_update_repository_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_update_repository"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_update_repository_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_update_repository"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_update_repository"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_update_repository_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_update_repository"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -32653,8 +33253,9 @@ def test_delete_repository_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -32711,20 +33312,21 @@ def test_delete_repository_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_delete_repository"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_delete_repository_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_delete_repository"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_delete_repository"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_delete_repository_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_delete_repository"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -32775,8 +33377,9 @@ def test_list_packages_rest_bad_request(request_type=package.ListPackagesRequest
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -32839,17 +33442,20 @@ def test_list_packages_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_packages"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_packages_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_list_packages"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_list_packages"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_list_packages_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_list_packages"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -32902,8 +33508,9 @@ def test_get_package_rest_bad_request(request_type=package.GetPackageRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -32970,17 +33577,19 @@ def test_get_package_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_package"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_package_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_get_package"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_package"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_package_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_get_package"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -33031,8 +33640,9 @@ def test_delete_package_rest_bad_request(request_type=package.DeletePackageReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -33091,19 +33701,21 @@ def test_delete_package_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_delete_package"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_delete_package_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_delete_package"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_delete_package"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_delete_package_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_delete_package"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -33154,8 +33766,9 @@ def test_list_versions_rest_bad_request(request_type=version.ListVersionsRequest
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -33220,17 +33833,20 @@ def test_list_versions_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_versions"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_versions_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_list_versions"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_list_versions"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_list_versions_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_list_versions"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -33283,8 +33899,9 @@ def test_get_version_rest_bad_request(request_type=version.GetVersionRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -33351,17 +33968,19 @@ def test_get_version_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_version"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_version_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_get_version"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_version"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_version_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_get_version"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -33412,8 +34031,9 @@ def test_delete_version_rest_bad_request(request_type=version.DeleteVersionReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -33472,19 +34092,21 @@ def test_delete_version_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_delete_version"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_delete_version_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_delete_version"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_delete_version"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_delete_version_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_delete_version"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -33537,8 +34159,9 @@ def test_batch_delete_versions_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -33597,20 +34220,21 @@ def test_batch_delete_versions_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_batch_delete_versions"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_batch_delete_versions_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_batch_delete_versions"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_batch_delete_versions"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_batch_delete_versions_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_batch_delete_versions"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -33665,8 +34289,9 @@ def test_update_version_rest_bad_request(request_type=gda_version.UpdateVersionR
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -33705,6 +34330,7 @@ def test_update_version_rest_call_success(request_type):
         "related_tags": [{"name": "name_value", "version": "version_value"}],
         "metadata": {"fields": {}},
         "annotations": {},
+        "fingerprints": [{"type_": 1, "value": b"value_blob"}],
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -33811,17 +34437,20 @@ def test_update_version_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_update_version"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_update_version_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_update_version"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_update_version"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_update_version_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_update_version"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -33872,8 +34501,9 @@ def test_list_files_rest_bad_request(request_type=file.ListFilesRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -33936,17 +34566,19 @@ def test_list_files_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_files"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_files_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_list_files"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_list_files"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_list_files_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_list_files"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -33997,8 +34629,9 @@ def test_get_file_rest_bad_request(request_type=file.GetFileRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -34067,17 +34700,19 @@ def test_get_file_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_file"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_file_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_get_file"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_file"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_file_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_get_file"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -34128,8 +34763,9 @@ def test_delete_file_rest_bad_request(request_type=file.DeleteFileRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -34188,19 +34824,20 @@ def test_delete_file_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_delete_file"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_delete_file_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_delete_file"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_delete_file"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_delete_file_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_delete_file"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -34253,8 +34890,9 @@ def test_update_file_rest_bad_request(request_type=gda_file.UpdateFileRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -34402,17 +35040,19 @@ def test_update_file_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_update_file"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_update_file_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_update_file"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_update_file"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_update_file_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_update_file"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -34463,8 +35103,9 @@ def test_list_tags_rest_bad_request(request_type=tag.ListTagsRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -34529,17 +35170,19 @@ def test_list_tags_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_tags"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_tags_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_list_tags"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_list_tags"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_list_tags_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_list_tags"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -34590,8 +35233,9 @@ def test_get_tag_rest_bad_request(request_type=tag.GetTagRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -34658,17 +35302,19 @@ def test_get_tag_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_tag"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_tag_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_get_tag"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_tag"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_tag_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_get_tag"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -34719,8 +35365,9 @@ def test_create_tag_rest_bad_request(request_type=gda_tag.CreateTagRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -34855,17 +35502,19 @@ def test_create_tag_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_create_tag"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_create_tag_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_create_tag"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_create_tag"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_create_tag_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_create_tag"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -34918,8 +35567,9 @@ def test_update_tag_rest_bad_request(request_type=gda_tag.UpdateTagRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -35059,17 +35709,19 @@ def test_update_tag_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_update_tag"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_update_tag_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_update_tag"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_update_tag"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_update_tag_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_update_tag"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -35120,8 +35772,9 @@ def test_delete_tag_rest_bad_request(request_type=tag.DeleteTagRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -35180,13 +35833,13 @@ def test_delete_tag_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_delete_tag"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_delete_tag"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = tag.DeleteTagRequest.pb(tag.DeleteTagRequest())
         transcode.return_value = {
@@ -35227,8 +35880,9 @@ def test_create_rule_rest_bad_request(request_type=gda_rule.CreateRuleRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -35376,17 +36030,19 @@ def test_create_rule_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_create_rule"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_create_rule_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_create_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_create_rule"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_create_rule_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_create_rule"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -35435,8 +36091,9 @@ def test_list_rules_rest_bad_request(request_type=rule.ListRulesRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -35499,17 +36156,19 @@ def test_list_rules_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_rules"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_rules_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_list_rules"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_list_rules"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_list_rules_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_list_rules"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -35560,8 +36219,9 @@ def test_get_rule_rest_bad_request(request_type=rule.GetRuleRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -35632,17 +36292,19 @@ def test_get_rule_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_rule"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_rule_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_get_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_rule"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_rule_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_get_rule"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -35695,8 +36357,9 @@ def test_update_rule_rest_bad_request(request_type=gda_rule.UpdateRuleRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -35848,17 +36511,19 @@ def test_update_rule_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_update_rule"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_update_rule_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_update_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_update_rule"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_update_rule_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_update_rule"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -35909,8 +36574,9 @@ def test_delete_rule_rest_bad_request(request_type=rule.DeleteRuleRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -35969,13 +36635,13 @@ def test_delete_rule_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_delete_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_delete_rule"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = rule.DeleteRuleRequest.pb(rule.DeleteRuleRequest())
         transcode.return_value = {
@@ -36020,8 +36686,9 @@ def test_set_iam_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -36085,17 +36752,20 @@ def test_set_iam_policy_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_set_iam_policy"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_set_iam_policy_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_set_iam_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_set_iam_policy"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_set_iam_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_set_iam_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -36148,8 +36818,9 @@ def test_get_iam_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -36213,17 +36884,20 @@ def test_get_iam_policy_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_iam_policy"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_iam_policy_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_get_iam_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_iam_policy"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_get_iam_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_get_iam_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -36276,8 +36950,9 @@ def test_test_iam_permissions_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -36339,18 +37014,20 @@ def test_test_iam_permissions_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_test_iam_permissions"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_test_iam_permissions_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_test_iam_permissions"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_test_iam_permissions"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_test_iam_permissions_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_test_iam_permissions"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -36406,8 +37083,9 @@ def test_get_project_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -36477,18 +37155,20 @@ def test_get_project_settings_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_project_settings"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_get_project_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_get_project_settings"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_project_settings"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_get_project_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_get_project_settings"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -36541,8 +37221,9 @@ def test_update_project_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -36684,18 +37365,20 @@ def test_update_project_settings_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_update_project_settings"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_update_project_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_update_project_settings"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_update_project_settings"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_update_project_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_update_project_settings"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -36748,8 +37431,9 @@ def test_get_vpcsc_config_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -36814,18 +37498,20 @@ def test_get_vpcsc_config_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_vpcsc_config"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_get_vpcsc_config_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_get_vpcsc_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_vpcsc_config"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_get_vpcsc_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_get_vpcsc_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -36880,8 +37566,9 @@ def test_update_vpcsc_config_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -37019,18 +37706,20 @@ def test_update_vpcsc_config_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_update_vpcsc_config"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_update_vpcsc_config_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_update_vpcsc_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_update_vpcsc_config"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_update_vpcsc_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_update_vpcsc_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -37087,8 +37776,9 @@ def test_update_package_rest_bad_request(request_type=gda_package.UpdatePackageR
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -37231,17 +37921,20 @@ def test_update_package_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_update_package"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_update_package_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_update_package"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_update_package"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_update_package_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_update_package"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -37294,8 +37987,9 @@ def test_list_attachments_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -37358,18 +38052,20 @@ def test_list_attachments_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_list_attachments"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_list_attachments_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_list_attachments"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_list_attachments"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_list_attachments_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_list_attachments"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -37424,8 +38120,9 @@ def test_get_attachment_rest_bad_request(request_type=attachment.GetAttachmentRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -37500,17 +38197,20 @@ def test_get_attachment_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_attachment"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_get_attachment_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_get_attachment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_get_attachment"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_get_attachment_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_get_attachment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -37563,8 +38263,9 @@ def test_create_attachment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -37699,20 +38400,21 @@ def test_create_attachment_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_create_attachment"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_create_attachment_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_create_attachment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_create_attachment"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_create_attachment_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_create_attachment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -37767,8 +38469,9 @@ def test_delete_attachment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -37827,20 +38530,21 @@ def test_delete_attachment_rest_interceptors(null_interceptor):
     )
     client = ArtifactRegistryClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "post_delete_attachment"
-    ) as post, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor,
-        "post_delete_attachment_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ArtifactRegistryRestInterceptor, "pre_delete_attachment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_delete_attachment"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_delete_attachment_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_delete_attachment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -37882,6 +38586,132 @@ def test_delete_attachment_rest_interceptors(null_interceptor):
         post_with_metadata.assert_called_once()
 
 
+def test_export_artifact_rest_bad_request(request_type=export.ExportArtifactRequest):
+    client = ArtifactRegistryClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "repository": "projects/sample1/locations/sample2/repositories/sample3"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.export_artifact(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        export.ExportArtifactRequest,
+        dict,
+    ],
+)
+def test_export_artifact_rest_call_success(request_type):
+    client = ArtifactRegistryClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "repository": "projects/sample1/locations/sample2/repositories/sample3"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.export_artifact(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_export_artifact_rest_interceptors(null_interceptor):
+    transport = transports.ArtifactRegistryRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.ArtifactRegistryRestInterceptor(),
+    )
+    client = ArtifactRegistryClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "post_export_artifact"
+        ) as post,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor,
+            "post_export_artifact_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ArtifactRegistryRestInterceptor, "pre_export_artifact"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = export.ExportArtifactRequest.pb(export.ExportArtifactRequest())
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = export.ExportArtifactRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.export_artifact(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
 def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationRequest):
     client = ArtifactRegistryClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -37893,8 +38723,9 @@ def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationReq
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -37953,8 +38784,9 @@ def test_list_locations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -38015,8 +38847,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -38089,7 +38922,6 @@ def test_list_docker_images_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.ListDockerImagesRequest()
-
         assert args[0] == request_msg
 
 
@@ -38109,7 +38941,6 @@ def test_get_docker_image_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.GetDockerImageRequest()
-
         assert args[0] == request_msg
 
 
@@ -38131,7 +38962,6 @@ def test_list_maven_artifacts_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.ListMavenArtifactsRequest()
-
         assert args[0] == request_msg
 
 
@@ -38153,7 +38983,6 @@ def test_get_maven_artifact_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.GetMavenArtifactRequest()
-
         assert args[0] == request_msg
 
 
@@ -38175,7 +39004,6 @@ def test_list_npm_packages_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.ListNpmPackagesRequest()
-
         assert args[0] == request_msg
 
 
@@ -38195,7 +39023,6 @@ def test_get_npm_package_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.GetNpmPackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -38217,7 +39044,6 @@ def test_list_python_packages_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.ListPythonPackagesRequest()
-
         assert args[0] == request_msg
 
 
@@ -38239,7 +39065,6 @@ def test_get_python_package_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = artifact.GetPythonPackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -38261,7 +39086,6 @@ def test_import_apt_artifacts_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = apt_artifact.ImportAptArtifactsRequest()
-
         assert args[0] == request_msg
 
 
@@ -38283,7 +39107,6 @@ def test_import_yum_artifacts_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = yum_artifact.ImportYumArtifactsRequest()
-
         assert args[0] == request_msg
 
 
@@ -38305,7 +39128,6 @@ def test_list_repositories_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = repository.ListRepositoriesRequest()
-
         assert args[0] == request_msg
 
 
@@ -38325,7 +39147,6 @@ def test_get_repository_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = repository.GetRepositoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -38347,7 +39168,6 @@ def test_create_repository_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_repository.CreateRepositoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -38369,7 +39189,6 @@ def test_update_repository_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_repository.UpdateRepositoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -38391,7 +39210,6 @@ def test_delete_repository_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = repository.DeleteRepositoryRequest()
-
         assert args[0] == request_msg
 
 
@@ -38411,7 +39229,6 @@ def test_list_packages_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = package.ListPackagesRequest()
-
         assert args[0] == request_msg
 
 
@@ -38431,7 +39248,6 @@ def test_get_package_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = package.GetPackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -38451,7 +39267,6 @@ def test_delete_package_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = package.DeletePackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -38471,7 +39286,6 @@ def test_list_versions_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = version.ListVersionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -38491,7 +39305,6 @@ def test_get_version_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = version.GetVersionRequest()
-
         assert args[0] == request_msg
 
 
@@ -38511,7 +39324,6 @@ def test_delete_version_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = version.DeleteVersionRequest()
-
         assert args[0] == request_msg
 
 
@@ -38533,7 +39345,6 @@ def test_batch_delete_versions_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = version.BatchDeleteVersionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -38553,7 +39364,6 @@ def test_update_version_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_version.UpdateVersionRequest()
-
         assert args[0] == request_msg
 
 
@@ -38573,7 +39383,6 @@ def test_list_files_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = file.ListFilesRequest()
-
         assert args[0] == request_msg
 
 
@@ -38593,7 +39402,6 @@ def test_get_file_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = file.GetFileRequest()
-
         assert args[0] == request_msg
 
 
@@ -38613,7 +39421,6 @@ def test_delete_file_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = file.DeleteFileRequest()
-
         assert args[0] == request_msg
 
 
@@ -38633,7 +39440,6 @@ def test_update_file_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_file.UpdateFileRequest()
-
         assert args[0] == request_msg
 
 
@@ -38653,7 +39459,6 @@ def test_list_tags_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = tag.ListTagsRequest()
-
         assert args[0] == request_msg
 
 
@@ -38673,7 +39478,6 @@ def test_get_tag_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = tag.GetTagRequest()
-
         assert args[0] == request_msg
 
 
@@ -38693,7 +39497,6 @@ def test_create_tag_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_tag.CreateTagRequest()
-
         assert args[0] == request_msg
 
 
@@ -38713,7 +39516,6 @@ def test_update_tag_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_tag.UpdateTagRequest()
-
         assert args[0] == request_msg
 
 
@@ -38733,7 +39535,6 @@ def test_delete_tag_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = tag.DeleteTagRequest()
-
         assert args[0] == request_msg
 
 
@@ -38753,7 +39554,6 @@ def test_create_rule_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_rule.CreateRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -38773,7 +39573,6 @@ def test_list_rules_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = rule.ListRulesRequest()
-
         assert args[0] == request_msg
 
 
@@ -38793,7 +39592,6 @@ def test_get_rule_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = rule.GetRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -38813,7 +39611,6 @@ def test_update_rule_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_rule.UpdateRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -38833,7 +39630,6 @@ def test_delete_rule_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = rule.DeleteRuleRequest()
-
         assert args[0] == request_msg
 
 
@@ -38853,7 +39649,6 @@ def test_set_iam_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.SetIamPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -38873,7 +39668,6 @@ def test_get_iam_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.GetIamPolicyRequest()
-
         assert args[0] == request_msg
 
 
@@ -38895,7 +39689,6 @@ def test_test_iam_permissions_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = iam_policy_pb2.TestIamPermissionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -38917,7 +39710,6 @@ def test_get_project_settings_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = settings.GetProjectSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -38939,7 +39731,6 @@ def test_update_project_settings_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = settings.UpdateProjectSettingsRequest()
-
         assert args[0] == request_msg
 
 
@@ -38959,7 +39750,6 @@ def test_get_vpcsc_config_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = vpcsc_config.GetVPCSCConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -38981,7 +39771,6 @@ def test_update_vpcsc_config_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_vpcsc_config.UpdateVPCSCConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -39001,7 +39790,6 @@ def test_update_package_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_package.UpdatePackageRequest()
-
         assert args[0] == request_msg
 
 
@@ -39021,7 +39809,6 @@ def test_list_attachments_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = attachment.ListAttachmentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -39041,7 +39828,6 @@ def test_get_attachment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = attachment.GetAttachmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -39063,7 +39849,6 @@ def test_create_attachment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gda_attachment.CreateAttachmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -39085,7 +39870,25 @@ def test_delete_attachment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = attachment.DeleteAttachmentRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_export_artifact_empty_call_rest():
+    client = ArtifactRegistryClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.export_artifact), "__call__") as call:
+        client.export_artifact(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = export.ExportArtifactRequest()
         assert args[0] == request_msg
 
 
@@ -39188,6 +39991,7 @@ def test_artifact_registry_base_transport():
         "get_attachment",
         "create_attachment",
         "delete_attachment",
+        "export_artifact",
         "get_location",
         "list_locations",
         "get_operation",
@@ -39215,11 +40019,14 @@ def test_artifact_registry_base_transport():
 
 def test_artifact_registry_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.artifactregistry_v1.services.artifact_registry.transports.ArtifactRegistryTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.artifactregistry_v1.services.artifact_registry.transports.ArtifactRegistryTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.ArtifactRegistryTransport(
@@ -39239,9 +40046,12 @@ def test_artifact_registry_base_transport_with_credentials_file():
 
 def test_artifact_registry_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.artifactregistry_v1.services.artifact_registry.transports.ArtifactRegistryTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.artifactregistry_v1.services.artifact_registry.transports.ArtifactRegistryTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.ArtifactRegistryTransport()
@@ -39319,11 +40129,12 @@ def test_artifact_registry_transport_auth_gdch_credentials(transport_class):
 def test_artifact_registry_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -39613,6 +40424,9 @@ def test_artifact_registry_client_transport_session_collision(transport_name):
     session1 = client1.transport.delete_attachment._session
     session2 = client2.transport.delete_attachment._session
     assert session1 != session2
+    session1 = client1.transport.export_artifact._session
+    session2 = client2.transport.export_artifact._session
+    assert session1 != session2
 
 
 def test_artifact_registry_grpc_transport_channel():
@@ -39643,6 +40457,7 @@ def test_artifact_registry_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [
@@ -40515,6 +41330,40 @@ async def test_get_operation_from_dict_async():
         call.assert_called()
 
 
+def test_get_operation_flattened():
+    client = ArtifactRegistryClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = ArtifactRegistryAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
 def test_list_locations(transport: str = "grpc"):
     client = ArtifactRegistryClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -40660,6 +41509,40 @@ async def test_list_locations_from_dict_async():
         call.assert_called()
 
 
+def test_list_locations_flattened():
+    client = ArtifactRegistryClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_flattened_async():
+    client = ArtifactRegistryAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
 def test_get_location(transport: str = "grpc"):
     client = ArtifactRegistryClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -40799,6 +41682,40 @@ async def test_get_location_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_location_flattened():
+    client = ArtifactRegistryClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_location_flattened_async():
+    client = ArtifactRegistryAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
 
 
 def test_transport_close_grpc():

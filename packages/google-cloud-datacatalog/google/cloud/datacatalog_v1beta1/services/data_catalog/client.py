@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.datacatalog_v1beta1 import gapic_version as package_version
 
@@ -61,10 +61,14 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
 
 from google.cloud.datacatalog_v1beta1.services.data_catalog import pagers
 from google.cloud.datacatalog_v1beta1.types import (
@@ -126,7 +130,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
     """
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -134,7 +138,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -144,6 +148,10 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -163,6 +171,34 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "datacatalog.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -475,12 +511,8 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = DataCatalogClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -488,7 +520,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -520,20 +552,14 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = DataCatalogClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -557,7 +583,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -654,7 +680,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -741,18 +767,16 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = DataCatalogClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            DataCatalogClient._read_environment_variables()
+        )
         self._client_cert_source = DataCatalogClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = DataCatalogClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -780,8 +804,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(DataCatalogTransport, transport)
             self._api_endpoint = self._transport.host
@@ -920,9 +943,9 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                 the specified scope) that the user has access to. Query
                 strings can be simple as "x" or more qualified as:
 
-                -  name:x
-                -  column:x
-                -  description:y
+                - name:x
+                - column:x
+                - description:y
 
                 Note: Query tokens need to have a minimum of 3
                 characters for substring matching to work correctly. See
@@ -1062,7 +1085,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                 Required. The name of the project this entry group is
                 in. Example:
 
-                -  projects/{project_id}/locations/{location}
+                - projects/{project_id}/locations/{location}
 
                 Note that this EntryGroup and its child resources may
                 not actually be stored in the location in this name.
@@ -1571,7 +1594,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                 entry groups, which can be provided in URL format.
                 Example:
 
-                -  projects/{project_id}/locations/{location}
+                - projects/{project_id}/locations/{location}
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1717,7 +1740,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                 Required. The name of the entry group this entry is in.
                 Example:
 
-                -  projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}
+                - projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}
 
                 Note that this Entry and its child resources may not
                 actually be stored in the location in this name.
@@ -1883,27 +1906,27 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
 
                 The following fields are modifiable:
 
-                -  For entries with type ``DATA_STREAM``:
+                - For entries with type ``DATA_STREAM``:
 
-                   -  ``schema``
+                  - ``schema``
 
-                -  For entries with type ``FILESET``:
+                - For entries with type ``FILESET``:
 
-                   -  ``schema``
-                   -  ``display_name``
-                   -  ``description``
-                   -  ``gcs_fileset_spec``
-                   -  ``gcs_fileset_spec.file_patterns``
+                  - ``schema``
+                  - ``display_name``
+                  - ``description``
+                  - ``gcs_fileset_spec``
+                  - ``gcs_fileset_spec.file_patterns``
 
-                -  For entries with ``user_specified_type``:
+                - For entries with ``user_specified_type``:
 
-                   -  ``schema``
-                   -  ``display_name``
-                   -  ``description``
-                   -  ``user_specified_type``
-                   -  ``user_specified_system``
-                   -  ``linked_resource``
-                   -  ``source_system_timestamps``
+                  - ``schema``
+                  - ``display_name``
+                  - ``description``
+                  - ``user_specified_type``
+                  - ``user_specified_system``
+                  - ``linked_resource``
+                  - ``source_system_timestamps``
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2033,7 +2056,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
             name (str):
                 Required. The name of the entry. Example:
 
-                -  projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}/entries/{entry_id}
+                - projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}/entries/{entry_id}
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2137,7 +2160,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
             name (str):
                 Required. The name of the entry. Example:
 
-                -  projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}/entries/{entry_id}
+                - projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}/entries/{entry_id}
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2355,7 +2378,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                 Required. The name of the entry group that contains the
                 entries, which can be provided in URL format. Example:
 
-                -  projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}
+                - projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2493,7 +2516,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
 
                 Example:
 
-                -  projects/{project_id}/locations/us-central1
+                - projects/{project_id}/locations/us-central1
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2523,10 +2546,10 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                 A tag template defines a tag, which can have one or more typed fields.
                    The template is used to create and attach the tag to
                    Google Cloud resources. [Tag template
-                   roles](\ https://cloud.google.com/iam/docs/understanding-roles#data-catalog-roles)
+                   roles](https://cloud.google.com/iam/docs/understanding-roles#data-catalog-roles)
                    provide permissions to create, edit, and use the
                    template. See, for example, the [TagTemplate
-                   User](\ https://cloud.google.com/data-catalog/docs/how-to/template-user)
+                   User](https://cloud.google.com/data-catalog/docs/how-to/template-user)
                    role, which includes permission to use the tag
                    template to tag resources.
 
@@ -2629,7 +2652,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
             name (str):
                 Required. The name of the tag template. Example:
 
-                -  projects/{project_id}/locations/{location}/tagTemplates/{tag_template_id}
+                - projects/{project_id}/locations/{location}/tagTemplates/{tag_template_id}
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2647,10 +2670,10 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                 A tag template defines a tag, which can have one or more typed fields.
                    The template is used to create and attach the tag to
                    Google Cloud resources. [Tag template
-                   roles](\ https://cloud.google.com/iam/docs/understanding-roles#data-catalog-roles)
+                   roles](https://cloud.google.com/iam/docs/understanding-roles#data-catalog-roles)
                    provide permissions to create, edit, and use the
                    template. See, for example, the [TagTemplate
-                   User](\ https://cloud.google.com/data-catalog/docs/how-to/template-user)
+                   User](https://cloud.google.com/data-catalog/docs/how-to/template-user)
                    role, which includes permission to use the tag
                    template to tag resources.
 
@@ -2787,10 +2810,10 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                 A tag template defines a tag, which can have one or more typed fields.
                    The template is used to create and attach the tag to
                    Google Cloud resources. [Tag template
-                   roles](\ https://cloud.google.com/iam/docs/understanding-roles#data-catalog-roles)
+                   roles](https://cloud.google.com/iam/docs/understanding-roles#data-catalog-roles)
                    provide permissions to create, edit, and use the
                    template. See, for example, the [TagTemplate
-                   User](\ https://cloud.google.com/data-catalog/docs/how-to/template-user)
+                   User](https://cloud.google.com/data-catalog/docs/how-to/template-user)
                    role, which includes permission to use the tag
                    template to tag resources.
 
@@ -2897,7 +2920,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                 Required. The name of the tag template to delete.
                 Example:
 
-                -  projects/{project_id}/locations/{location}/tagTemplates/{tag_template_id}
+                - projects/{project_id}/locations/{location}/tagTemplates/{tag_template_id}
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3029,7 +3052,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
 
                 Example:
 
-                -  projects/{project_id}/locations/us-central1/tagTemplates/{tag_template_id}
+                - projects/{project_id}/locations/us-central1/tagTemplates/{tag_template_id}
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3037,7 +3060,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
             tag_template_field_id (str):
                 Required. The ID of the tag template field to create.
                 Field ids can contain letters (both uppercase and
-                lowercase), numbers (0-9), underscores (_) and dashes
+                lowercase), numbers (0-9), underscores (\_) and dashes
                 (-). Field IDs must be at least 1 character long and at
                 most 128 characters long. Field IDs must also be unique
                 within their template.
@@ -3180,7 +3203,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
             name (str):
                 Required. The name of the tag template field. Example:
 
-                -  projects/{project_id}/locations/{location}/tagTemplates/{tag_template_id}/fields/{tag_template_field_id}
+                - projects/{project_id}/locations/{location}/tagTemplates/{tag_template_id}/fields/{tag_template_field_id}
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3195,9 +3218,9 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                 an individual field of a tag template. The following
                 fields are modifiable:
 
-                -  ``display_name``
-                -  ``type.enum_type``
-                -  ``is_required``
+                - ``display_name``
+                - ``type.enum_type``
+                - ``is_required``
 
                 If this parameter is absent or empty, all modifiable
                 fields are overwritten. If such fields are non-required
@@ -3336,7 +3359,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
             name (str):
                 Required. The name of the tag template. Example:
 
-                -  projects/{project_id}/locations/{location}/tagTemplates/{tag_template_id}/fields/{tag_template_field_id}
+                - projects/{project_id}/locations/{location}/tagTemplates/{tag_template_id}/fields/{tag_template_field_id}
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3468,7 +3491,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
             name (str):
                 Required. The name of the enum field value. Example:
 
-                -  projects/{project_id}/locations/{location}/tagTemplates/{tag_template_id}/fields/{tag_template_field_id}/enumValues/{enum_value_display_name}
+                - projects/{project_id}/locations/{location}/tagTemplates/{tag_template_id}/fields/{tag_template_field_id}/enumValues/{enum_value_display_name}
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3600,7 +3623,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                 Required. The name of the tag template field to delete.
                 Example:
 
-                -  projects/{project_id}/locations/{location}/tagTemplates/{tag_template_id}/fields/{tag_template_field_id}
+                - projects/{project_id}/locations/{location}/tagTemplates/{tag_template_id}/fields/{tag_template_field_id}
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3731,7 +3754,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                 Required. The name of the resource to attach this tag
                 to. Tags can be attached to Entries. Example:
 
-                -  projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}/entries/{entry_id}
+                - projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}/entries/{entry_id}
 
                 Note that this Tag and its child resources may not
                 actually be stored in the location in this name.
@@ -3759,7 +3782,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                    template.
 
                    See [Data Catalog
-                   IAM](\ https://cloud.google.com/data-catalog/docs/concepts/iam)
+                   IAM](https://cloud.google.com/data-catalog/docs/concepts/iam)
                    for information on the permissions needed to create
                    or view tags.
 
@@ -3898,7 +3921,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                    template.
 
                    See [Data Catalog
-                   IAM](\ https://cloud.google.com/data-catalog/docs/concepts/iam)
+                   IAM](https://cloud.google.com/data-catalog/docs/concepts/iam)
                    for information on the permissions needed to create
                    or view tags.
 
@@ -3994,7 +4017,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
             name (str):
                 Required. The name of the tag to delete. Example:
 
-                -  projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}/entries/{entry_id}/tags/{tag_id}
+                - projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}/entries/{entry_id}/tags/{tag_id}
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -4105,8 +4128,8 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
 
                 Examples:
 
-                -  projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}
-                -  projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}/entries/{entry_id}
+                - projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}
+                - projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}/entries/{entry_id}
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -4199,20 +4222,20 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
         r"""Sets the access control policy for a resource. Replaces any
         existing policy. Supported resources are:
 
-        -  Tag templates.
-        -  Entries.
-        -  Entry groups. Note, this method cannot be used to manage
-           policies for BigQuery, Pub/Sub and any external Google Cloud
-           Platform resources synced to Data Catalog.
+        - Tag templates.
+        - Entries.
+        - Entry groups. Note, this method cannot be used to manage
+          policies for BigQuery, Pub/Sub and any external Google Cloud
+          Platform resources synced to Data Catalog.
 
         Callers must have following Google IAM permission
 
-        -  ``datacatalog.tagTemplates.setIamPolicy`` to set policies on
-           tag templates.
-        -  ``datacatalog.entries.setIamPolicy`` to set policies on
-           entries.
-        -  ``datacatalog.entryGroups.setIamPolicy`` to set policies on
-           entry groups.
+        - ``datacatalog.tagTemplates.setIamPolicy`` to set policies on
+          tag templates.
+        - ``datacatalog.entries.setIamPolicy`` to set policies on
+          entries.
+        - ``datacatalog.entryGroups.setIamPolicy`` to set policies on
+          entry groups.
 
         .. code-block:: python
 
@@ -4224,7 +4247,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import datacatalog_v1beta1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             def sample_set_iam_policy():
                 # Create a client
@@ -4280,19 +4303,19 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                    constraints based on attributes of the request, the
                    resource, or both. To learn which resources support
                    conditions in their IAM policies, see the [IAM
-                   documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
 
                    **JSON example:**
 
-                   :literal:`\`     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
 
                    **YAML example:**
 
-                   :literal:`\`     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
 
                    For a description of IAM and its features, see the
                    [IAM
-                   documentation](\ https://cloud.google.com/iam/docs/).
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         warnings.warn(
@@ -4362,20 +4385,20 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
 
         Supported resources are:
 
-        -  Tag templates.
-        -  Entries.
-        -  Entry groups. Note, this method cannot be used to manage
-           policies for BigQuery, Pub/Sub and any external Google Cloud
-           Platform resources synced to Data Catalog.
+        - Tag templates.
+        - Entries.
+        - Entry groups. Note, this method cannot be used to manage
+          policies for BigQuery, Pub/Sub and any external Google Cloud
+          Platform resources synced to Data Catalog.
 
         Callers must have following Google IAM permission
 
-        -  ``datacatalog.tagTemplates.getIamPolicy`` to get policies on
-           tag templates.
-        -  ``datacatalog.entries.getIamPolicy`` to get policies on
-           entries.
-        -  ``datacatalog.entryGroups.getIamPolicy`` to get policies on
-           entry groups.
+        - ``datacatalog.tagTemplates.getIamPolicy`` to get policies on
+          tag templates.
+        - ``datacatalog.entries.getIamPolicy`` to get policies on
+          entries.
+        - ``datacatalog.entryGroups.getIamPolicy`` to get policies on
+          entry groups.
 
         .. code-block:: python
 
@@ -4387,7 +4410,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import datacatalog_v1beta1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             def sample_get_iam_policy():
                 # Create a client
@@ -4443,19 +4466,19 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
                    constraints based on attributes of the request, the
                    resource, or both. To learn which resources support
                    conditions in their IAM policies, see the [IAM
-                   documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
 
                    **JSON example:**
 
-                   :literal:`\`     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
 
                    **YAML example:**
 
-                   :literal:`\`     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
 
                    For a description of IAM and its features, see the
                    [IAM
-                   documentation](\ https://cloud.google.com/iam/docs/).
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         warnings.warn(
@@ -4523,11 +4546,11 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
 
         Supported resources are:
 
-        -  Tag templates.
-        -  Entries.
-        -  Entry groups. Note, this method cannot be used to manage
-           policies for BigQuery, Pub/Sub and any external Google Cloud
-           Platform resources synced to Data Catalog.
+        - Tag templates.
+        - Entries.
+        - Entry groups. Note, this method cannot be used to manage
+          policies for BigQuery, Pub/Sub and any external Google Cloud
+          Platform resources synced to Data Catalog.
 
         A caller is not required to have Google IAM permission to make
         this request.
@@ -4542,7 +4565,7 @@ class DataCatalogClient(metaclass=DataCatalogClientMeta):
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import datacatalog_v1beta1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             def sample_test_iam_permissions():
                 # Create a client

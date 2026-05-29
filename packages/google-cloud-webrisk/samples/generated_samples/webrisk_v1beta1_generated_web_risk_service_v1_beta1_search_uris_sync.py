@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ def sample_search_uris():
     # Initialize request argument(s)
     request = webrisk_v1beta1.SearchUrisRequest(
         uri="uri_value",
-        threat_types=['UNWANTED_SOFTWARE'],
+        threat_types=["UNWANTED_SOFTWARE"],
     )
 
     # Make the request
@@ -49,5 +49,6 @@ def sample_search_uris():
 
     # Handle the response
     print(response)
+
 
 # [END webrisk_v1beta1_generated_WebRiskServiceV1Beta1_SearchUris_sync]

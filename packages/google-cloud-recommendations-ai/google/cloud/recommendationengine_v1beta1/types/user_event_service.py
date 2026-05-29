@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.recommendationengine_v1beta1.types import user_event as gcr_user_event
@@ -50,19 +50,19 @@ class PurgeUserEventsRequest(proto.Message):
             also be used with ListUserEvents API to list events that
             will be deleted. The eligible fields for filtering are:
 
-            -  eventType - UserEvent.eventType field of type string.
-            -  eventTime - in ISO 8601 "zulu" format.
-            -  visitorId - field of type string. Specifying this will
-               delete all events associated with a visitor.
-            -  userId - field of type string. Specifying this will
-               delete all events associated with a user. Example 1:
-               Deleting all events in a time range.
-               ``eventTime > "2012-04-23T18:25:43.511Z" eventTime < "2012-04-23T18:30:43.511Z"``
-               Example 2: Deleting specific eventType in time range.
-               ``eventTime > "2012-04-23T18:25:43.511Z" eventType = "detail-page-view"``
-               Example 3: Deleting all events for a specific visitor
-               ``visitorId = visitor1024`` The filtering fields are
-               assumed to have an implicit AND.
+            - eventType - UserEvent.eventType field of type string.
+            - eventTime - in ISO 8601 "zulu" format.
+            - visitorId - field of type string. Specifying this will
+              delete all events associated with a visitor.
+            - userId - field of type string. Specifying this will delete
+              all events associated with a user. Example 1: Deleting all
+              events in a time range.
+              ``eventTime > "2012-04-23T18:25:43.511Z" eventTime < "2012-04-23T18:30:43.511Z"``
+              Example 2: Deleting specific eventType in time range.
+              ``eventTime > "2012-04-23T18:25:43.511Z" eventType = "detail-page-view"``
+              Example 3: Deleting all events for a specific visitor
+              ``visitorId = visitor1024`` The filtering fields are
+              assumed to have an implicit AND.
         force (bool):
             Optional. The default value is false.
             Override this flag to true to actually perform
@@ -239,15 +239,15 @@ class ListUserEventsRequest(proto.Message):
 
             Some examples of valid filters expressions:
 
-            -  Example 1: eventTime > "2012-04-23T18:25:43.511Z"
-               eventTime < "2012-04-23T18:30:43.511Z"
-            -  Example 2: eventTime > "2012-04-23T18:25:43.511Z"
-               eventType = detail-page-view
-            -  Example 3: eventsMissingCatalogItems eventType = search
-               eventTime < "2018-04-23T18:30:43.511Z"
-            -  Example 4: eventTime > "2012-04-23T18:25:43.511Z"
-            -  Example 5: eventType = search
-            -  Example 6: eventsMissingCatalogItems
+            - Example 1: eventTime > "2012-04-23T18:25:43.511Z"
+              eventTime < "2012-04-23T18:30:43.511Z"
+            - Example 2: eventTime > "2012-04-23T18:25:43.511Z"
+              eventType = detail-page-view
+            - Example 3: eventsMissingCatalogItems eventType = search
+              eventTime < "2018-04-23T18:30:43.511Z"
+            - Example 4: eventTime > "2012-04-23T18:25:43.511Z"
+            - Example 5: eventType = search
+            - Example 6: eventsMissingCatalogItems
     """
 
     parent: str = proto.Field(

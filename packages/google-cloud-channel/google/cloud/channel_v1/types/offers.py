@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import money_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.money_pb2 as money_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.channel_v1.types import common, products
@@ -31,6 +31,7 @@ __protobuf__ = proto.module(
         "PaymentType",
         "ResourceType",
         "PeriodType",
+        "DiscountType",
         "Offer",
         "ParameterDefinition",
         "Constraints",
@@ -41,6 +42,7 @@ __protobuf__ = proto.module(
         "PricePhase",
         "PriceTier",
         "Period",
+        "DiscountComponent",
     },
 )
 
@@ -61,6 +63,7 @@ class PromotionalOrderType(proto.Enum):
             Orders for modifying an existing customer's
             promotion on the same SKU.
     """
+
     PROMOTIONAL_TYPE_UNSPECIFIED = 0
     NEW_UPGRADE = 1
     TRANSFER = 2
@@ -84,6 +87,7 @@ class PaymentPlan(proto.Enum):
         OFFLINE (5):
             Price and ordering not available through API.
     """
+
     PAYMENT_PLAN_UNSPECIFIED = 0
     COMMITMENT = 1
     FLEXIBLE = 2
@@ -105,6 +109,7 @@ class PaymentType(proto.Enum):
             Postpay. Reseller is charged at the end of
             the Payment cycle.
     """
+
     PAYMENT_TYPE_UNSPECIFIED = 0
     PREPAY = 1
     POSTPAY = 2
@@ -141,6 +146,7 @@ class ResourceType(proto.Enum):
             For Google Cloud subscriptions like Anthos or
             SAP.
     """
+
     RESOURCE_TYPE_UNSPECIFIED = 0
     SEAT = 1
     MAU = 2
@@ -164,10 +170,37 @@ class PeriodType(proto.Enum):
         YEAR (3):
             Year.
     """
+
     PERIOD_TYPE_UNSPECIFIED = 0
     DAY = 1
     MONTH = 2
     YEAR = 3
+
+
+class DiscountType(proto.Enum):
+    r"""Discount Type.
+
+    Values:
+        DISCOUNT_TYPE_UNSPECIFIED (0):
+            Not used.
+        REGIONAL_DISCOUNT (1):
+            Regional discount.
+        PROMOTIONAL_DISCOUNT (2):
+            Promotional discount.
+        SALES_DISCOUNT (3):
+            Sales-provided discount.
+        RESELLER_MARGIN (4):
+            Reseller margin.
+        DEAL_CODE (5):
+            Deal code discount.
+    """
+
+    DISCOUNT_TYPE_UNSPECIFIED = 0
+    REGIONAL_DISCOUNT = 1
+    PROMOTIONAL_DISCOUNT = 2
+    SALES_DISCOUNT = 3
+    RESELLER_MARGIN = 4
+    DEAL_CODE = 5
 
 
 class Offer(proto.Message):
@@ -297,6 +330,7 @@ class ParameterDefinition(proto.Message):
             BOOLEAN (4):
                 Boolean type.
         """
+
         PARAMETER_TYPE_UNSPECIFIED = 0
         INT64 = 1
         STRING = 2
@@ -367,19 +401,19 @@ class CustomerConstraints(proto.Message):
         proto.STRING,
         number=1,
     )
-    allowed_customer_types: MutableSequence[
-        common.CloudIdentityInfo.CustomerType
-    ] = proto.RepeatedField(
-        proto.ENUM,
-        number=2,
-        enum=common.CloudIdentityInfo.CustomerType,
+    allowed_customer_types: MutableSequence[common.CloudIdentityInfo.CustomerType] = (
+        proto.RepeatedField(
+            proto.ENUM,
+            number=2,
+            enum=common.CloudIdentityInfo.CustomerType,
+        )
     )
-    promotional_order_types: MutableSequence[
-        "PromotionalOrderType"
-    ] = proto.RepeatedField(
-        proto.ENUM,
-        number=3,
-        enum="PromotionalOrderType",
+    promotional_order_types: MutableSequence["PromotionalOrderType"] = (
+        proto.RepeatedField(
+            proto.ENUM,
+            number=3,
+            enum="PromotionalOrderType",
+        )
     )
 
 
@@ -478,9 +512,17 @@ class Price(proto.Message):
             0.2.
         effective_price (google.type.money_pb2.Money):
             Effective Price after applying the discounts.
+        price_period (google.cloud.channel_v1.types.Period):
+            The time period with respect to which base
+            and effective prices are defined.
+            Example: 1 month, 6 months, 1 year, etc.
         external_price_uri (str):
             Link to external price list, such as link to
             Google Voice rate card.
+        discount_components (MutableSequence[google.cloud.channel_v1.types.DiscountComponent]):
+            Breakdown of the discount into its
+            components. This will be empty if there is no
+            discount present.
     """
 
     base_price: money_pb2.Money = proto.Field(
@@ -497,9 +539,19 @@ class Price(proto.Message):
         number=3,
         message=money_pb2.Money,
     )
+    price_period: "Period" = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        message="Period",
+    )
     external_price_uri: str = proto.Field(
         proto.STRING,
         number=4,
+    )
+    discount_components: MutableSequence["DiscountComponent"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=5,
+        message="DiscountComponent",
     )
 
 
@@ -551,9 +603,9 @@ class PriceTier(proto.Message):
     r"""Defines price at resource tier level. For example, an offer with
     following definition :
 
-    -  Tier 1: Provide 25% discount for all seats between 1 and 25.
-    -  Tier 2: Provide 10% discount for all seats between 26 and 100.
-    -  Tier 3: Provide flat 15% discount for all seats above 100.
+    - Tier 1: Provide 25% discount for all seats between 1 and 25.
+    - Tier 2: Provide 10% discount for all seats between 26 and 100.
+    - Tier 3: Provide flat 15% discount for all seats above 100.
 
     Each of these tiers is represented as a PriceTier.
 
@@ -601,6 +653,50 @@ class Period(proto.Message):
         proto.ENUM,
         number=2,
         enum="PeriodType",
+    )
+
+
+class DiscountComponent(proto.Message):
+    r"""Represents a single component of the total discount
+    applicable on a Price.
+
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        discount_percentage (float):
+            Discount percentage, represented as decimal.
+            For example, a 20% discount will be represented
+            as 0.2.
+
+            This field is a member of `oneof`_ ``discount_value``.
+        discount_absolute (google.type.money_pb2.Money):
+            Fixed value discount.
+
+            This field is a member of `oneof`_ ``discount_value``.
+        discount_type (google.cloud.channel_v1.types.DiscountType):
+            Type of the discount.
+    """
+
+    discount_percentage: float = proto.Field(
+        proto.DOUBLE,
+        number=3,
+        oneof="discount_value",
+    )
+    discount_absolute: money_pb2.Money = proto.Field(
+        proto.MESSAGE,
+        number=4,
+        oneof="discount_value",
+        message=money_pb2.Money,
+    )
+    discount_type: "DiscountType" = proto.Field(
+        proto.ENUM,
+        number=2,
+        enum="DiscountType",
     )
 
 

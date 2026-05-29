@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ async def sample_translate_document():
 
     # Initialize request argument(s)
     document_input_config = translate_v3.DocumentInputConfig()
-    document_input_config.content = b'content_blob'
+    document_input_config.content = b"content_blob"
 
     request = translate_v3.TranslateDocumentRequest(
         parent="parent_value",
@@ -53,5 +53,6 @@ async def sample_translate_document():
 
     # Handle the response
     print(response)
+
 
 # [END translate_v3_generated_TranslationService_TranslateDocument_async]

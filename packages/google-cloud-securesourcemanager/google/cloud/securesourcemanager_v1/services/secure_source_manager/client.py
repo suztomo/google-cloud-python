@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.securesourcemanager_v1 import gapic_version as package_version
 
@@ -61,15 +61,19 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.securesourcemanager_v1.services.secure_source_manager import pagers
 from google.cloud.securesourcemanager_v1.types import secure_source_manager
@@ -88,9 +92,7 @@ class SecureSourceManagerClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[SecureSourceManagerTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[SecureSourceManagerTransport]]
     _transport_registry["grpc"] = SecureSourceManagerGrpcTransport
     _transport_registry["grpc_asyncio"] = SecureSourceManagerGrpcAsyncIOTransport
     _transport_registry["rest"] = SecureSourceManagerRestTransport
@@ -120,33 +122,12 @@ class SecureSourceManagerClientMeta(type):
 class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
     """Secure Source Manager API
 
-    Access Secure Source Manager instances, resources, and repositories.
-
-    This API is split across two servers: the Control Plane and the Data
-    Plane.
-
-    Data Plane endpoints are hosted directly by your Secure Source
-    Manager instance, so you must connect to your instance's API
-    hostname to access them. The API hostname looks like the following:
-
-    ::
-
-       https://[instance-id]-[project-number]-api.[location].sourcemanager.dev
-
-    For example,
-
-    ::
-
-       https://my-instance-702770452863-api.us-central1.sourcemanager.dev
-
-    Data Plane endpoints are denoted with **Host: Data Plane**.
-
-    All other endpoints are found in the normal Cloud API location,
-    namely, ``securcesourcemanager.googleapis.com``.
+    Access Secure Source Manager instances, resources, and
+    repositories.
     """
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -154,7 +135,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -164,6 +145,10 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -183,6 +168,34 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "securesourcemanager.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -302,6 +315,30 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         return m.groupdict() if m else {}
 
     @staticmethod
+    def hook_path(
+        project: str,
+        location: str,
+        repository: str,
+        hook: str,
+    ) -> str:
+        """Returns a fully-qualified hook string."""
+        return "projects/{project}/locations/{location}/repositories/{repository}/hooks/{hook}".format(
+            project=project,
+            location=location,
+            repository=repository,
+            hook=hook,
+        )
+
+    @staticmethod
+    def parse_hook_path(path: str) -> Dict[str, str]:
+        """Parses a hook path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/repositories/(?P<repository>.+?)/hooks/(?P<hook>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
     def instance_path(
         project: str,
         location: str,
@@ -319,6 +356,106 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         """Parses a instance path into its component segments."""
         m = re.match(
             r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/instances/(?P<instance>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def issue_path(
+        project: str,
+        location: str,
+        repository: str,
+        issue: str,
+    ) -> str:
+        """Returns a fully-qualified issue string."""
+        return "projects/{project}/locations/{location}/repositories/{repository}/issues/{issue}".format(
+            project=project,
+            location=location,
+            repository=repository,
+            issue=issue,
+        )
+
+    @staticmethod
+    def parse_issue_path(path: str) -> Dict[str, str]:
+        """Parses a issue path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/repositories/(?P<repository>.+?)/issues/(?P<issue>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def issue_comment_path(
+        project: str,
+        location: str,
+        repository: str,
+        issue: str,
+        comment: str,
+    ) -> str:
+        """Returns a fully-qualified issue_comment string."""
+        return "projects/{project}/locations/{location}/repositories/{repository}/issues/{issue}/issueComments/{comment}".format(
+            project=project,
+            location=location,
+            repository=repository,
+            issue=issue,
+            comment=comment,
+        )
+
+    @staticmethod
+    def parse_issue_comment_path(path: str) -> Dict[str, str]:
+        """Parses a issue_comment path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/repositories/(?P<repository>.+?)/issues/(?P<issue>.+?)/issueComments/(?P<comment>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def pull_request_path(
+        project: str,
+        location: str,
+        repository: str,
+        pull_request: str,
+    ) -> str:
+        """Returns a fully-qualified pull_request string."""
+        return "projects/{project}/locations/{location}/repositories/{repository}/pullRequests/{pull_request}".format(
+            project=project,
+            location=location,
+            repository=repository,
+            pull_request=pull_request,
+        )
+
+    @staticmethod
+    def parse_pull_request_path(path: str) -> Dict[str, str]:
+        """Parses a pull_request path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/repositories/(?P<repository>.+?)/pullRequests/(?P<pull_request>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def pull_request_comment_path(
+        project: str,
+        location: str,
+        repository: str,
+        pull_request: str,
+        comment: str,
+    ) -> str:
+        """Returns a fully-qualified pull_request_comment string."""
+        return "projects/{project}/locations/{location}/repositories/{repository}/pullRequests/{pull_request}/pullRequestComments/{comment}".format(
+            project=project,
+            location=location,
+            repository=repository,
+            pull_request=pull_request,
+            comment=comment,
+        )
+
+    @staticmethod
+    def parse_pull_request_comment_path(path: str) -> Dict[str, str]:
+        """Parses a pull_request_comment path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/repositories/(?P<repository>.+?)/pullRequests/(?P<pull_request>.+?)/pullRequestComments/(?P<comment>.+?)$",
             path,
         )
         return m.groupdict() if m else {}
@@ -487,12 +624,8 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = SecureSourceManagerClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -500,7 +633,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -532,20 +665,14 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = SecureSourceManagerClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -569,7 +696,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -666,7 +793,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -757,18 +884,16 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = SecureSourceManagerClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            SecureSourceManagerClient._read_environment_variables()
+        )
         self._client_cert_source = SecureSourceManagerClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = SecureSourceManagerClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -796,8 +921,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(SecureSourceManagerTransport, transport)
             self._api_endpoint = self._transport.host
@@ -1382,7 +1506,9 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
     ) -> pagers.ListRepositoriesPager:
         r"""Lists Repositories in a given project and location.
 
-        **Host: Data Plane**
+        The instance field is required in the query parameter
+        for requests using the
+        securesourcemanager.googleapis.com endpoint.
 
         .. code-block:: python
 
@@ -1507,8 +1633,6 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
     ) -> secure_source_manager.Repository:
         r"""Gets metadata of a repository.
 
-        **Host: Data Plane**
-
         .. code-block:: python
 
             # This snippet has been automatically generated and should be regarded as a
@@ -1620,9 +1744,11 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> operation.Operation:
-        r"""Creates a new repository in a given project and location.
-
-        **Host: Data Plane**
+        r"""Creates a new repository in a given project and
+        location.
+        The Repository.Instance field is required in the request
+        body for requests using the
+        securesourcemanager.googleapis.com endpoint.
 
         .. code-block:: python
 
@@ -1756,6 +1882,146 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Done; return the response.
         return response
 
+    def update_repository(
+        self,
+        request: Optional[
+            Union[secure_source_manager.UpdateRepositoryRequest, dict]
+        ] = None,
+        *,
+        repository: Optional[secure_source_manager.Repository] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Updates the metadata of a repository.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_update_repository():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.UpdateRepositoryRequest(
+                )
+
+                # Make the request
+                operation = client.update_repository(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.UpdateRepositoryRequest, dict]):
+                The request object. UpdateRepositoryRequest is the
+                request to update a repository.
+            repository (google.cloud.securesourcemanager_v1.types.Repository):
+                Required. The repository being
+                updated.
+
+                This corresponds to the ``repository`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Optional. Field mask is used to specify the fields to be
+                overwritten in the repository resource by the update.
+                The fields specified in the update_mask are relative to
+                the resource, not the full request. A field will be
+                overwritten if it is in the mask. If the user does not
+                provide a mask then all fields will be overwritten.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.securesourcemanager_v1.types.Repository`
+                Metadata of a Secure Source Manager repository.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [repository, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.UpdateRepositoryRequest):
+            request = secure_source_manager.UpdateRepositoryRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if repository is not None:
+                request.repository = repository
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.update_repository]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("repository.name", request.repository.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.Repository,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
     def delete_repository(
         self,
         request: Optional[
@@ -1768,8 +2034,6 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> operation.Operation:
         r"""Deletes a Repository.
-
-        **Host: Data Plane**
 
         .. code-block:: python
 
@@ -1808,7 +2072,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
             name (str):
                 Required. Name of the repository to delete. The format
                 is
-                projects/{project_number}/locations/{location_id}/repositories/{repository_id}.
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}``.
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1891,6 +2155,659 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Done; return the response.
         return response
 
+    def list_hooks(
+        self,
+        request: Optional[Union[secure_source_manager.ListHooksRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListHooksPager:
+        r"""Lists hooks in a given repository.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_list_hooks():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.ListHooksRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_hooks(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.ListHooksRequest, dict]):
+                The request object. ListHooksRequest is request to list
+                hooks.
+            parent (str):
+                Required. Parent value for
+                ListHooksRequest.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.securesourcemanager_v1.services.secure_source_manager.pagers.ListHooksPager:
+                ListHooksResponse is response to list
+                hooks.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.ListHooksRequest):
+            request = secure_source_manager.ListHooksRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.list_hooks]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListHooksPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_hook(
+        self,
+        request: Optional[Union[secure_source_manager.GetHookRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> secure_source_manager.Hook:
+        r"""Gets metadata of a hook.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_get_hook():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.GetHookRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = client.get_hook(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.GetHookRequest, dict]):
+                The request object. GetHookRequest is the request for
+                getting a hook.
+            name (str):
+                Required. Name of the hook to retrieve. The format is
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/hooks/{hook_id}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.securesourcemanager_v1.types.Hook:
+                Metadata of a Secure Source Manager
+                Hook.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.GetHookRequest):
+            request = secure_source_manager.GetHookRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.get_hook]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def create_hook(
+        self,
+        request: Optional[Union[secure_source_manager.CreateHookRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        hook: Optional[secure_source_manager.Hook] = None,
+        hook_id: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Creates a new hook in a given repository.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_create_hook():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                hook = securesourcemanager_v1.Hook()
+                hook.target_uri = "target_uri_value"
+
+                request = securesourcemanager_v1.CreateHookRequest(
+                    parent="parent_value",
+                    hook=hook,
+                    hook_id="hook_id_value",
+                )
+
+                # Make the request
+                operation = client.create_hook(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.CreateHookRequest, dict]):
+                The request object. CreateHookRequest is the request for
+                creating a hook.
+            parent (str):
+                Required. The repository in which to create the hook.
+                Values are of the form
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            hook (google.cloud.securesourcemanager_v1.types.Hook):
+                Required. The resource being created.
+                This corresponds to the ``hook`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            hook_id (str):
+                Required. The ID to use for the hook,
+                which will become the final component of
+                the hook's resource name. This value
+                restricts to lower-case letters,
+                numbers, and hyphen, with the first
+                character a letter, the last a letter or
+                a number, and a 63 character maximum.
+
+                This corresponds to the ``hook_id`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.securesourcemanager_v1.types.Hook`
+                Metadata of a Secure Source Manager Hook.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, hook, hook_id]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.CreateHookRequest):
+            request = secure_source_manager.CreateHookRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if hook is not None:
+                request.hook = hook
+            if hook_id is not None:
+                request.hook_id = hook_id
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.create_hook]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.Hook,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def update_hook(
+        self,
+        request: Optional[Union[secure_source_manager.UpdateHookRequest, dict]] = None,
+        *,
+        hook: Optional[secure_source_manager.Hook] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Updates the metadata of a hook.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_update_hook():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                hook = securesourcemanager_v1.Hook()
+                hook.target_uri = "target_uri_value"
+
+                request = securesourcemanager_v1.UpdateHookRequest(
+                    hook=hook,
+                )
+
+                # Make the request
+                operation = client.update_hook(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.UpdateHookRequest, dict]):
+                The request object. UpdateHookRequest is the request to
+                update a hook.
+            hook (google.cloud.securesourcemanager_v1.types.Hook):
+                Required. The hook being updated.
+                This corresponds to the ``hook`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Optional. Field mask is used to specify the fields to be
+                overwritten in the hook resource by the update. The
+                fields specified in the update_mask are relative to the
+                resource, not the full request. A field will be
+                overwritten if it is in the mask. The special value "\*"
+                means full replacement.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.securesourcemanager_v1.types.Hook`
+                Metadata of a Secure Source Manager Hook.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [hook, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.UpdateHookRequest):
+            request = secure_source_manager.UpdateHookRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if hook is not None:
+                request.hook = hook
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.update_hook]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("hook.name", request.hook.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.Hook,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def delete_hook(
+        self,
+        request: Optional[Union[secure_source_manager.DeleteHookRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Deletes a Hook.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_delete_hook():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.DeleteHookRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.delete_hook(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.DeleteHookRequest, dict]):
+                The request object. DeleteHookRequest is the request to
+                delete a hook.
+            name (str):
+                Required. Name of the hook to delete. The format is
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/hooks/{hook_id}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.DeleteHookRequest):
+            request = secure_source_manager.DeleteHookRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.delete_hook]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
     def get_iam_policy_repo(
         self,
         request: Optional[Union[iam_policy_pb2.GetIamPolicyRequest, dict]] = None,
@@ -1912,7 +2829,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import securesourcemanager_v1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             def sample_get_iam_policy_repo():
                 # Create a client
@@ -1968,19 +2885,19 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
                    constraints based on attributes of the request, the
                    resource, or both. To learn which resources support
                    conditions in their IAM policies, see the [IAM
-                   documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
 
                    **JSON example:**
 
-                   :literal:`\`     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
 
                    **YAML example:**
 
-                   :literal:`\`     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
 
                    For a description of IAM and its features, see the
                    [IAM
-                   documentation](\ https://cloud.google.com/iam/docs/).
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         # Create or coerce a protobuf request object.
@@ -2051,7 +2968,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import securesourcemanager_v1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             def sample_set_iam_policy_repo():
                 # Create a client
@@ -2107,19 +3024,19 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
                    constraints based on attributes of the request, the
                    resource, or both. To learn which resources support
                    conditions in their IAM policies, see the [IAM
-                   documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
 
                    **JSON example:**
 
-                   :literal:`\`     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
 
                    **YAML example:**
 
-                   :literal:`\`     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
 
                    For a description of IAM and its features, see the
                    [IAM
-                   documentation](\ https://cloud.google.com/iam/docs/).
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         # Create or coerce a protobuf request object.
@@ -2191,7 +3108,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import securesourcemanager_v1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             def sample_test_iam_permissions_repo():
                 # Create a client
@@ -2361,7 +3278,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
                 An object representing a long-running operation.
 
                 The result type for the operation will be :class:`google.cloud.securesourcemanager_v1.types.BranchRule` Metadata of a BranchRule. BranchRule is the protection rule to enforce
-                   pre-defined rules on desginated branches within a
+                   pre-defined rules on designated branches within a
                    repository.
 
         """
@@ -2610,7 +3527,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
             google.cloud.securesourcemanager_v1.types.BranchRule:
                 Metadata of a BranchRule. BranchRule
                 is the protection rule to enforce
-                pre-defined rules on desginated branches
+                pre-defined rules on designated branches
                 within a repository.
 
         """
@@ -2713,11 +3630,11 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             update_mask (google.protobuf.field_mask_pb2.FieldMask):
-                Required. Field mask is used to specify the fields to be
+                Optional. Field mask is used to specify the fields to be
                 overwritten in the branchRule resource by the update.
                 The fields specified in the update_mask are relative to
                 the resource, not the full request. A field will be
-                overwritten if it is in the mask. The special value "*"
+                overwritten if it is in the mask. The special value "\*"
                 means full replacement.
 
                 This corresponds to the ``update_mask`` field
@@ -2736,7 +3653,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
                 An object representing a long-running operation.
 
                 The result type for the operation will be :class:`google.cloud.securesourcemanager_v1.types.BranchRule` Metadata of a BranchRule. BranchRule is the protection rule to enforce
-                   pre-defined rules on desginated branches within a
+                   pre-defined rules on designated branches within a
                    repository.
 
         """
@@ -2928,6 +3845,3880 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Done; return the response.
         return response
 
+    def create_pull_request(
+        self,
+        request: Optional[
+            Union[secure_source_manager.CreatePullRequestRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        pull_request: Optional[secure_source_manager.PullRequest] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Creates a pull request.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_create_pull_request():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                pull_request = securesourcemanager_v1.PullRequest()
+                pull_request.title = "title_value"
+                pull_request.base.ref = "ref_value"
+
+                request = securesourcemanager_v1.CreatePullRequestRequest(
+                    parent="parent_value",
+                    pull_request=pull_request,
+                )
+
+                # Make the request
+                operation = client.create_pull_request(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.CreatePullRequestRequest, dict]):
+                The request object. CreatePullRequestRequest is the
+                request to create a pull request.
+            parent (str):
+                Required. The repository that the pull request is
+                created from. Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            pull_request (google.cloud.securesourcemanager_v1.types.PullRequest):
+                Required. The pull request to create.
+                This corresponds to the ``pull_request`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.securesourcemanager_v1.types.PullRequest` Metadata of a PullRequest. PullRequest is the request
+                   from a user to merge a branch (head) into another
+                   branch (base).
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, pull_request]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.CreatePullRequestRequest):
+            request = secure_source_manager.CreatePullRequestRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if pull_request is not None:
+                request.pull_request = pull_request
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.create_pull_request]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.PullRequest,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_pull_request(
+        self,
+        request: Optional[
+            Union[secure_source_manager.GetPullRequestRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> secure_source_manager.PullRequest:
+        r"""Gets a pull request.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_get_pull_request():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.GetPullRequestRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = client.get_pull_request(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.GetPullRequestRequest, dict]):
+                The request object. GetPullRequestRequest is the request
+                to get a pull request.
+            name (str):
+                Required. Name of the pull request to retrieve. The
+                format is
+                ``projects/{project}/locations/{location}/repositories/{repository}/pullRequests/{pull_request}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.securesourcemanager_v1.types.PullRequest:
+                Metadata of a PullRequest.
+                PullRequest is the request from a user
+                to merge a branch (head) into another
+                branch (base).
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.GetPullRequestRequest):
+            request = secure_source_manager.GetPullRequestRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.get_pull_request]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def list_pull_requests(
+        self,
+        request: Optional[
+            Union[secure_source_manager.ListPullRequestsRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListPullRequestsPager:
+        r"""Lists pull requests in a repository.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_list_pull_requests():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.ListPullRequestsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_pull_requests(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.ListPullRequestsRequest, dict]):
+                The request object. ListPullRequestsRequest is the
+                request to list pull requests.
+            parent (str):
+                Required. The repository in which to list pull requests.
+                Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.securesourcemanager_v1.services.secure_source_manager.pagers.ListPullRequestsPager:
+                ListPullRequestsResponse is the
+                response to list pull requests.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.ListPullRequestsRequest):
+            request = secure_source_manager.ListPullRequestsRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.list_pull_requests]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListPullRequestsPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def update_pull_request(
+        self,
+        request: Optional[
+            Union[secure_source_manager.UpdatePullRequestRequest, dict]
+        ] = None,
+        *,
+        pull_request: Optional[secure_source_manager.PullRequest] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Updates a pull request.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_update_pull_request():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                pull_request = securesourcemanager_v1.PullRequest()
+                pull_request.title = "title_value"
+                pull_request.base.ref = "ref_value"
+
+                request = securesourcemanager_v1.UpdatePullRequestRequest(
+                    pull_request=pull_request,
+                )
+
+                # Make the request
+                operation = client.update_pull_request(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.UpdatePullRequestRequest, dict]):
+                The request object. UpdatePullRequestRequest is the
+                request to update a pull request.
+            pull_request (google.cloud.securesourcemanager_v1.types.PullRequest):
+                Required. The pull request to update.
+                This corresponds to the ``pull_request`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Optional. Field mask is used to specify the fields to be
+                overwritten in the pull request resource by the update.
+                The fields specified in the update_mask are relative to
+                the resource, not the full request. A field will be
+                overwritten if it is in the mask. The special value "\*"
+                means full replacement.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.securesourcemanager_v1.types.PullRequest` Metadata of a PullRequest. PullRequest is the request
+                   from a user to merge a branch (head) into another
+                   branch (base).
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [pull_request, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.UpdatePullRequestRequest):
+            request = secure_source_manager.UpdatePullRequestRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if pull_request is not None:
+                request.pull_request = pull_request
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.update_pull_request]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("pull_request.name", request.pull_request.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.PullRequest,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def merge_pull_request(
+        self,
+        request: Optional[
+            Union[secure_source_manager.MergePullRequestRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Merges a pull request.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_merge_pull_request():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.MergePullRequestRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.merge_pull_request(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.MergePullRequestRequest, dict]):
+                The request object. MergePullRequestRequest is the
+                request to merge a pull request.
+            name (str):
+                Required. The pull request to merge. Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/pullRequests/{pull_request_id}``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.securesourcemanager_v1.types.PullRequest` Metadata of a PullRequest. PullRequest is the request
+                   from a user to merge a branch (head) into another
+                   branch (base).
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.MergePullRequestRequest):
+            request = secure_source_manager.MergePullRequestRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.merge_pull_request]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.PullRequest,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def open_pull_request(
+        self,
+        request: Optional[
+            Union[secure_source_manager.OpenPullRequestRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Opens a pull request.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_open_pull_request():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.OpenPullRequestRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.open_pull_request(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.OpenPullRequestRequest, dict]):
+                The request object. OpenPullRequestRequest is the request
+                to open a pull request.
+            name (str):
+                Required. The pull request to open. Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/pullRequests/{pull_request_id}``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.securesourcemanager_v1.types.PullRequest` Metadata of a PullRequest. PullRequest is the request
+                   from a user to merge a branch (head) into another
+                   branch (base).
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.OpenPullRequestRequest):
+            request = secure_source_manager.OpenPullRequestRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.open_pull_request]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.PullRequest,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def close_pull_request(
+        self,
+        request: Optional[
+            Union[secure_source_manager.ClosePullRequestRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Closes a pull request without merging.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_close_pull_request():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.ClosePullRequestRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.close_pull_request(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.ClosePullRequestRequest, dict]):
+                The request object. ClosePullRequestRequest is the
+                request to close a pull request.
+            name (str):
+                Required. The pull request to close. Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/pullRequests/{pull_request_id}``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.securesourcemanager_v1.types.PullRequest` Metadata of a PullRequest. PullRequest is the request
+                   from a user to merge a branch (head) into another
+                   branch (base).
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.ClosePullRequestRequest):
+            request = secure_source_manager.ClosePullRequestRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.close_pull_request]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.PullRequest,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def list_pull_request_file_diffs(
+        self,
+        request: Optional[
+            Union[secure_source_manager.ListPullRequestFileDiffsRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListPullRequestFileDiffsPager:
+        r"""Lists a pull request's file diffs.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_list_pull_request_file_diffs():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.ListPullRequestFileDiffsRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                page_result = client.list_pull_request_file_diffs(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.ListPullRequestFileDiffsRequest, dict]):
+                The request object. ListPullRequestFileDiffsRequest is
+                the request to list pull request file
+                diffs.
+            name (str):
+                Required. The pull request to list file diffs for.
+                Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/pullRequests/{pull_request_id}``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.securesourcemanager_v1.services.secure_source_manager.pagers.ListPullRequestFileDiffsPager:
+                ListPullRequestFileDiffsResponse is
+                the response containing file diffs
+                returned from ListPullRequestFileDiffs.
+
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, secure_source_manager.ListPullRequestFileDiffsRequest
+        ):
+            request = secure_source_manager.ListPullRequestFileDiffsRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.list_pull_request_file_diffs
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListPullRequestFileDiffsPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def fetch_tree(
+        self,
+        request: Optional[Union[secure_source_manager.FetchTreeRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.FetchTreePager:
+        r"""Fetches a tree from a repository.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_fetch_tree():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.FetchTreeRequest(
+                    repository="repository_value",
+                )
+
+                # Make the request
+                page_result = client.fetch_tree(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.FetchTreeRequest, dict]):
+                The request object. Request message for fetching a tree
+                structure from a repository.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.securesourcemanager_v1.services.secure_source_manager.pagers.FetchTreePager:
+                Response message containing a list of
+                TreeEntry objects.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.FetchTreeRequest):
+            request = secure_source_manager.FetchTreeRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.fetch_tree]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("repository", request.repository),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.FetchTreePager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def fetch_blob(
+        self,
+        request: Optional[Union[secure_source_manager.FetchBlobRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> secure_source_manager.FetchBlobResponse:
+        r"""Fetches a blob from a repository.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_fetch_blob():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.FetchBlobRequest(
+                    repository="repository_value",
+                    sha="sha_value",
+                )
+
+                # Make the request
+                response = client.fetch_blob(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.FetchBlobRequest, dict]):
+                The request object. Request message for fetching a blob
+                (file content) from a repository.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.securesourcemanager_v1.types.FetchBlobResponse:
+                Response message containing the
+                content of a blob.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.FetchBlobRequest):
+            request = secure_source_manager.FetchBlobRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.fetch_blob]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("repository", request.repository),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def create_issue(
+        self,
+        request: Optional[Union[secure_source_manager.CreateIssueRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        issue: Optional[secure_source_manager.Issue] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Creates an issue.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_create_issue():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                issue = securesourcemanager_v1.Issue()
+                issue.title = "title_value"
+
+                request = securesourcemanager_v1.CreateIssueRequest(
+                    parent="parent_value",
+                    issue=issue,
+                )
+
+                # Make the request
+                operation = client.create_issue(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.CreateIssueRequest, dict]):
+                The request object. The request to create an issue.
+            parent (str):
+                Required. The repository in which to create the issue.
+                Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            issue (google.cloud.securesourcemanager_v1.types.Issue):
+                Required. The issue to create.
+                This corresponds to the ``issue`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.securesourcemanager_v1.types.Issue`
+                Metadata of an Issue.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, issue]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.CreateIssueRequest):
+            request = secure_source_manager.CreateIssueRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if issue is not None:
+                request.issue = issue
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.create_issue]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.Issue,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_issue(
+        self,
+        request: Optional[Union[secure_source_manager.GetIssueRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> secure_source_manager.Issue:
+        r"""Gets an issue.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_get_issue():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.GetIssueRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = client.get_issue(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.GetIssueRequest, dict]):
+                The request object. The request to get an issue.
+            name (str):
+                Required. Name of the issue to retrieve. The format is
+                ``projects/{project}/locations/{location}/repositories/{repository}/issues/{issue_id}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.securesourcemanager_v1.types.Issue:
+                Metadata of an Issue.
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.GetIssueRequest):
+            request = secure_source_manager.GetIssueRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.get_issue]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def list_issues(
+        self,
+        request: Optional[Union[secure_source_manager.ListIssuesRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListIssuesPager:
+        r"""Lists issues in a repository.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_list_issues():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.ListIssuesRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_issues(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.ListIssuesRequest, dict]):
+                The request object. The request to list issues.
+            parent (str):
+                Required. The repository in which to list issues.
+                Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.securesourcemanager_v1.services.secure_source_manager.pagers.ListIssuesPager:
+                The response to list issues.
+
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.ListIssuesRequest):
+            request = secure_source_manager.ListIssuesRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.list_issues]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListIssuesPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def update_issue(
+        self,
+        request: Optional[Union[secure_source_manager.UpdateIssueRequest, dict]] = None,
+        *,
+        issue: Optional[secure_source_manager.Issue] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Updates a issue.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_update_issue():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                issue = securesourcemanager_v1.Issue()
+                issue.title = "title_value"
+
+                request = securesourcemanager_v1.UpdateIssueRequest(
+                    issue=issue,
+                )
+
+                # Make the request
+                operation = client.update_issue(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.UpdateIssueRequest, dict]):
+                The request object. The request to update an issue.
+            issue (google.cloud.securesourcemanager_v1.types.Issue):
+                Required. The issue to update.
+                This corresponds to the ``issue`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Optional. Field mask is used to specify the fields to be
+                overwritten in the issue resource by the update. The
+                fields specified in the update_mask are relative to the
+                resource, not the full request. A field will be
+                overwritten if it is in the mask. The special value "\*"
+                means full replacement.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.securesourcemanager_v1.types.Issue`
+                Metadata of an Issue.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [issue, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.UpdateIssueRequest):
+            request = secure_source_manager.UpdateIssueRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if issue is not None:
+                request.issue = issue
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.update_issue]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("issue.name", request.issue.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.Issue,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def delete_issue(
+        self,
+        request: Optional[Union[secure_source_manager.DeleteIssueRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Deletes an issue.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_delete_issue():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.DeleteIssueRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.delete_issue(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.DeleteIssueRequest, dict]):
+                The request object. The request to delete an issue.
+            name (str):
+                Required. Name of the issue to delete. The format is
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/issues/{issue_id}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.DeleteIssueRequest):
+            request = secure_source_manager.DeleteIssueRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.delete_issue]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def open_issue(
+        self,
+        request: Optional[Union[secure_source_manager.OpenIssueRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Opens an issue.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_open_issue():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.OpenIssueRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.open_issue(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.OpenIssueRequest, dict]):
+                The request object. The request to open an issue.
+            name (str):
+                Required. Name of the issue to open. The format is
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/issues/{issue_id}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.securesourcemanager_v1.types.Issue`
+                Metadata of an Issue.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.OpenIssueRequest):
+            request = secure_source_manager.OpenIssueRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.open_issue]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.Issue,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def close_issue(
+        self,
+        request: Optional[Union[secure_source_manager.CloseIssueRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Closes an issue.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_close_issue():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.CloseIssueRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.close_issue(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.CloseIssueRequest, dict]):
+                The request object. The request to close an issue.
+            name (str):
+                Required. Name of the issue to close. The format is
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/issues/{issue_id}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.securesourcemanager_v1.types.Issue`
+                Metadata of an Issue.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.CloseIssueRequest):
+            request = secure_source_manager.CloseIssueRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.close_issue]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.Issue,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_pull_request_comment(
+        self,
+        request: Optional[
+            Union[secure_source_manager.GetPullRequestCommentRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> secure_source_manager.PullRequestComment:
+        r"""Gets a pull request comment.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_get_pull_request_comment():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.GetPullRequestCommentRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = client.get_pull_request_comment(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.GetPullRequestCommentRequest, dict]):
+                The request object. The request to get a pull request
+                comment.
+            name (str):
+                Required. Name of the pull request comment to retrieve.
+                The format is
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/pullRequests/{pull_request_id}/pullRequestComments/{comment_id}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.securesourcemanager_v1.types.PullRequestComment:
+                PullRequestComment represents a
+                comment on a pull request.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.GetPullRequestCommentRequest):
+            request = secure_source_manager.GetPullRequestCommentRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.get_pull_request_comment]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def list_pull_request_comments(
+        self,
+        request: Optional[
+            Union[secure_source_manager.ListPullRequestCommentsRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListPullRequestCommentsPager:
+        r"""Lists pull request comments.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_list_pull_request_comments():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.ListPullRequestCommentsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_pull_request_comments(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.ListPullRequestCommentsRequest, dict]):
+                The request object. The request to list pull request
+                comments.
+            parent (str):
+                Required. The pull request in which to list pull request
+                comments. Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/pullRequests/{pull_request_id}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.securesourcemanager_v1.services.secure_source_manager.pagers.ListPullRequestCommentsPager:
+                The response to list pull request
+                comments.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, secure_source_manager.ListPullRequestCommentsRequest
+        ):
+            request = secure_source_manager.ListPullRequestCommentsRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.list_pull_request_comments
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListPullRequestCommentsPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def create_pull_request_comment(
+        self,
+        request: Optional[
+            Union[secure_source_manager.CreatePullRequestCommentRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        pull_request_comment: Optional[secure_source_manager.PullRequestComment] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Creates a pull request comment. This function is used
+        to create a single PullRequestComment of type Comment,
+        or a single PullRequestComment of type Code that's
+        replying to another PullRequestComment of type Code. Use
+        BatchCreatePullRequestComments to create multiple
+        PullRequestComments for code reviews.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_create_pull_request_comment():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                pull_request_comment = securesourcemanager_v1.PullRequestComment()
+                pull_request_comment.review.action_type = "APPROVED"
+
+                request = securesourcemanager_v1.CreatePullRequestCommentRequest(
+                    parent="parent_value",
+                    pull_request_comment=pull_request_comment,
+                )
+
+                # Make the request
+                operation = client.create_pull_request_comment(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.CreatePullRequestCommentRequest, dict]):
+                The request object. The request to create a pull request
+                comment.
+            parent (str):
+                Required. The pull request in which to create the pull
+                request comment. Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/pullRequests/{pull_request_id}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            pull_request_comment (google.cloud.securesourcemanager_v1.types.PullRequestComment):
+                Required. The pull request comment to
+                create.
+
+                This corresponds to the ``pull_request_comment`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.securesourcemanager_v1.types.PullRequestComment`
+                PullRequestComment represents a comment on a pull
+                request.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, pull_request_comment]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, secure_source_manager.CreatePullRequestCommentRequest
+        ):
+            request = secure_source_manager.CreatePullRequestCommentRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if pull_request_comment is not None:
+                request.pull_request_comment = pull_request_comment
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.create_pull_request_comment
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.PullRequestComment,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def update_pull_request_comment(
+        self,
+        request: Optional[
+            Union[secure_source_manager.UpdatePullRequestCommentRequest, dict]
+        ] = None,
+        *,
+        pull_request_comment: Optional[secure_source_manager.PullRequestComment] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Updates a pull request comment.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_update_pull_request_comment():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                pull_request_comment = securesourcemanager_v1.PullRequestComment()
+                pull_request_comment.review.action_type = "APPROVED"
+
+                request = securesourcemanager_v1.UpdatePullRequestCommentRequest(
+                    pull_request_comment=pull_request_comment,
+                )
+
+                # Make the request
+                operation = client.update_pull_request_comment(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.UpdatePullRequestCommentRequest, dict]):
+                The request object. The request to update a pull request
+                comment.
+            pull_request_comment (google.cloud.securesourcemanager_v1.types.PullRequestComment):
+                Required. The pull request comment to
+                update.
+
+                This corresponds to the ``pull_request_comment`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Optional. Field mask is used to specify the fields to be
+                overwritten in the pull request comment resource by the
+                update. Updatable fields are ``body``.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.securesourcemanager_v1.types.PullRequestComment`
+                PullRequestComment represents a comment on a pull
+                request.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [pull_request_comment, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, secure_source_manager.UpdatePullRequestCommentRequest
+        ):
+            request = secure_source_manager.UpdatePullRequestCommentRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if pull_request_comment is not None:
+                request.pull_request_comment = pull_request_comment
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.update_pull_request_comment
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("pull_request_comment.name", request.pull_request_comment.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.PullRequestComment,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def delete_pull_request_comment(
+        self,
+        request: Optional[
+            Union[secure_source_manager.DeletePullRequestCommentRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Deletes a pull request comment.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_delete_pull_request_comment():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.DeletePullRequestCommentRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.delete_pull_request_comment(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.DeletePullRequestCommentRequest, dict]):
+                The request object. The request to delete a pull request
+                comment. A Review PullRequestComment
+                cannot be deleted.
+            name (str):
+                Required. Name of the pull request comment to delete.
+                The format is
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/pullRequests/{pull_request_id}/pullRequestComments/{comment_id}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, secure_source_manager.DeletePullRequestCommentRequest
+        ):
+            request = secure_source_manager.DeletePullRequestCommentRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.delete_pull_request_comment
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def batch_create_pull_request_comments(
+        self,
+        request: Optional[
+            Union[secure_source_manager.BatchCreatePullRequestCommentsRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        requests: Optional[
+            MutableSequence[secure_source_manager.CreatePullRequestCommentRequest]
+        ] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Batch creates pull request comments. This function is
+        used to create multiple PullRequestComments for code
+        review. There needs to be exactly one PullRequestComment
+        of type Review, and at most 100 PullRequestComments of
+        type Code per request. The Position of the code comments
+        must be unique within the request.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_batch_create_pull_request_comments():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                requests = securesourcemanager_v1.CreatePullRequestCommentRequest()
+                requests.parent = "parent_value"
+                requests.pull_request_comment.review.action_type = "APPROVED"
+
+                request = securesourcemanager_v1.BatchCreatePullRequestCommentsRequest(
+                    parent="parent_value",
+                    requests=requests,
+                )
+
+                # Make the request
+                operation = client.batch_create_pull_request_comments(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.BatchCreatePullRequestCommentsRequest, dict]):
+                The request object. The request to batch create pull
+                request comments.
+            parent (str):
+                Required. The pull request in which to create the pull
+                request comments. Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/pullRequests/{pull_request_id}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            requests (MutableSequence[google.cloud.securesourcemanager_v1.types.CreatePullRequestCommentRequest]):
+                Required. The request message
+                specifying the resources to create.
+                There should be exactly one
+                CreatePullRequestCommentRequest with
+                CommentDetail being REVIEW in the list,
+                and no more than 100
+                CreatePullRequestCommentRequests with
+                CommentDetail being CODE in the list
+
+                This corresponds to the ``requests`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.securesourcemanager_v1.types.BatchCreatePullRequestCommentsResponse`
+                The response to batch create pull request comments.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, requests]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, secure_source_manager.BatchCreatePullRequestCommentsRequest
+        ):
+            request = secure_source_manager.BatchCreatePullRequestCommentsRequest(
+                request
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if requests is not None:
+                request.requests = requests
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.batch_create_pull_request_comments
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.BatchCreatePullRequestCommentsResponse,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def resolve_pull_request_comments(
+        self,
+        request: Optional[
+            Union[secure_source_manager.ResolvePullRequestCommentsRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        names: Optional[MutableSequence[str]] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Resolves pull request comments. A list of PullRequestComment
+        names must be provided. The PullRequestComment names must be in
+        the same conversation thread. If auto_fill is set, all comments
+        in the conversation thread will be resolved.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_resolve_pull_request_comments():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.ResolvePullRequestCommentsRequest(
+                    parent="parent_value",
+                    names=['names_value1', 'names_value2'],
+                )
+
+                # Make the request
+                operation = client.resolve_pull_request_comments(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.ResolvePullRequestCommentsRequest, dict]):
+                The request object. The request to resolve multiple pull
+                request comments.
+            parent (str):
+                Required. The pull request in which to resolve the pull
+                request comments. Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/pullRequests/{pull_request_id}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            names (MutableSequence[str]):
+                Required. The names of the pull request comments to
+                resolve. Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/pullRequests/{pull_request_id}/pullRequestComments/{comment_id}``
+                Only comments from the same threads are allowed in the
+                same request.
+
+                This corresponds to the ``names`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.securesourcemanager_v1.types.ResolvePullRequestCommentsResponse`
+                The response to resolve multiple pull request comments.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, names]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, secure_source_manager.ResolvePullRequestCommentsRequest
+        ):
+            request = secure_source_manager.ResolvePullRequestCommentsRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if names is not None:
+                request.names = names
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.resolve_pull_request_comments
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.ResolvePullRequestCommentsResponse,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def unresolve_pull_request_comments(
+        self,
+        request: Optional[
+            Union[secure_source_manager.UnresolvePullRequestCommentsRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        names: Optional[MutableSequence[str]] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Unresolves pull request comments. A list of PullRequestComment
+        names must be provided. The PullRequestComment names must be in
+        the same conversation thread. If auto_fill is set, all comments
+        in the conversation thread will be unresolved.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_unresolve_pull_request_comments():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.UnresolvePullRequestCommentsRequest(
+                    parent="parent_value",
+                    names=['names_value1', 'names_value2'],
+                )
+
+                # Make the request
+                operation = client.unresolve_pull_request_comments(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.UnresolvePullRequestCommentsRequest, dict]):
+                The request object. The request to unresolve multiple
+                pull request comments.
+            parent (str):
+                Required. The pull request in which to resolve the pull
+                request comments. Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/pullRequests/{pull_request_id}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            names (MutableSequence[str]):
+                Required. The names of the pull request comments to
+                unresolve. Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/pullRequests/{pull_request_id}/pullRequestComments/{comment_id}``
+                Only comments from the same threads are allowed in the
+                same request.
+
+                This corresponds to the ``names`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.securesourcemanager_v1.types.UnresolvePullRequestCommentsResponse`
+                The response to unresolve multiple pull request
+                comments.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, names]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, secure_source_manager.UnresolvePullRequestCommentsRequest
+        ):
+            request = secure_source_manager.UnresolvePullRequestCommentsRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if names is not None:
+                request.names = names
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.unresolve_pull_request_comments
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.UnresolvePullRequestCommentsResponse,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def create_issue_comment(
+        self,
+        request: Optional[
+            Union[secure_source_manager.CreateIssueCommentRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        issue_comment: Optional[secure_source_manager.IssueComment] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Creates an issue comment.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_create_issue_comment():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                issue_comment = securesourcemanager_v1.IssueComment()
+                issue_comment.body = "body_value"
+
+                request = securesourcemanager_v1.CreateIssueCommentRequest(
+                    parent="parent_value",
+                    issue_comment=issue_comment,
+                )
+
+                # Make the request
+                operation = client.create_issue_comment(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.CreateIssueCommentRequest, dict]):
+                The request object. The request to create an issue
+                comment.
+            parent (str):
+                Required. The issue in which to create the issue
+                comment. Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/issues/{issue_id}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            issue_comment (google.cloud.securesourcemanager_v1.types.IssueComment):
+                Required. The issue comment to
+                create.
+
+                This corresponds to the ``issue_comment`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.securesourcemanager_v1.types.IssueComment`
+                IssueComment represents a comment on an issue.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, issue_comment]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.CreateIssueCommentRequest):
+            request = secure_source_manager.CreateIssueCommentRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if issue_comment is not None:
+                request.issue_comment = issue_comment
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.create_issue_comment]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.IssueComment,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_issue_comment(
+        self,
+        request: Optional[
+            Union[secure_source_manager.GetIssueCommentRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> secure_source_manager.IssueComment:
+        r"""Gets an issue comment.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_get_issue_comment():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.GetIssueCommentRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = client.get_issue_comment(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.GetIssueCommentRequest, dict]):
+                The request object. The request to get an issue comment.
+            name (str):
+                Required. Name of the issue comment to retrieve. The
+                format is
+                ``projects/{project}/locations/{location}/repositories/{repository}/issues/{issue_id}/issueComments/{comment_id}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.securesourcemanager_v1.types.IssueComment:
+                IssueComment represents a comment on
+                an issue.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.GetIssueCommentRequest):
+            request = secure_source_manager.GetIssueCommentRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.get_issue_comment]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def list_issue_comments(
+        self,
+        request: Optional[
+            Union[secure_source_manager.ListIssueCommentsRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListIssueCommentsPager:
+        r"""Lists comments in an issue.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_list_issue_comments():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.ListIssueCommentsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_issue_comments(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.ListIssueCommentsRequest, dict]):
+                The request object. The request to list issue comments.
+            parent (str):
+                Required. The issue in which to list the comments.
+                Format:
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/issues/{issue_id}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.securesourcemanager_v1.services.secure_source_manager.pagers.ListIssueCommentsPager:
+                The response to list issue comments.
+
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.ListIssueCommentsRequest):
+            request = secure_source_manager.ListIssueCommentsRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.list_issue_comments]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListIssueCommentsPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def update_issue_comment(
+        self,
+        request: Optional[
+            Union[secure_source_manager.UpdateIssueCommentRequest, dict]
+        ] = None,
+        *,
+        issue_comment: Optional[secure_source_manager.IssueComment] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Updates an issue comment.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_update_issue_comment():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                issue_comment = securesourcemanager_v1.IssueComment()
+                issue_comment.body = "body_value"
+
+                request = securesourcemanager_v1.UpdateIssueCommentRequest(
+                    issue_comment=issue_comment,
+                )
+
+                # Make the request
+                operation = client.update_issue_comment(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.UpdateIssueCommentRequest, dict]):
+                The request object. The request to update an issue
+                comment.
+            issue_comment (google.cloud.securesourcemanager_v1.types.IssueComment):
+                Required. The issue comment to
+                update.
+
+                This corresponds to the ``issue_comment`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Optional. Field mask is used to specify the fields to be
+                overwritten in the issue comment resource by the update.
+                The fields specified in the update_mask are relative to
+                the resource, not the full request. A field will be
+                overwritten if it is in the mask. The special value "\*"
+                means full replacement.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.securesourcemanager_v1.types.IssueComment`
+                IssueComment represents a comment on an issue.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [issue_comment, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.UpdateIssueCommentRequest):
+            request = secure_source_manager.UpdateIssueCommentRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if issue_comment is not None:
+                request.issue_comment = issue_comment
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.update_issue_comment]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("issue_comment.name", request.issue_comment.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            secure_source_manager.IssueComment,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def delete_issue_comment(
+        self,
+        request: Optional[
+            Union[secure_source_manager.DeleteIssueCommentRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Deletes an issue comment.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import securesourcemanager_v1
+
+            def sample_delete_issue_comment():
+                # Create a client
+                client = securesourcemanager_v1.SecureSourceManagerClient()
+
+                # Initialize request argument(s)
+                request = securesourcemanager_v1.DeleteIssueCommentRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = client.delete_issue_comment(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.securesourcemanager_v1.types.DeleteIssueCommentRequest, dict]):
+                The request object. The request to delete an issue
+                comment.
+            name (str):
+                Required. Name of the issue comment to delete. The
+                format is
+                ``projects/{project_number}/locations/{location_id}/repositories/{repository_id}/issues/{issue_id}/issueComments/{comment_id}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, secure_source_manager.DeleteIssueCommentRequest):
+            request = secure_source_manager.DeleteIssueCommentRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.delete_issue_comment]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=secure_source_manager.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
     def __enter__(self) -> "SecureSourceManagerClient":
         return self
 
@@ -2943,7 +7734,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
     def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2969,8 +7760,12 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2979,7 +7774,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2988,7 +7783,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -3002,7 +7797,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
     def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3028,8 +7823,12 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3038,7 +7837,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3047,7 +7846,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -3061,7 +7860,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
     def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3091,8 +7890,12 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3101,7 +7904,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3109,7 +7912,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
         # Send the request.
         rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -3117,7 +7920,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
     def cancel_operation(
         self,
-        request: Optional[operations_pb2.CancelOperationRequest] = None,
+        request: Optional[Union[operations_pb2.CancelOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3146,8 +7949,12 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.CancelOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.CancelOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.CancelOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3156,7 +7963,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3164,7 +7971,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
         # Send the request.
         rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -3172,7 +7979,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
     def set_iam_policy(
         self,
-        request: Optional[iam_policy_pb2.SetIamPolicyRequest] = None,
+        request: Optional[Union[iam_policy_pb2.SetIamPolicyRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3264,8 +8071,12 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.SetIamPolicyRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.SetIamPolicyRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.SetIamPolicyRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3274,7 +8085,9 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -3283,7 +8096,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -3297,7 +8110,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
     def get_iam_policy(
         self,
-        request: Optional[iam_policy_pb2.GetIamPolicyRequest] = None,
+        request: Optional[Union[iam_policy_pb2.GetIamPolicyRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3390,8 +8203,12 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.GetIamPolicyRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.GetIamPolicyRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.GetIamPolicyRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3400,7 +8217,9 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -3409,7 +8228,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -3423,7 +8242,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
     def test_iam_permissions(
         self,
-        request: Optional[iam_policy_pb2.TestIamPermissionsRequest] = None,
+        request: Optional[Union[iam_policy_pb2.TestIamPermissionsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3454,8 +8273,12 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.TestIamPermissionsRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3464,7 +8287,9 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -3473,7 +8298,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -3487,7 +8312,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
     def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3513,8 +8338,12 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3523,7 +8352,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3532,7 +8361,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -3546,7 +8375,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
 
     def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3572,8 +8401,12 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3582,7 +8415,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3591,7 +8424,7 @@ class SecureSourceManagerClient(metaclass=SecureSourceManagerClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,

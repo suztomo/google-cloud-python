@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+import uuid
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -28,15 +29,14 @@ from typing import (
     Type,
     Union,
 )
-import uuid
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.storage_control_v2 import gapic_version as package_version
 
@@ -45,12 +45,15 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.storage_control_v2.services.storage_control import pagers
 from google.cloud.storage_control_v2.types import storage_control
@@ -141,7 +144,10 @@ class StorageControlAsyncClient:
         Returns:
             StorageControlAsyncClient: The constructed client.
         """
-        return StorageControlClient.from_service_account_info.__func__(StorageControlAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            StorageControlClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(StorageControlAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -157,7 +163,10 @@ class StorageControlAsyncClient:
         Returns:
             StorageControlAsyncClient: The constructed client.
         """
-        return StorageControlClient.from_service_account_file.__func__(StorageControlAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            StorageControlClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(StorageControlAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -207,7 +216,7 @@ class StorageControlAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -450,8 +459,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -566,8 +574,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -689,8 +696,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -879,11 +885,11 @@ class StorageControlAsyncClient:
                 )
 
                 # Make the request
-                operation = client.rename_folder(request=request)
+                operation = await client.rename_folder(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -967,8 +973,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -987,6 +992,153 @@ class StorageControlAsyncClient:
             self._client._transport.operations_client,
             storage_control.Folder,
             metadata_type=storage_control.RenameFolderMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def delete_folder_recursive(
+        self,
+        request: Optional[
+            Union[storage_control.DeleteFolderRecursiveRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Deletes a folder recursively. This operation is only
+        applicable to a hierarchical namespace enabled bucket.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import storage_control_v2
+
+            async def sample_delete_folder_recursive():
+                # Create a client
+                client = storage_control_v2.StorageControlAsyncClient()
+
+                # Initialize request argument(s)
+                request = storage_control_v2.DeleteFolderRecursiveRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = await client.delete_folder_recursive(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.storage_control_v2.types.DeleteFolderRecursiveRequest, dict]]):
+                The request object. Request message for
+                DeleteFolderRecursive.
+            name (:class:`str`):
+                Required. Name of the folder being deleted, however all
+                of its contents will be deleted too. Format:
+                ``projects/{project}/buckets/{bucket}/folders/{folder}``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, storage_control.DeleteFolderRecursiveRequest):
+            request = storage_control.DeleteFolderRecursiveRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.delete_folder_recursive
+        ]
+
+        header_params = {}
+
+        routing_param_regex = re.compile(
+            "^(?P<bucket>projects/[^/]+/buckets/[^/]+)(?:/.*)?$"
+        )
+        regex_match = routing_param_regex.match(request.name)
+        if regex_match and regex_match.group("bucket"):
+            header_params["bucket"] = regex_match.group("bucket")
+
+        if header_params:
+            metadata = tuple(metadata) + (
+                gapic_v1.routing_header.to_grpc_metadata(header_params),
+            )
+
+        self._client._setup_request_id(request, "request_id", False)
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=storage_control.DeleteFolderRecursiveMetadata,
         )
 
         # Done; return the response.
@@ -1098,8 +1250,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -1243,8 +1394,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -1358,8 +1508,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -1474,8 +1623,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -1601,8 +1749,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -1664,11 +1811,11 @@ class StorageControlAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_anywhere_cache(request=request)
+                operation = await client.create_anywhere_cache(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1754,8 +1901,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -1814,11 +1960,11 @@ class StorageControlAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_anywhere_cache(request=request)
+                operation = await client.update_anywhere_cache(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1912,8 +2058,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -2046,8 +2191,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -2168,8 +2312,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -2290,8 +2433,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -2409,8 +2551,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -2535,8 +2676,7 @@ class StorageControlAsyncClient:
                 gapic_v1.routing_header.to_grpc_metadata(header_params),
             )
 
-        if not request.request_id:
-            request.request_id = str(uuid.uuid4())
+        self._client._setup_request_id(request, "request_id", False)
 
         # Validate the universe domain.
         self._client._validate_universe_domain()
@@ -3326,6 +3466,464 @@ class StorageControlAsyncClient:
                 (("intelligence_config.name", request.intelligence_config.name),)
             ),
         )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def get_iam_policy(
+        self,
+        request: Optional[Union[iam_policy_pb2.GetIamPolicyRequest, dict]] = None,
+        *,
+        resource: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> policy_pb2.Policy:
+        r"""Gets the IAM policy for a specified bucket. The ``resource``
+        field in the request should be ``projects/_/buckets/{bucket}``
+        for a bucket, or
+        ``projects/_/buckets/{bucket}/managedFolders/{managedFolder}``
+        for a managed folder.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import storage_control_v2
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+
+            async def sample_get_iam_policy():
+                # Create a client
+                client = storage_control_v2.StorageControlAsyncClient()
+
+                # Initialize request argument(s)
+                request = iam_policy_pb2.GetIamPolicyRequest(
+                    resource="resource_value",
+                )
+
+                # Make the request
+                response = await client.get_iam_policy(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.iam.v1.iam_policy_pb2.GetIamPolicyRequest, dict]]):
+                The request object. Request message for ``GetIamPolicy`` method.
+            resource (:class:`str`):
+                REQUIRED: The resource for which the
+                policy is being requested. See the
+                operation documentation for the
+                appropriate value for this field.
+
+                This corresponds to the ``resource`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.iam.v1.policy_pb2.Policy:
+                An Identity and Access Management (IAM) policy, which specifies access
+                   controls for Google Cloud resources.
+
+                   A Policy is a collection of bindings. A binding binds
+                   one or more members, or principals, to a single role.
+                   Principals can be user accounts, service accounts,
+                   Google groups, and domains (such as G Suite). A role
+                   is a named list of permissions; each role can be an
+                   IAM predefined role or a user-created custom role.
+
+                   For some types of Google Cloud resources, a binding
+                   can also specify a condition, which is a logical
+                   expression that allows access to a resource only if
+                   the expression evaluates to true. A condition can add
+                   constraints based on attributes of the request, the
+                   resource, or both. To learn which resources support
+                   conditions in their IAM policies, see the [IAM
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
+
+                   **JSON example:**
+
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+
+                   **YAML example:**
+
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+
+                   For a description of IAM and its features, see the
+                   [IAM
+                   documentation](https://cloud.google.com/iam/docs/).
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [resource]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - The request isn't a proto-plus wrapped type,
+        #   so it must be constructed via keyword expansion.
+        if isinstance(request, dict):
+            request = iam_policy_pb2.GetIamPolicyRequest(**request)
+        elif not request:
+            request = iam_policy_pb2.GetIamPolicyRequest(resource=resource)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.get_iam_policy
+        ]
+
+        header_params = {}
+
+        routing_param_regex = re.compile("^(?P<bucket>.*)$")
+        regex_match = routing_param_regex.match(request.resource)
+        if regex_match and regex_match.group("bucket"):
+            header_params["bucket"] = regex_match.group("bucket")
+
+        routing_param_regex = re.compile(
+            "^(?P<bucket>projects/[^/]+/buckets/[^/]+)(?:/.*)?$"
+        )
+        regex_match = routing_param_regex.match(request.resource)
+        if regex_match and regex_match.group("bucket"):
+            header_params["bucket"] = regex_match.group("bucket")
+
+        if header_params:
+            metadata = tuple(metadata) + (
+                gapic_v1.routing_header.to_grpc_metadata(header_params),
+            )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def set_iam_policy(
+        self,
+        request: Optional[Union[iam_policy_pb2.SetIamPolicyRequest, dict]] = None,
+        *,
+        resource: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> policy_pb2.Policy:
+        r"""Updates an IAM policy for the specified bucket. The ``resource``
+        field in the request should be ``projects/_/buckets/{bucket}``
+        for a bucket, or
+        ``projects/_/buckets/{bucket}/managedFolders/{managedFolder}``
+        for a managed folder.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import storage_control_v2
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+
+            async def sample_set_iam_policy():
+                # Create a client
+                client = storage_control_v2.StorageControlAsyncClient()
+
+                # Initialize request argument(s)
+                request = iam_policy_pb2.SetIamPolicyRequest(
+                    resource="resource_value",
+                )
+
+                # Make the request
+                response = await client.set_iam_policy(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.iam.v1.iam_policy_pb2.SetIamPolicyRequest, dict]]):
+                The request object. Request message for ``SetIamPolicy`` method.
+            resource (:class:`str`):
+                REQUIRED: The resource for which the
+                policy is being specified. See the
+                operation documentation for the
+                appropriate value for this field.
+
+                This corresponds to the ``resource`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.iam.v1.policy_pb2.Policy:
+                An Identity and Access Management (IAM) policy, which specifies access
+                   controls for Google Cloud resources.
+
+                   A Policy is a collection of bindings. A binding binds
+                   one or more members, or principals, to a single role.
+                   Principals can be user accounts, service accounts,
+                   Google groups, and domains (such as G Suite). A role
+                   is a named list of permissions; each role can be an
+                   IAM predefined role or a user-created custom role.
+
+                   For some types of Google Cloud resources, a binding
+                   can also specify a condition, which is a logical
+                   expression that allows access to a resource only if
+                   the expression evaluates to true. A condition can add
+                   constraints based on attributes of the request, the
+                   resource, or both. To learn which resources support
+                   conditions in their IAM policies, see the [IAM
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
+
+                   **JSON example:**
+
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+
+                   **YAML example:**
+
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+
+                   For a description of IAM and its features, see the
+                   [IAM
+                   documentation](https://cloud.google.com/iam/docs/).
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [resource]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - The request isn't a proto-plus wrapped type,
+        #   so it must be constructed via keyword expansion.
+        if isinstance(request, dict):
+            request = iam_policy_pb2.SetIamPolicyRequest(**request)
+        elif not request:
+            request = iam_policy_pb2.SetIamPolicyRequest(resource=resource)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.set_iam_policy
+        ]
+
+        header_params = {}
+
+        routing_param_regex = re.compile("^(?P<bucket>.*)$")
+        regex_match = routing_param_regex.match(request.resource)
+        if regex_match and regex_match.group("bucket"):
+            header_params["bucket"] = regex_match.group("bucket")
+
+        routing_param_regex = re.compile(
+            "^(?P<bucket>projects/[^/]+/buckets/[^/]+)(?:/.*)?$"
+        )
+        regex_match = routing_param_regex.match(request.resource)
+        if regex_match and regex_match.group("bucket"):
+            header_params["bucket"] = regex_match.group("bucket")
+
+        if header_params:
+            metadata = tuple(metadata) + (
+                gapic_v1.routing_header.to_grpc_metadata(header_params),
+            )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def test_iam_permissions(
+        self,
+        request: Optional[Union[iam_policy_pb2.TestIamPermissionsRequest, dict]] = None,
+        *,
+        resource: Optional[str] = None,
+        permissions: Optional[MutableSequence[str]] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> iam_policy_pb2.TestIamPermissionsResponse:
+        r"""Tests a set of permissions on the given bucket, object, or
+        managed folder to see which, if any, are held by the caller. The
+        ``resource`` field in the request should be
+        ``projects/_/buckets/{bucket}`` for a bucket,
+        ``projects/_/buckets/{bucket}/objects/{object}`` for an object,
+        or
+        ``projects/_/buckets/{bucket}/managedFolders/{managedFolder}``
+        for a managed folder.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import storage_control_v2
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+
+            async def sample_test_iam_permissions():
+                # Create a client
+                client = storage_control_v2.StorageControlAsyncClient()
+
+                # Initialize request argument(s)
+                request = iam_policy_pb2.TestIamPermissionsRequest(
+                    resource="resource_value",
+                    permissions=['permissions_value1', 'permissions_value2'],
+                )
+
+                # Make the request
+                response = await client.test_iam_permissions(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.iam.v1.iam_policy_pb2.TestIamPermissionsRequest, dict]]):
+                The request object. Request message for ``TestIamPermissions`` method.
+            resource (:class:`str`):
+                REQUIRED: The resource for which the
+                policy detail is being requested. See
+                the operation documentation for the
+                appropriate value for this field.
+
+                This corresponds to the ``resource`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            permissions (:class:`MutableSequence[str]`):
+                The set of permissions to check for the ``resource``.
+                Permissions with wildcards (such as '*' or 'storage.*')
+                are not allowed. For more information see `IAM
+                Overview <https://cloud.google.com/iam/docs/overview#permissions>`__.
+
+                This corresponds to the ``permissions`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.iam.v1.iam_policy_pb2.TestIamPermissionsResponse:
+                Response message for TestIamPermissions method.
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [resource, permissions]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - The request isn't a proto-plus wrapped type,
+        #   so it must be constructed via keyword expansion.
+        if isinstance(request, dict):
+            request = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        elif not request:
+            request = iam_policy_pb2.TestIamPermissionsRequest(
+                resource=resource, permissions=permissions
+            )
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.test_iam_permissions
+        ]
+
+        header_params = {}
+
+        routing_param_regex = re.compile("^(?P<bucket>.*)$")
+        regex_match = routing_param_regex.match(request.resource)
+        if regex_match and regex_match.group("bucket"):
+            header_params["bucket"] = regex_match.group("bucket")
+
+        routing_param_regex = re.compile(
+            "^(?P<bucket>projects/[^/]+/buckets/[^/]+)/objects(?:/.*)?$"
+        )
+        regex_match = routing_param_regex.match(request.resource)
+        if regex_match and regex_match.group("bucket"):
+            header_params["bucket"] = regex_match.group("bucket")
+
+        routing_param_regex = re.compile(
+            "^(?P<bucket>projects/[^/]+/buckets/[^/]+)/managedFolders(?:/.*)?$"
+        )
+        regex_match = routing_param_regex.match(request.resource)
+        if regex_match and regex_match.group("bucket"):
+            header_params["bucket"] = regex_match.group("bucket")
+
+        if header_params:
+            metadata = tuple(metadata) + (
+                gapic_v1.routing_header.to_grpc_metadata(header_params),
+            )
 
         # Validate the universe domain.
         self._client._validate_universe_domain()

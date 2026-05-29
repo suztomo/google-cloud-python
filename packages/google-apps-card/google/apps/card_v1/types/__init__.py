@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,10 @@ from .card import (
     Button,
     ButtonList,
     Card,
+    Carousel,
+    Chip,
+    ChipList,
+    CollapseControl,
     Columns,
     DateTimePicker,
     DecoratedText,
@@ -31,10 +35,12 @@ from .card import (
     MaterialIcon,
     OnClick,
     OpenLink,
+    OverflowMenu,
     SelectionInput,
     Suggestions,
     TextInput,
     TextParagraph,
+    Validation,
     Widget,
 )
 
@@ -44,6 +50,10 @@ __all__ = (
     "Button",
     "ButtonList",
     "Card",
+    "Carousel",
+    "Chip",
+    "ChipList",
+    "CollapseControl",
     "Columns",
     "DateTimePicker",
     "DecoratedText",
@@ -56,9 +66,11 @@ __all__ = (
     "MaterialIcon",
     "OnClick",
     "OpenLink",
+    "OverflowMenu",
     "SelectionInput",
     "Suggestions",
     "TextInput",
     "TextParagraph",
+    "Validation",
     "Widget",
 )

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -41,6 +41,8 @@ __protobuf__ = proto.module(
         "DeleteInstanceRequest",
         "GetCertificateAuthorityRequest",
         "CertificateAuthority",
+        "SharedRegionalCertificateAuthority",
+        "GetSharedRegionalCertificateAuthorityRequest",
         "OperationMetadata",
     },
 )
@@ -57,6 +59,7 @@ class PscConnectionStatus(proto.Enum):
         NOT_FOUND (2):
             Connection not found
     """
+
     PSC_CONNECTION_STATUS_UNSPECIFIED = 0
     ACTIVE = 1
     NOT_FOUND = 2
@@ -78,6 +81,7 @@ class ConnectionType(proto.Enum):
             Connection that will be used as reader
             endpoint to access replicas.
     """
+
     CONNECTION_TYPE_UNSPECIFIED = 0
     CONNECTION_TYPE_DISCOVERY = 1
     CONNECTION_TYPE_PRIMARY = 2
@@ -159,6 +163,23 @@ class Instance(proto.Message):
             Optional. Endpoints for the instance.
         mode (google.cloud.memorystore_v1beta.types.Instance.Mode):
             Optional. The mode config for the instance.
+        server_ca_mode (google.cloud.memorystore_v1beta.types.Instance.ServerCaMode):
+            Optional. Immutable. The Server CA mode for
+            the instance.
+
+            This field is a member of `oneof`_ ``_server_ca_mode``.
+        server_ca_pool (str):
+            Optional. Immutable. The customer-managed CA pool for the
+            instance. Only applicable if the Server CA mode is
+            CUSTOMER_MANAGED_CAS_CA. Format:
+            "projects/{project}/locations/{region}/caPools/{ca_pool}".
+
+            This field is a member of `oneof`_ ``_server_ca_pool``.
+        rotate_server_certificate (bool):
+            Optional. Input only. Rotate the server
+            certificates.
+
+            This field is a member of `oneof`_ ``_rotate_server_certificate``.
     """
 
     class State(proto.Enum):
@@ -176,6 +197,7 @@ class Instance(proto.Message):
             DELETING (4):
                 Instance is being deleted.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2
@@ -193,6 +215,7 @@ class Instance(proto.Message):
             IAM_AUTH (2):
                 IAM basic authorization.
         """
+
         AUTHORIZATION_MODE_UNSPECIFIED = 0
         AUTH_DISABLED = 1
         IAM_AUTH = 2
@@ -209,6 +232,7 @@ class Instance(proto.Message):
                 Server-managed encryption is used for
                 in-transit encryption.
         """
+
         TRANSIT_ENCRYPTION_MODE_UNSPECIFIED = 0
         TRANSIT_ENCRYPTION_DISABLED = 1
         SERVER_AUTHENTICATION = 2
@@ -229,12 +253,31 @@ class Instance(proto.Message):
                 High memory extra large.
             STANDARD_SMALL (4):
                 Standard small.
+            CUSTOM_MICRO (5):
+                Custom micro.
+            CUSTOM_MINI (6):
+                Custom mini.
+            HIGHCPU_MEDIUM (7):
+                High cpu medium.
+            STANDARD_LARGE (8):
+                Standard large.
+            HIGHMEM_2XLARGE (9):
+                High memory 2xlarge.
+            CUSTOM_PICO (10):
+                Custom pico.
         """
+
         NODE_TYPE_UNSPECIFIED = 0
         SHARED_CORE_NANO = 1
         HIGHMEM_MEDIUM = 2
         HIGHMEM_XLARGE = 3
         STANDARD_SMALL = 4
+        CUSTOM_MICRO = 5
+        CUSTOM_MINI = 6
+        HIGHCPU_MEDIUM = 7
+        STANDARD_LARGE = 8
+        HIGHMEM_2XLARGE = 9
+        CUSTOM_PICO = 10
 
     class Mode(proto.Enum):
         r"""The mode config, which is used to enable/disable cluster
@@ -250,10 +293,42 @@ class Instance(proto.Message):
             CLUSTER_DISABLED (4):
                 Cluster mode is disabled for the instance.
         """
+
         MODE_UNSPECIFIED = 0
         STANDALONE = 1
         CLUSTER = 2
         CLUSTER_DISABLED = 4
+
+    class ServerCaMode(proto.Enum):
+        r"""The Server CA mode for the instance.
+
+        Values:
+            SERVER_CA_MODE_UNSPECIFIED (0):
+                Server CA mode not specified.
+            GOOGLE_MANAGED_PER_INSTANCE_CA (1):
+                Each instance has its own Google-managed CA.
+            GOOGLE_MANAGED_SHARED_CA (2):
+                The instance uses a Google-managed shared CA
+                for the instance's region.
+            CUSTOMER_MANAGED_CAS_CA (3):
+                The instance uses a customer-managed CA from
+                CAS.
+            SERVER_CA_MODE_GOOGLE_MANAGED_PER_INSTANCE_CA (1):
+                Deprecated: Use GOOGLE_MANAGED_PER_INSTANCE_CA instead.
+            SERVER_CA_MODE_GOOGLE_MANAGED_SHARED_CA (2):
+                Deprecated: Use GOOGLE_MANAGED_SHARED_CA instead.
+            SERVER_CA_MODE_CUSTOMER_MANAGED_CAS_CA (3):
+                Deprecated: Use CUSTOMER_MANAGED_CAS_CA instead.
+        """
+
+        _pb_options = {"allow_alias": True}
+        SERVER_CA_MODE_UNSPECIFIED = 0
+        GOOGLE_MANAGED_PER_INSTANCE_CA = 1
+        GOOGLE_MANAGED_SHARED_CA = 2
+        CUSTOMER_MANAGED_CAS_CA = 3
+        SERVER_CA_MODE_GOOGLE_MANAGED_PER_INSTANCE_CA = 1
+        SERVER_CA_MODE_GOOGLE_MANAGED_SHARED_CA = 2
+        SERVER_CA_MODE_CUSTOMER_MANAGED_CAS_CA = 3
 
     class StateInfo(proto.Message):
         r"""Additional information about the state of the instance.
@@ -465,6 +540,22 @@ class Instance(proto.Message):
         proto.ENUM,
         number=26,
         enum=Mode,
+    )
+    server_ca_mode: ServerCaMode = proto.Field(
+        proto.ENUM,
+        number=56,
+        optional=True,
+        enum=ServerCaMode,
+    )
+    server_ca_pool: str = proto.Field(
+        proto.STRING,
+        number=57,
+        optional=True,
+    )
+    rotate_server_certificate: bool = proto.Field(
+        proto.BOOL,
+        number=58,
+        optional=True,
     )
 
 
@@ -686,6 +777,7 @@ class PersistenceConfig(proto.Message):
             AOF (3):
                 AOF based persistence is enabled.
         """
+
         PERSISTENCE_MODE_UNSPECIFIED = 0
         DISABLED = 1
         RDB = 2
@@ -719,6 +811,7 @@ class PersistenceConfig(proto.Message):
                 TWENTY_FOUR_HOURS (4):
                     Twenty four hours.
             """
+
             SNAPSHOT_PERIOD_UNSPECIFIED = 0
             ONE_HOUR = 1
             SIX_HOURS = 2
@@ -762,6 +855,7 @@ class PersistenceConfig(proto.Message):
                     appended to the AOF. The best data loss
                     protection at the cost of performance.
             """
+
             APPEND_FSYNC_UNSPECIFIED = 0
             NEVER = 1
             EVERY_SEC = 2
@@ -830,6 +924,7 @@ class ZoneDistributionConfig(proto.Message):
                 Provision resources in a single zone. Zone
                 field must be specified.
         """
+
         ZONE_DISTRIBUTION_MODE_UNSPECIFIED = 0
         MULTI_ZONE = 1
         SINGLE_ZONE = 2
@@ -955,11 +1050,11 @@ class CreateInstanceRequest(proto.Message):
 
             This value is subject to the following restrictions:
 
-            -  Must be 4-63 characters in length
-            -  Must begin with a letter or digit
-            -  Must contain only lowercase letters, digits, and hyphens
-            -  Must not end with a hyphen
-            -  Must be unique within a location
+            - Must be 4-63 characters in length
+            - Must begin with a letter or digit
+            - Must contain only lowercase letters, digits, and hyphens
+            - Must not end with a hyphen
+            - Must be unique within a location
         instance (google.cloud.memorystore_v1beta.types.Instance):
             Required. The instance to create.
         request_id (str):
@@ -1162,6 +1257,86 @@ class CertificateAuthority(proto.Message):
         oneof="server_ca",
         message=ManagedCertificateAuthority,
     )
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class SharedRegionalCertificateAuthority(proto.Message):
+    r"""Shared regional certificate authority for an instance.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        managed_server_ca (google.cloud.memorystore_v1beta.types.SharedRegionalCertificateAuthority.RegionalManagedCertificateAuthority):
+            CA certificate chains for memorystore managed
+            server authentication.
+
+            This field is a member of `oneof`_ ``server_ca``.
+        name (str):
+            Identifier. Unique name of the resource in this scope
+            including project and location using the form:
+            ``projects/{project}/locations/{location}/sharedRegionalCertificateAuthority``
+    """
+
+    class RegionalManagedCertificateAuthority(proto.Message):
+        r"""CA certificate chains for memorystore managed server
+        authentication.
+
+        Attributes:
+            ca_certs (MutableSequence[google.cloud.memorystore_v1beta.types.SharedRegionalCertificateAuthority.RegionalManagedCertificateAuthority.RegionalCertChain]):
+                The PEM encoded CA certificate chains for
+                memorystore managed server authentication
+        """
+
+        class RegionalCertChain(proto.Message):
+            r"""The certificates that form the CA chain, from leaf to root
+            order.
+
+            Attributes:
+                certificates (MutableSequence[str]):
+                    The certificates that form the CA chain, from
+                    leaf to root order.
+            """
+
+            certificates: MutableSequence[str] = proto.RepeatedField(
+                proto.STRING,
+                number=1,
+            )
+
+        ca_certs: MutableSequence[
+            "SharedRegionalCertificateAuthority.RegionalManagedCertificateAuthority.RegionalCertChain"
+        ] = proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="SharedRegionalCertificateAuthority.RegionalManagedCertificateAuthority.RegionalCertChain",
+        )
+
+    managed_server_ca: RegionalManagedCertificateAuthority = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        oneof="server_ca",
+        message=RegionalManagedCertificateAuthority,
+    )
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class GetSharedRegionalCertificateAuthorityRequest(proto.Message):
+    r"""Request for
+    [GetSharedRegionalCertificateAuthority][google.cloud.memorystore.v1beta.Memorystore.GetSharedRegionalCertificateAuthority].
+
+    Attributes:
+        name (str):
+            Required. Regional certificate authority resource name using
+            the form:
+            ``projects/{project}/locations/{location}/sharedRegionalCertificateAuthority``
+            where ``location_id`` refers to a Google Cloud region.
+    """
+
     name: str = proto.Field(
         proto.STRING,
         number=1,

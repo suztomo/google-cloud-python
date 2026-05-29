@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_list_scan_configs():
     client = websecurityscanner_v1.WebSecurityScannerClient()
 
     # Initialize request argument(s)
-    request = websecurityscanner_v1.ListScanConfigsRequest(
-    )
+    request = websecurityscanner_v1.ListScanConfigsRequest()
 
     # Make the request
     page_result = client.list_scan_configs(request=request)
@@ -48,5 +47,6 @@ def sample_list_scan_configs():
     # Handle the response
     for response in page_result:
         print(response)
+
 
 # [END websecurityscanner_v1_generated_WebSecurityScanner_ListScanConfigs_sync]

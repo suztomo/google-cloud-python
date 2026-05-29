@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_space_notification_setting():
     client = chat_v1.ChatServiceClient()
 
     # Initialize request argument(s)
-    request = chat_v1.UpdateSpaceNotificationSettingRequest(
-    )
+    request = chat_v1.UpdateSpaceNotificationSettingRequest()
 
     # Make the request
     response = client.update_space_notification_setting(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END chat_v1_generated_ChatService_UpdateSpaceNotificationSetting_sync]

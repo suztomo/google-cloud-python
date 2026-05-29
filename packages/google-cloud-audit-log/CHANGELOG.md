@@ -1,5 +1,38 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-audit-log/#history
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-audit-log-v0.4.0...google-cloud-audit-log-v0.5.0) (2026-03-26)
+
+
+### Features
+
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:c8612d3fffb3f6a32353b2d1abd16b61e87811866f7ec9d65b59b02eb452a620 ([d3579bf00f0cd37df54f7287518a9e2330bdcc83](https://github.com/googleapis/google-cloud-python/commit/d3579bf00f0cd37df54f7287518a9e2330bdcc83))
+
+
+### Bug Fixes
+
+* Allow Protobuf 7.x, require Python 3.9 (#16102) ([ec9262c45055d3d2b596cdde1649d3ce90b4347d](https://github.com/googleapis/google-cloud-python/commit/ec9262c45055d3d2b596cdde1649d3ce90b4347d))
+* Require Python 3.9 ([ec9262c45055d3d2b596cdde1649d3ce90b4347d](https://github.com/googleapis/google-cloud-python/commit/ec9262c45055d3d2b596cdde1649d3ce90b4347d))
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-audit-log-v0.3.3...google-cloud-audit-log-v0.4.0) (2025-10-16)
+
+
+### Features
+
+* add support for Python 3.14 (#14699) Towards b/375664027 ([8b69540bf6fd862bc1aebb3baf423c419b1556d4](https://github.com/googleapis/google-cloud-python/commit/8b69540bf6fd862bc1aebb3baf423c419b1556d4))
+
+## [0.3.3](https://github.com/googleapis/google-cloud-python/compare/google-cloud-audit-log-v0.3.2...google-cloud-audit-log-v0.3.3) (2025-10-07)
+
+
+### Bug Fixes
+
+* add *.proto files to google-cloud-audit-log (#14587) This PR adds *.proto files to `packages/google-cloud-audit-log` for
+consistency with what we have in googleapis-common-protos:
+https://github.com/googleapis/google-cloud-python/tree/main/packages/googleapis-common-protos/google/api ([76ce4a1b206cb6956b32217f18cbaa08aafe97c6](https://github.com/googleapis/google-cloud-python/commit/76ce4a1b206cb6956b32217f18cbaa08aafe97c6))
+
 ## [0.3.2](https://github.com/googleapis/google-cloud-python/compare/google-cloud-audit-log-v0.3.1...google-cloud-audit-log-v0.3.2) (2025-03-15)
 
 

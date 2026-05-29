@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,6 +55,7 @@ class TimeUnitEnum(proto.Message):
                 Per video stream. Only valid for entities in a VIDEO_PLAYER
                 environment.
         """
+
         TIME_UNIT_UNSPECIFIED = 0
         MINUTE = 1
         HOUR = 2

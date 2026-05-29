@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -122,6 +122,7 @@ class WidgetMarkup(proto.Message):
             VIDEO_PLAY (29):
                 No description available.
         """
+
         ICON_UNSPECIFIED = 0
         AIRPLANE = 1
         BOOKMARK = 26
@@ -493,12 +494,12 @@ class WidgetMarkup(proto.Message):
             proto.STRING,
             number=1,
         )
-        parameters: MutableSequence[
-            "WidgetMarkup.FormAction.ActionParameter"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="WidgetMarkup.FormAction.ActionParameter",
+        parameters: MutableSequence["WidgetMarkup.FormAction.ActionParameter"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="WidgetMarkup.FormAction.ActionParameter",
+            )
         )
 
     text_paragraph: TextParagraph = proto.Field(

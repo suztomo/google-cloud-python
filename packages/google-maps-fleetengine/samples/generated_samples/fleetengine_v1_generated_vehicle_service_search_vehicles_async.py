@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ async def sample_search_vehicles():
         pickup_radius_meters=2146,
         count=553,
         minimum_capacity=1705,
-        trip_types=['EXCLUSIVE'],
+        trip_types=["EXCLUSIVE"],
         order_by="COST",
     )
 
@@ -53,5 +53,6 @@ async def sample_search_vehicles():
 
     # Handle the response
     print(response)
+
 
 # [END fleetengine_v1_generated_VehicleService_SearchVehicles_async]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.monitoring_v3 import gapic_version as package_version
 
@@ -44,10 +44,10 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
 
 from google.cloud.monitoring_v3.services.alert_policy_service import pagers
 from google.cloud.monitoring_v3.types import alert, alert_service, mutation_record
@@ -135,7 +135,10 @@ class AlertPolicyServiceAsyncClient:
         Returns:
             AlertPolicyServiceAsyncClient: The constructed client.
         """
-        return AlertPolicyServiceClient.from_service_account_info.__func__(AlertPolicyServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            AlertPolicyServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(AlertPolicyServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -151,7 +154,10 @@ class AlertPolicyServiceAsyncClient:
         Returns:
             AlertPolicyServiceAsyncClient: The constructed client.
         """
-        return AlertPolicyServiceClient.from_service_account_file.__func__(AlertPolicyServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            AlertPolicyServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(AlertPolicyServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -189,7 +195,9 @@ class AlertPolicyServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return AlertPolicyServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return AlertPolicyServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> AlertPolicyServiceTransport:
@@ -201,7 +209,7 @@ class AlertPolicyServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -514,7 +522,7 @@ class AlertPolicyServiceAsyncClient:
                    considered to be "unhealthy" and the ways to notify
                    people or services about this state. For an overview
                    of alerting policies, see [Introduction to
-                   Alerting](\ https://cloud.google.com/monitoring/alerts/).
+                   Alerting](https://cloud.google.com/monitoring/alerts/).
 
         """
         # Create or coerce a protobuf request object.
@@ -657,7 +665,7 @@ class AlertPolicyServiceAsyncClient:
                    considered to be "unhealthy" and the ways to notify
                    people or services about this state. For an overview
                    of alerting policies, see [Introduction to
-                   Alerting](\ https://cloud.google.com/monitoring/alerts/).
+                   Alerting](https://cloud.google.com/monitoring/alerts/).
 
         """
         # Create or coerce a protobuf request object.
@@ -888,15 +896,15 @@ class AlertPolicyServiceAsyncClient:
                 deleting the existing policy and adding the supplied
                 policy, except for the following:
 
-                -  The new policy will have the same
-                   ``[ALERT_POLICY_ID]`` as the former policy. This
-                   gives you continuity with the former policy in your
-                   notifications and incidents.
-                -  Conditions in the new policy will keep their former
-                   ``[CONDITION_ID]`` if the supplied condition includes
-                   the ``name`` field with that ``[CONDITION_ID]``. If
-                   the supplied condition omits the ``name`` field, then
-                   a new ``[CONDITION_ID]`` is created.
+                - The new policy will have the same
+                  ``[ALERT_POLICY_ID]`` as the former policy. This gives
+                  you continuity with the former policy in your
+                  notifications and incidents.
+                - Conditions in the new policy will keep their former
+                  ``[CONDITION_ID]`` if the supplied condition includes
+                  the ``name`` field with that ``[CONDITION_ID]``. If
+                  the supplied condition omits the ``name`` field, then
+                  a new ``[CONDITION_ID]`` is created.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -924,7 +932,7 @@ class AlertPolicyServiceAsyncClient:
                    considered to be "unhealthy" and the ways to notify
                    people or services about this state. For an overview
                    of alerting policies, see [Introduction to
-                   Alerting](\ https://cloud.google.com/monitoring/alerts/).
+                   Alerting](https://cloud.google.com/monitoring/alerts/).
 
         """
         # Create or coerce a protobuf request object.

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_update_subnet():
     client = vmwareengine_v1.VmwareEngineClient()
 
     # Initialize request argument(s)
-    request = vmwareengine_v1.UpdateSubnetRequest(
-    )
+    request = vmwareengine_v1.UpdateSubnetRequest()
 
     # Make the request
     operation = client.update_subnet(request=request)
@@ -51,5 +50,6 @@ def sample_update_subnet():
 
     # Handle the response
     print(response)
+
 
 # [END vmwareengine_v1_generated_VmwareEngine_UpdateSubnet_sync]

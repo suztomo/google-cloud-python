@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_user_workloads_config_map():
     client = service_v1.EnvironmentsAsyncClient()
 
     # Initialize request argument(s)
-    request = service_v1.UpdateUserWorkloadsConfigMapRequest(
-    )
+    request = service_v1.UpdateUserWorkloadsConfigMapRequest()
 
     # Make the request
     response = await client.update_user_workloads_config_map(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END composer_v1_generated_Environments_UpdateUserWorkloadsConfigMap_async]

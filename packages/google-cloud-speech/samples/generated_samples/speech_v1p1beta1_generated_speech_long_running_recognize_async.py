@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ async def sample_long_running_recognize():
     config.language_code = "language_code_value"
 
     audio = speech_v1p1beta1.RecognitionAudio()
-    audio.content = b'content_blob'
+    audio.content = b"content_blob"
 
     request = speech_v1p1beta1.LongRunningRecognizeRequest(
         config=config,
@@ -51,13 +51,14 @@ async def sample_long_running_recognize():
     )
 
     # Make the request
-    operation = client.long_running_recognize(request=request)
+    operation = await client.long_running_recognize(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END speech_v1p1beta1_generated_Speech_LongRunningRecognize_async]

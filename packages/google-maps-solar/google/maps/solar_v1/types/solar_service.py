@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.type import date_pb2  # type: ignore
-from google.type import latlng_pb2  # type: ignore
-from google.type import money_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
+import google.type.money_pb2 as money_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -28,6 +28,7 @@ __protobuf__ = proto.module(
         "DataLayerView",
         "ImageryQuality",
         "SolarPanelOrientation",
+        "Experiment",
         "FindClosestBuildingInsightsRequest",
         "LatLngBox",
         "BuildingInsights",
@@ -68,6 +69,7 @@ class DataLayerView(proto.Enum):
         FULL_LAYERS (5):
             Get all data.
     """
+
     DATA_LAYER_VIEW_UNSPECIFIED = 0
     DSM_LAYER = 1
     IMAGERY_LAYERS = 2
@@ -88,19 +90,26 @@ class ImageryQuality(proto.Enum):
         IMAGERY_QUALITY_UNSPECIFIED (0):
             No quality is known.
         HIGH (1):
-            The underlying imagery and DSM data were
-            processed at 0.1 m/pixel.
+            Solar data is derived from aerial imagery
+            captured at low-altitude and processed at 0.1
+            m/pixel.
         MEDIUM (2):
-            The underlying imagery and DSM data were
-            processed at 0.25 m/pixel.
+            Solar data is derived from enhanced aerial
+            imagery captured at high-altitude and processed
+            at 0.25 m/pixel.
         LOW (3):
-            The underlying imagery and DSM data were
-            processed at 0.5 m/pixel.
+            Solar data is derived from enhanced satellite
+            imagery processed at 0.25 m/pixel.
+        BASE (4):
+            Solar data is derived from enhanced satellite
+            imagery processed at 0.25 m/pixel.
     """
+
     IMAGERY_QUALITY_UNSPECIFIED = 0
     HIGH = 1
     MEDIUM = 2
     LOW = 3
+    BASE = 4
 
 
 class SolarPanelOrientation(proto.Enum):
@@ -118,9 +127,35 @@ class SolarPanelOrientation(proto.Enum):
             A ``PORTRAIT`` panel has its long edge parallel to the
             azimuth direction of the roof segment that it is placed on.
     """
+
     SOLAR_PANEL_ORIENTATION_UNSPECIFIED = 0
     LANDSCAPE = 1
     PORTRAIT = 2
+
+
+class Experiment(proto.Enum):
+    r"""Specifies pre-GA experiments that can be enabled in the API.
+
+    Requests using this field are classified as a pre-GA offering under
+    the `Google Maps Platform Service Specific
+    Terms <https://cloud.google.com/maps-platform/terms/maps-service-terms>`__.
+    See `launch stage
+    descriptions <https://cloud.google.com/maps-platform/terms/launch-stages>`__
+    for more details.
+
+    New values may be added to this enum in the future.
+
+    Values:
+        EXPERIMENT_UNSPECIFIED (0):
+            No experiments are specified.
+        EXPANDED_COVERAGE (1):
+            Expands the geographic region available for querying solar
+            data. For more information, see `Expanded
+            Coverage <https://developers.google.com/maps/documentation/solar/expanded-coverage>`__.
+    """
+
+    EXPERIMENT_UNSPECIFIED = 0
+    EXPANDED_COVERAGE = 1
 
 
 class FindClosestBuildingInsightsRequest(proto.Message):
@@ -146,6 +181,9 @@ class FindClosestBuildingInsightsRequest(proto.Message):
             interpreted as the exact required quality and only
             ``MEDIUM`` quality imagery is returned if
             ``required_quality`` is set to ``MEDIUM``.
+        experiments (MutableSequence[google.maps.solar_v1.types.Experiment]):
+            Optional. Specifies the pre-GA features to
+            enable.
     """
 
     location: latlng_pb2.LatLng = proto.Field(
@@ -161,6 +199,11 @@ class FindClosestBuildingInsightsRequest(proto.Message):
     exact_quality_required: bool = proto.Field(
         proto.BOOL,
         number=4,
+    )
+    experiments: MutableSequence["Experiment"] = proto.RepeatedField(
+        proto.ENUM,
+        number=5,
+        enum="Experiment",
     )
 
 
@@ -194,7 +237,7 @@ class BuildingInsights(proto.Message):
     Attributes:
         name (str):
             The resource name for the building, of the format
-            ``building/<place ID>``.
+            ``buildings/{place_id}``.
         center (google.type.latlng_pb2.LatLng):
             A point near the center of the building.
         bounding_box (google.maps.solar_v1.types.LatLngBox):
@@ -409,12 +452,12 @@ class SolarPotential(proto.Message):
         number=13,
         message="SizeAndSunshineStats",
     )
-    roof_segment_stats: MutableSequence[
-        "RoofSegmentSizeAndSunshineStats"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=6,
-        message="RoofSegmentSizeAndSunshineStats",
+    roof_segment_stats: MutableSequence["RoofSegmentSizeAndSunshineStats"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=6,
+            message="RoofSegmentSizeAndSunshineStats",
+        )
     )
     solar_panels: MutableSequence["SolarPanel"] = proto.RepeatedField(
         proto.MESSAGE,
@@ -1089,12 +1132,11 @@ class GetDataLayersRequest(proto.Message):
             surrounding that centre point for which data should be
             returned. The limitations on this value are:
 
-            -  Any value up to 100m can always be specified.
-            -  Values over 100m can be specified, as long as
-               ``radius_meters`` <= ``pixel_size_meters * 1000``.
-            -  However, for values over 175m, the ``DataLayerView`` in
-               the request must not include monthly flux or hourly
-               shade.
+            - Any value up to 100m can always be specified.
+            - Values over 100m can be specified, as long as
+              ``radius_meters`` <= ``pixel_size_meters * 1000``.
+            - However, for values over 175m, the ``DataLayerView`` in
+              the request must not include monthly flux or hourly shade.
         view (google.maps.solar_v1.types.DataLayerView):
             Optional. The desired subset of the data to
             return.
@@ -1123,6 +1165,9 @@ class GetDataLayersRequest(proto.Message):
             interpreted as the exact required quality and only
             ``MEDIUM`` quality imagery is returned if
             ``required_quality`` is set to ``MEDIUM``.
+        experiments (MutableSequence[google.maps.solar_v1.types.Experiment]):
+            Optional. Specifies the pre-GA experiments to
+            enable.
     """
 
     location: latlng_pb2.LatLng = proto.Field(
@@ -1151,6 +1196,11 @@ class GetDataLayersRequest(proto.Message):
     exact_quality_required: bool = proto.Field(
         proto.BOOL,
         number=7,
+    )
+    experiments: MutableSequence["Experiment"] = proto.RepeatedField(
+        proto.ENUM,
+        number=8,
+        enum="Experiment",
     )
 
 
@@ -1184,8 +1234,8 @@ class DataLayers(proto.Message):
             Invalid locations (where we don't have data) are
             stored as -9999.
         rgb_url (str):
-            The URL for an image of RGB data (aerial
-            photo) of the region.
+            The URL for an image of RGB data (aerial or
+            satellite photo) of the region.
         mask_url (str):
             The URL for the building mask image: one bit
             per pixel saying whether that pixel is

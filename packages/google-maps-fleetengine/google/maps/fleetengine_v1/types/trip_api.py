@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.maps.fleetengine_v1.types import fleetengine
@@ -55,27 +55,27 @@ class CreateTripRequest(proto.Message):
             Required. Unique Trip ID. Subject to the following
             restrictions:
 
-            -  Must be a valid Unicode string.
-            -  Limited to a maximum length of 64 characters.
-            -  Normalized according to [Unicode Normalization Form C]
-               (http://www.unicode.org/reports/tr15/).
-            -  May not contain any of the following ASCII characters:
-               '/', ':', '?', ',', or '#'.
+            - Must be a valid Unicode string.
+            - Limited to a maximum length of 64 characters.
+            - Normalized according to [Unicode Normalization Form C]
+              (http://www.unicode.org/reports/tr15/).
+            - May not contain any of the following ASCII characters:
+              '/', ':', '?', ',', or '#'.
         trip (google.maps.fleetengine_v1.types.Trip):
             Required. Trip entity to create.
 
             When creating a Trip, the following fields are required:
 
-            -  ``trip_type``
-            -  ``pickup_point``
+            - ``trip_type``
+            - ``pickup_point``
 
             The following fields are used if you provide them:
 
-            -  ``number_of_passengers``
-            -  ``vehicle_id``
-            -  ``dropoff_point``
-            -  ``intermediate_destinations``
-            -  ``vehicle_waypoints``
+            - ``number_of_passengers``
+            - ``vehicle_id``
+            - ``dropoff_point``
+            - ``intermediate_destinations``
+            - ``vehicle_waypoints``
 
             All other Trip fields are ignored. For example, all trips
             start with a ``trip_status`` of ``NEW`` even if you pass in
@@ -144,11 +144,12 @@ class GetTripRequest(proto.Message):
             the route field is not set in the response. If a minimum is
             unspecified, the route data are always retrieved.
         remaining_waypoints_version (google.protobuf.timestamp_pb2.Timestamp):
-            Indicates the minimum timestamp (exclusive) for which
-            ``Trip.remaining_waypoints`` are retrieved. If they are
-            unchanged since this timestamp, the ``remaining_waypoints``
-            are not set in the response. If this field is unspecified,
-            ``remaining_waypoints`` is always retrieved.
+            Deprecated: ``Trip.remaining_waypoints`` are always
+            retrieved. Use ``remaining_waypoints_route_version`` to
+            control when
+            ``Trip.remaining_waypoints.traffic_to_waypoint`` and
+            ``Trip.remaining_waypoints.path_to_waypoint`` data are
+            retrieved.
         route_format_type (google.maps.fleetengine_v1.types.PolylineFormatType):
             The returned current route format, ``LAT_LNG_LIST_TYPE`` (in
             ``Trip.route``), or ``ENCODED_POLYLINE_TYPE`` (in
@@ -279,6 +280,7 @@ class ReportBillableTripRequest(proto.Message):
                 The solution is an on-demand ridesharing and
                 deliveries trip.
         """
+
         SOLUTION_TYPE_UNSPECIFIED = 0
         ON_DEMAND_RIDESHARING_AND_DELIVERIES = 1
 
@@ -324,23 +326,23 @@ class UpdateTripRequest(proto.Message):
             The following fields are maintained by the Fleet Engine. Do
             not update them using Trip.update.
 
-            -  ``current_route_segment``
-            -  ``current_route_segment_end_point``
-            -  ``current_route_segment_traffic``
-            -  ``current_route_segment_traffic_version``
-            -  ``current_route_segment_version``
-            -  ``dropoff_time``
-            -  ``eta_to_next_waypoint``
-            -  ``intermediate_destinations_version``
-            -  ``last_location``
-            -  ``name``
-            -  ``number_of_passengers``
-            -  ``pickup_time``
-            -  ``remaining_distance_meters``
-            -  ``remaining_time_to_first_waypoint``
-            -  ``remaining_waypoints``
-            -  ``remaining_waypoints_version``
-            -  ``route``
+            - ``current_route_segment``
+            - ``current_route_segment_end_point``
+            - ``current_route_segment_traffic``
+            - ``current_route_segment_traffic_version``
+            - ``current_route_segment_version``
+            - ``dropoff_time``
+            - ``eta_to_next_waypoint``
+            - ``intermediate_destinations_version``
+            - ``last_location``
+            - ``name``
+            - ``number_of_passengers``
+            - ``pickup_time``
+            - ``remaining_distance_meters``
+            - ``remaining_time_to_first_waypoint``
+            - ``remaining_waypoints``
+            - ``remaining_waypoints_version``
+            - ``route``
 
             When you update the ``Trip.vehicle_id`` for a shared trip,
             you must supply the list of ``Trip.vehicle_waypoints`` to
@@ -406,10 +408,10 @@ class SearchTripsRequest(proto.Message):
             The vehicle associated with the trips in the request. If
             unspecified, the returned trips do not contain:
 
-            -  ``current_route_segment``
-            -  ``remaining_waypoints``
-            -  ``remaining_distance_meters``
-            -  ``eta_to_first_waypoint``
+            - ``current_route_segment``
+            - ``remaining_waypoints``
+            - ``remaining_distance_meters``
+            - ``eta_to_first_waypoint``
         active_trips_only (bool):
             If set to true, the response includes Trips
             that influence a driver's route.

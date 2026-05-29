@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -90,6 +90,7 @@ class DeployPolicyEvaluationEvent(proto.Message):
             DENIED_BY_POLICY (2):
                 Denied by policy.
         """
+
         POLICY_VERDICT_UNSPECIFIED = 0
         ALLOWED_BY_POLICY = 1
         DENIED_BY_POLICY = 2
@@ -107,6 +108,7 @@ class DeployPolicyEvaluationEvent(proto.Message):
             POLICY_SUSPENDED (2):
                 The policy was suspended.
         """
+
         POLICY_VERDICT_OVERRIDE_UNSPECIFIED = 0
         POLICY_OVERRIDDEN = 1
         POLICY_SUSPENDED = 2

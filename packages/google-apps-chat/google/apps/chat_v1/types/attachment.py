@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,7 +44,9 @@ class Attachment(proto.Message):
 
     Attributes:
         name (str):
-            Optional. Resource name of the attachment, in the form
+            Identifier. Resource name of the attachment.
+
+            Format:
             ``spaces/{space}/messages/{message}/attachments/{attachment}``.
         content_name (str):
             Output only. The original file name for the
@@ -90,6 +92,7 @@ class Attachment(proto.Message):
             UPLOADED_CONTENT (2):
                 The file is uploaded to Chat.
         """
+
         SOURCE_UNSPECIFIED = 0
         DRIVE_FILE = 1
         UPLOADED_CONTENT = 2

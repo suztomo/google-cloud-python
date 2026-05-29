@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ class ColumnSpec(proto.Message):
     them, column specs are returned in the same order in which they were
     given on import . Used by:
 
-    -  Tables
+    - Tables
 
     Attributes:
         name (str):
@@ -49,8 +49,8 @@ class ColumnSpec(proto.Message):
             Output only. The name of the column to show in the
             interface. The name can be up to 100 characters long and can
             consist only of ASCII Latin letters A-Z and a-z, ASCII
-            digits 0-9, underscores(_), and forward slashes(/), and must
-            start with a letter or a digit.
+            digits 0-9, underscores(\_), and forward slashes(/), and
+            must start with a letter or a digit.
         data_stats (google.cloud.automl_v1beta1.types.DataStats):
             Output only. Stats of the series of values in the column.
             This field may be stale, see the ancestor's

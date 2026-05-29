@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ async def sample_list_conference_records():
     client = meet_v2beta.ConferenceRecordsServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = meet_v2beta.ListConferenceRecordsRequest(
-    )
+    request = meet_v2beta.ListConferenceRecordsRequest()
 
     # Make the request
     page_result = client.list_conference_records(request=request)
@@ -48,5 +47,6 @@ async def sample_list_conference_records():
     # Handle the response
     async for response in page_result:
         print(response)
+
 
 # [END meet_v2beta_generated_ConferenceRecordsService_ListConferenceRecords_async]

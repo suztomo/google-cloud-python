@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_publish_events():
     client = eventarc_publishing_v1.PublisherClient()
 
     # Initialize request argument(s)
-    request = eventarc_publishing_v1.PublishEventsRequest(
-    )
+    request = eventarc_publishing_v1.PublishEventsRequest()
 
     # Make the request
     response = client.publish_events(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END eventarcpublishing_v1_generated_Publisher_PublishEvents_sync]

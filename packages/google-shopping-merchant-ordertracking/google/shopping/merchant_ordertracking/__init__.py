@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@ from google.shopping.merchant_ordertracking import gapic_version as package_vers
 __version__ = package_version.__version__
 
 
-from google.shopping.merchant_ordertracking_v1beta.services.order_tracking_signals_service.async_client import (
+from google.shopping.merchant_ordertracking_v1.services.order_tracking_signals_service.async_client import (
     OrderTrackingSignalsServiceAsyncClient,
 )
-from google.shopping.merchant_ordertracking_v1beta.services.order_tracking_signals_service.client import (
+from google.shopping.merchant_ordertracking_v1.services.order_tracking_signals_service.client import (
     OrderTrackingSignalsServiceClient,
 )
-from google.shopping.merchant_ordertracking_v1beta.types.order_tracking_signals import (
+from google.shopping.merchant_ordertracking_v1.types.order_tracking_signals import (
     CreateOrderTrackingSignalRequest,
     OrderTrackingSignal,
 )

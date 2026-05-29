@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from .build import StorageSource, SubmitBuildRequest, SubmitBuildResponse
-from .condition import Condition
+from .build import (
+    StorageSource,
+    SubmitBuildRequest,
+    SubmitBuildResponse,
+)
+from .condition import (
+    Condition,
+)
+from .container_status import (
+    ContainerStatus,
+)
 from .execution import (
     CancelExecutionRequest,
     DeleteExecutionRequest,
@@ -23,7 +32,24 @@ from .execution import (
     ListExecutionsRequest,
     ListExecutionsResponse,
 )
-from .execution_template import ExecutionTemplate
+from .execution_template import (
+    ExecutionTemplate,
+)
+from .instance import (
+    CreateInstanceRequest,
+    DeleteInstanceRequest,
+    GetInstanceRequest,
+    Instance,
+    ListInstancesRequest,
+    ListInstancesResponse,
+    StartInstanceRequest,
+    StopInstanceRequest,
+)
+from .instance_split import (
+    InstanceSplit,
+    InstanceSplitAllocationType,
+    InstanceSplitStatus,
+)
 from .job import (
     CreateJobRequest,
     DeleteJobRequest,
@@ -52,6 +78,7 @@ from .k8s_min import (
     ResourceRequirements,
     SecretKeySelector,
     SecretVolumeSource,
+    SourceCode,
     TCPSocketAction,
     VersionToPath,
     Volume,
@@ -64,7 +91,9 @@ from .revision import (
     ListRevisionsResponse,
     Revision,
 )
-from .revision_template import RevisionTemplate
+from .revision_template import (
+    RevisionTemplate,
+)
 from .service import (
     CreateServiceRequest,
     DeleteServiceRequest,
@@ -74,7 +103,9 @@ from .service import (
     Service,
     UpdateServiceRequest,
 )
-from .status import RevisionScalingStatus
+from .status import (
+    RevisionScalingStatus,
+)
 from .task import (
     GetTaskRequest,
     ListTasksRequest,
@@ -82,7 +113,9 @@ from .task import (
     Task,
     TaskAttemptResult,
 )
-from .task_template import TaskTemplate
+from .task_template import (
+    TaskTemplate,
+)
 from .traffic_target import (
     TrafficTarget,
     TrafficTargetAllocationType,
@@ -99,6 +132,19 @@ from .vendor_settings import (
     ServiceMesh,
     ServiceScaling,
     VpcAccess,
+    WorkerPoolScaling,
+)
+from .worker_pool import (
+    CreateWorkerPoolRequest,
+    DeleteWorkerPoolRequest,
+    GetWorkerPoolRequest,
+    ListWorkerPoolsRequest,
+    ListWorkerPoolsResponse,
+    UpdateWorkerPoolRequest,
+    WorkerPool,
+)
+from .worker_pool_revision_template import (
+    WorkerPoolRevisionTemplate,
 )
 
 __all__ = (
@@ -106,6 +152,7 @@ __all__ = (
     "SubmitBuildRequest",
     "SubmitBuildResponse",
     "Condition",
+    "ContainerStatus",
     "CancelExecutionRequest",
     "DeleteExecutionRequest",
     "Execution",
@@ -113,6 +160,17 @@ __all__ = (
     "ListExecutionsRequest",
     "ListExecutionsResponse",
     "ExecutionTemplate",
+    "CreateInstanceRequest",
+    "DeleteInstanceRequest",
+    "GetInstanceRequest",
+    "Instance",
+    "ListInstancesRequest",
+    "ListInstancesResponse",
+    "StartInstanceRequest",
+    "StopInstanceRequest",
+    "InstanceSplit",
+    "InstanceSplitStatus",
+    "InstanceSplitAllocationType",
     "CreateJobRequest",
     "DeleteJobRequest",
     "ExecutionReference",
@@ -138,6 +196,7 @@ __all__ = (
     "ResourceRequirements",
     "SecretKeySelector",
     "SecretVolumeSource",
+    "SourceCode",
     "TCPSocketAction",
     "VersionToPath",
     "Volume",
@@ -172,7 +231,16 @@ __all__ = (
     "ServiceMesh",
     "ServiceScaling",
     "VpcAccess",
+    "WorkerPoolScaling",
     "EncryptionKeyRevocationAction",
     "ExecutionEnvironment",
     "IngressTraffic",
+    "CreateWorkerPoolRequest",
+    "DeleteWorkerPoolRequest",
+    "GetWorkerPoolRequest",
+    "ListWorkerPoolsRequest",
+    "ListWorkerPoolsResponse",
+    "UpdateWorkerPoolRequest",
+    "WorkerPool",
+    "WorkerPoolRevisionTemplate",
 )

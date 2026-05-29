@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 # It may require modifications to work in your environment.
 
 # To install the latest published package dependency, execute the following:
-#   python3 -m pip install google-cloud-orchestration-airflow-service
+#   python3 -m pip install google-cloud-orchestration-airflow
 
 
 # [START composer_v1beta1_generated_Environments_UpdateUserWorkloadsSecret_async]
@@ -39,13 +39,13 @@ async def sample_update_user_workloads_secret():
     client = service_v1beta1.EnvironmentsAsyncClient()
 
     # Initialize request argument(s)
-    request = service_v1beta1.UpdateUserWorkloadsSecretRequest(
-    )
+    request = service_v1beta1.UpdateUserWorkloadsSecretRequest()
 
     # Make the request
     response = await client.update_user_workloads_secret(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END composer_v1beta1_generated_Environments_UpdateUserWorkloadsSecret_async]

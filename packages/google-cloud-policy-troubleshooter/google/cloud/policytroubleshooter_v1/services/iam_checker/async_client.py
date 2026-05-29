@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.policytroubleshooter_v1 import gapic_version as package_version
 
@@ -44,7 +44,7 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.rpc import status_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 
 from google.cloud.policytroubleshooter_v1.types import checker, explanations
 
@@ -110,7 +110,10 @@ class IamCheckerAsyncClient:
         Returns:
             IamCheckerAsyncClient: The constructed client.
         """
-        return IamCheckerClient.from_service_account_info.__func__(IamCheckerAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            IamCheckerClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(IamCheckerAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -126,7 +129,10 @@ class IamCheckerAsyncClient:
         Returns:
             IamCheckerAsyncClient: The constructed client.
         """
-        return IamCheckerClient.from_service_account_file.__func__(IamCheckerAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            IamCheckerClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(IamCheckerAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -176,7 +182,7 @@ class IamCheckerAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:

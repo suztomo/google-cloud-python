@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ class LoggingConfig(proto.Message):
     Attributes:
         name (str):
             Required. Immutable. The name of the LoggingConfig singleton
-            resource. Format: `projects/*/loggingConfig`
+            resource. Format: projects/\*/loggingConfig
         default_log_generation_rule (google.cloud.retail_v2alpha.types.LoggingConfig.LogGenerationRule):
             The log generation rule that applies by default to all
             services supporting log generation. It can be overridden by
@@ -73,6 +73,7 @@ class LoggingConfig(proto.Message):
                 Log all operations, including successful
                 ones.
         """
+
         LOGGING_LEVEL_UNSPECIFIED = 0
         LOGGING_DISABLED = 1
         LOG_ERRORS_AND_ABOVE = 2
@@ -160,12 +161,12 @@ class LoggingConfig(proto.Message):
         number=2,
         message=LogGenerationRule,
     )
-    service_log_generation_rules: MutableSequence[
-        ServiceLogGenerationRule
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message=ServiceLogGenerationRule,
+    service_log_generation_rules: MutableSequence[ServiceLogGenerationRule] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message=ServiceLogGenerationRule,
+        )
     )
 
 
@@ -198,7 +199,7 @@ class AlertConfig(proto.Message):
     Attributes:
         name (str):
             Required. Immutable. The name of the AlertConfig singleton
-            resource. Format: `projects/*/alertConfig`
+            resource. Format: projects/\*/alertConfig
         alert_policies (MutableSequence[google.cloud.retail_v2alpha.types.AlertConfig.AlertPolicy]):
             Alert policies for a customer. They must be unique by
             [AlertPolicy.alert_group]
@@ -212,8 +213,8 @@ class AlertConfig(proto.Message):
                 The feature that provides alerting capability. Supported
                 value:
 
-                -  ``search-data-quality`` for retail search customers.
-                -  ``conv-data-quality`` for retail conversation customers.
+                - ``search-data-quality`` for retail search customers.
+                - ``conv-data-quality`` for retail conversation customers.
             enroll_status (google.cloud.retail_v2alpha.types.AlertConfig.AlertPolicy.EnrollStatus):
                 The enrollment status of a customer.
             recipients (MutableSequence[google.cloud.retail_v2alpha.types.AlertConfig.AlertPolicy.Recipient]):
@@ -234,6 +235,7 @@ class AlertConfig(proto.Message):
                 DECLINED (2):
                     Customer declined this policy.
             """
+
             ENROLL_STATUS_UNSPECIFIED = 0
             ENROLLED = 1
             DECLINED = 2
@@ -260,12 +262,12 @@ class AlertConfig(proto.Message):
             number=2,
             enum="AlertConfig.AlertPolicy.EnrollStatus",
         )
-        recipients: MutableSequence[
-            "AlertConfig.AlertPolicy.Recipient"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=3,
-            message="AlertConfig.AlertPolicy.Recipient",
+        recipients: MutableSequence["AlertConfig.AlertPolicy.Recipient"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=3,
+                message="AlertConfig.AlertPolicy.Recipient",
+            )
         )
 
     name: str = proto.Field(

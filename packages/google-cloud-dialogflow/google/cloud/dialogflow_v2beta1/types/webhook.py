@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,11 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
-from google.cloud.dialogflow_v2beta1.types import context, intent
+from google.cloud.dialogflow_v2beta1.types import context, intent, session_entity_type
 from google.cloud.dialogflow_v2beta1.types import session as gcd_session
-from google.cloud.dialogflow_v2beta1.types import session_entity_type
 
 __protobuf__ = proto.module(
     package="google.cloud.dialogflow.v2beta1",
@@ -43,10 +42,10 @@ class WebhookRequest(proto.Message):
             be used to identify end-user inside webhook implementation.
             Supported formats:
 
-            -  \`projects//agent/sessions/,
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/sessions/<Session ID>``,
-            -  ``projects/<Project ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>``,
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>``,
+            - \`projects//agent/sessions/,
+            - ``projects/<Project ID>/locations/<Location ID>/agent/sessions/<Session ID>``,
+            - ``projects/<Project ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>``,
+            - ``projects/<Project ID>/locations/<Location ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>``,
         response_id (str):
             The unique identifier of the response. Contains the same
             value as ``[Streaming]DetectIntentResponse.response_id``.
@@ -75,12 +74,12 @@ class WebhookRequest(proto.Message):
         number=2,
         message=gcd_session.QueryResult,
     )
-    alternative_query_results: MutableSequence[
-        gcd_session.QueryResult
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=5,
-        message=gcd_session.QueryResult,
+    alternative_query_results: MutableSequence[gcd_session.QueryResult] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=5,
+            message=gcd_session.QueryResult,
+        )
     )
     original_detect_intent_request: "OriginalDetectIntentRequest" = proto.Field(
         proto.MESSAGE,
@@ -98,9 +97,9 @@ class WebhookResponse(proto.Message):
     field. Setting JSON fields to an empty value with the wrong type is
     a common error. To avoid this error:
 
-    -  Use ``""`` for empty strings
-    -  Use ``{}`` or ``null`` for empty objects
-    -  Use ``[]`` or ``null`` for empty arrays
+    - Use ``""`` for empty strings
+    - Use ``{}`` or ``null`` for empty objects
+    - Use ``[]`` or ``null`` for empty arrays
 
     For more information, see the `Protocol Buffers Language
     Guide <https://developers.google.com/protocol-buffers/docs/proto3#json>`__.
@@ -206,12 +205,12 @@ class WebhookResponse(proto.Message):
         proto.BOOL,
         number=8,
     )
-    session_entity_types: MutableSequence[
-        session_entity_type.SessionEntityType
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=10,
-        message=session_entity_type.SessionEntityType,
+    session_entity_types: MutableSequence[session_entity_type.SessionEntityType] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=10,
+            message=session_entity_type.SessionEntityType,
+        )
     )
 
 

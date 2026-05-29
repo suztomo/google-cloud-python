@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.confidentialcomputing_v1 import gapic_version as package_version
 
@@ -61,9 +61,9 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
 
 from google.cloud.confidentialcomputing_v1.types import service
 
@@ -81,9 +81,7 @@ class ConfidentialComputingClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[ConfidentialComputingTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[ConfidentialComputingTransport]]
     _transport_registry["grpc"] = ConfidentialComputingGrpcTransport
     _transport_registry["grpc_asyncio"] = ConfidentialComputingGrpcAsyncIOTransport
     _transport_registry["rest"] = ConfidentialComputingRestTransport
@@ -114,7 +112,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
     """Service describing handlers for resources"""
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -122,7 +120,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -132,6 +130,10 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -151,6 +153,34 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "confidentialcomputing.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -339,12 +369,8 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = ConfidentialComputingClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -352,7 +378,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -384,20 +410,14 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = ConfidentialComputingClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -421,7 +441,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -520,7 +540,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -611,18 +631,16 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = ConfidentialComputingClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            ConfidentialComputingClient._read_environment_variables()
+        )
         self._client_cert_source = ConfidentialComputingClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = ConfidentialComputingClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -650,8 +668,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(ConfidentialComputingTransport, transport)
             self._api_endpoint = self._transport.host
@@ -850,7 +867,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> service.VerifyAttestationResponse:
         r"""Verifies the provided attestation info, returning a
-        signed OIDC token.
+        signed attestation token.
 
         .. code-block:: python
 
@@ -880,7 +897,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
 
         Args:
             request (Union[google.cloud.confidentialcomputing_v1.types.VerifyAttestationRequest, dict]):
-                The request object. A request for an OIDC token,
+                The request object. A request for an attestation token,
                 providing all the necessary information
                 needed for this service to verify the
                 platform state of the requestor.
@@ -896,7 +913,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
             google.cloud.confidentialcomputing_v1.types.VerifyAttestationResponse:
                 A response once an attestation has
                 been successfully verified, containing a
-                signed OIDC token.
+                signed attestation token.
 
         """
         # Create or coerce a protobuf request object.
@@ -908,6 +925,192 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
         rpc = self._transport._wrapped_methods[self._transport.verify_attestation]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("challenge", request.challenge),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def verify_confidential_space(
+        self,
+        request: Optional[Union[service.VerifyConfidentialSpaceRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> service.VerifyConfidentialSpaceResponse:
+        r"""Verifies whether the provided attestation info is
+        valid, returning a signed attestation token if so.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import confidentialcomputing_v1
+
+            def sample_verify_confidential_space():
+                # Create a client
+                client = confidentialcomputing_v1.ConfidentialComputingClient()
+
+                # Initialize request argument(s)
+                request = confidentialcomputing_v1.VerifyConfidentialSpaceRequest(
+                    challenge="challenge_value",
+                )
+
+                # Make the request
+                response = client.verify_confidential_space(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.confidentialcomputing_v1.types.VerifyConfidentialSpaceRequest, dict]):
+                The request object. A request for an attestation token,
+                providing all the necessary information
+                needed for this service to verify the
+                platform state of the requestor.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.confidentialcomputing_v1.types.VerifyConfidentialSpaceResponse:
+                VerifyConfidentialSpaceResponse is
+                returned once a Confidential Space
+                attestation has been successfully
+                verified, containing a signed token.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, service.VerifyConfidentialSpaceRequest):
+            request = service.VerifyConfidentialSpaceRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.verify_confidential_space
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("challenge", request.challenge),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def verify_confidential_gke(
+        self,
+        request: Optional[Union[service.VerifyConfidentialGkeRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> service.VerifyConfidentialGkeResponse:
+        r"""Verifies the provided Confidential GKE attestation
+        info, returning a signed OIDC token.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import confidentialcomputing_v1
+
+            def sample_verify_confidential_gke():
+                # Create a client
+                client = confidentialcomputing_v1.ConfidentialComputingClient()
+
+                # Initialize request argument(s)
+                request = confidentialcomputing_v1.VerifyConfidentialGkeRequest(
+                    challenge="challenge_value",
+                )
+
+                # Make the request
+                response = client.verify_confidential_gke(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.confidentialcomputing_v1.types.VerifyConfidentialGkeRequest, dict]):
+                The request object. A request for an attestation token,
+                providing all the necessary information
+                needed for this service to verify
+                Confidential GKE platform state of the
+                requestor.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.confidentialcomputing_v1.types.VerifyConfidentialGkeResponse:
+                VerifyConfidentialGkeResponse
+                response is returened once a
+                Confidential GKE attestation has been
+                successfully verified, containing a
+                signed OIDC token.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, service.VerifyConfidentialGkeRequest):
+            request = service.VerifyConfidentialGkeRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.verify_confidential_gke]
 
         # Certain fields should be provided within the metadata header;
         # add these here.
@@ -946,7 +1149,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
 
     def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -972,8 +1175,12 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -982,7 +1189,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -991,7 +1198,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -1005,7 +1212,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
 
     def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1031,8 +1238,12 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1041,7 +1252,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1050,7 +1261,7 @@ class ConfidentialComputingClient(metaclass=ConfidentialComputingClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,

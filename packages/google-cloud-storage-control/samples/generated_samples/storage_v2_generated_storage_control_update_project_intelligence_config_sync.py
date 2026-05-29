@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_project_intelligence_config():
     client = storage_control_v2.StorageControlClient()
 
     # Initialize request argument(s)
-    request = storage_control_v2.UpdateProjectIntelligenceConfigRequest(
-    )
+    request = storage_control_v2.UpdateProjectIntelligenceConfigRequest()
 
     # Make the request
     response = client.update_project_intelligence_config(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END storage_v2_generated_StorageControl_UpdateProjectIntelligenceConfig_sync]

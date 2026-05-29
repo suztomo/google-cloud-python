@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_update_anywhere_cache():
     client = storage_control_v2.StorageControlClient()
 
     # Initialize request argument(s)
-    request = storage_control_v2.UpdateAnywhereCacheRequest(
-    )
+    request = storage_control_v2.UpdateAnywhereCacheRequest()
 
     # Make the request
     operation = client.update_anywhere_cache(request=request)
@@ -51,5 +50,6 @@ def sample_update_anywhere_cache():
 
     # Handle the response
     print(response)
+
 
 # [END storage_v2_generated_StorageControl_UpdateAnywhereCache_sync]

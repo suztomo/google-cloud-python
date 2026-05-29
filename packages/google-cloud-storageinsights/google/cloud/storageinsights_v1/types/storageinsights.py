@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
-from google.type import datetime_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.datetime_pb2 as datetime_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -558,6 +558,7 @@ class FrequencyOptions(proto.Message):
             WEEKLY (2):
                 Report will be generated weekly.
         """
+
         FREQUENCY_UNSPECIFIED = 0
         DAILY = 1
         WEEKLY = 2
@@ -803,6 +804,7 @@ class Identity(proto.Message):
             IDENTITY_TYPE_PER_PROJECT (2):
                 Google managed service account per project.
         """
+
         IDENTITY_TYPE_UNSPECIFIED = 0
         IDENTITY_TYPE_PER_CONFIG = 1
         IDENTITY_TYPE_PER_PROJECT = 2
@@ -874,13 +876,13 @@ class DatasetConfig(proto.Message):
             The object must be a text file where each line has one of
             the following entries:
 
-            -  Project number, formatted as
-               ``projects/{project_number}``, for example,
-               ``projects/1234567890``.
-            -  Folder identifier, formatted as
-               ``folders/{folder_number}``, for example,
-               ``folders/9876543210``. Path must be in the format
-               ``gs://{bucket_name}/{object_name}``.
+            - Project number, formatted as
+              ``projects/{project_number}``, for example,
+              ``projects/1234567890``.
+            - Folder identifier, formatted as
+              ``folders/{folder_number}``, for example,
+              ``folders/9876543210``. Path must be in the format
+              ``gs://{bucket_name}/{object_name}``.
 
             This field is a member of `oneof`_ ``source_options``.
         include_cloud_storage_locations (google.cloud.storageinsights_v1.types.DatasetConfig.CloudStorageLocations):
@@ -941,6 +943,7 @@ class DatasetConfig(proto.Message):
             CONFIG_STATE_PROCESSING (4):
                 Configuration is under processing
         """
+
         CONFIG_STATE_UNSPECIFIED = 0
         CONFIG_STATE_ACTIVE = 1
         CONFIG_STATE_VERIFICATION_IN_PROGRESS = 2
@@ -1110,11 +1113,11 @@ class DatasetConfig(proto.Message):
             proto.INT64,
             number=7,
         )
-        non_storage_intelligence_entitled_bucket_ids: MutableSequence[
-            str
-        ] = proto.RepeatedField(
-            proto.STRING,
-            number=8,
+        non_storage_intelligence_entitled_bucket_ids: MutableSequence[str] = (
+            proto.RepeatedField(
+                proto.STRING,
+                number=8,
+            )
         )
 
     class ProjectErrors(proto.Message):
@@ -1196,22 +1199,22 @@ class DatasetConfig(proto.Message):
             number=7,
             optional=True,
         )
-        non_management_hub_entitled_project_numbers: MutableSequence[
-            int
-        ] = proto.RepeatedField(
-            proto.INT64,
-            number=8,
+        non_management_hub_entitled_project_numbers: MutableSequence[int] = (
+            proto.RepeatedField(
+                proto.INT64,
+                number=8,
+            )
         )
         non_storage_intelligence_entitled_error_count: int = proto.Field(
             proto.INT64,
             number=9,
             optional=True,
         )
-        non_storage_intelligence_entitled_project_numbers: MutableSequence[
-            int
-        ] = proto.RepeatedField(
-            proto.INT64,
-            number=10,
+        non_storage_intelligence_entitled_project_numbers: MutableSequence[int] = (
+            proto.RepeatedField(
+                proto.INT64,
+                number=10,
+            )
         )
         internal_error_count: int = proto.Field(
             proto.INT64,

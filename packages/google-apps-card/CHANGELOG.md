@@ -1,5 +1,86 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-apps-card/#history
+
+## [0.6.0](https://github.com/googleapis/google-cloud-python/compare/google-apps-card-v0.5.0...google-apps-card-v0.6.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-apps-card-v0.4.0...google-apps-card-v0.5.0) (2026-02-05)
+
+
+### Documentation
+
+* update reference documentation for `SelectionInput.DROPDOWN` to include dynamic data sources and autosuggestion ([fe0a0b4638a8f5301c30be43fd2f2898ddc6db37](https://github.com/googleapis/google-cloud-python/commit/fe0a0b4638a8f5301c30be43fd2f2898ddc6db37))
+* update copyright to 2026 ([fe0a0b4638a8f5301c30be43fd2f2898ddc6db37](https://github.com/googleapis/google-cloud-python/commit/fe0a0b4638a8f5301c30be43fd2f2898ddc6db37))
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-apps-card-v0.3.0...google-apps-card-v0.4.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.3.0](https://github.com/googleapis/google-cloud-python/compare/google-apps-card-v0.2.0...google-apps-card-v0.3.0) (2025-10-20)
+
+
+### Documentation
+
+* change `Workspace Add-ons` to `Workspace add-ons`  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* improve comments  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+
+
+### Features
+
+* Add `NestedWidget`  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* Add `Validation` and the field `TextInput.validation`  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* Add the field `TextParagraph.TextSyntax`  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* Add `ChipList`,`Chip` and field `Widgets.chip_list`  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* Add `Button.Type` and field `Button.type`  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* Add `Carousel` widget  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* Add the field `TextParagraph.max_lines`  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* Add the field `DecoratedText.start_icon_vertical_alignment`  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* Add `OverflowMenu` widget  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+
+
+### Bug Fixes
+
+* An existing field `start_icon_uri` is moved in to oneof in message `.google.apps.card.v1.SelectionInput`  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* Changed proto3 optional flag of an existing field `multi_select_max_selected_items` in message `.google.apps.card.v1.SelectionInput`  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+
+## [0.2.0](https://github.com/googleapis/google-cloud-python/compare/google-apps-card-v0.1.8...google-apps-card-v0.2.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.1.8](https://github.com/googleapis/google-cloud-python/compare/google-apps-card-v0.1.7...google-apps-card-v0.1.8) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([1562bb7](https://github.com/googleapis/google-cloud-python/commit/1562bb740c7cd56179e52185dde3c32af861de5e))
+
 ## [0.1.7](https://github.com/googleapis/google-cloud-python/compare/google-apps-card-v0.1.6...google-apps-card-v0.1.7) (2025-03-15)
 
 

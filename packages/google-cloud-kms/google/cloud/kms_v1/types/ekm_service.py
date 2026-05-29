@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -389,36 +389,37 @@ class EkmConnection(proto.Message):
                 be initiated from the EKM directly and cannot be performed
                 from Cloud KMS. This means that:
 
-                -  When creating a
-                   [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion]
-                   associated with this
-                   [EkmConnection][google.cloud.kms.v1.EkmConnection], the
-                   caller must supply the key path of pre-existing external
-                   key material that will be linked to the
-                   [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion].
-                -  Destruction of external key material cannot be requested
-                   via the Cloud KMS API and must be performed directly in
-                   the EKM.
-                -  Automatic rotation of key material is not supported.
+                - When creating a
+                  [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion]
+                  associated with this
+                  [EkmConnection][google.cloud.kms.v1.EkmConnection], the
+                  caller must supply the key path of pre-existing external
+                  key material that will be linked to the
+                  [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion].
+                - Destruction of external key material cannot be requested
+                  via the Cloud KMS API and must be performed directly in
+                  the EKM.
+                - Automatic rotation of key material is not supported.
             CLOUD_KMS (2):
                 All [CryptoKeys][google.cloud.kms.v1.CryptoKey] created with
                 this [EkmConnection][google.cloud.kms.v1.EkmConnection] use
                 EKM-side key management operations initiated from Cloud KMS.
                 This means that:
 
-                -  When a
-                   [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion]
-                   associated with this
-                   [EkmConnection][google.cloud.kms.v1.EkmConnection] is
-                   created, the EKM automatically generates new key material
-                   and a new key path. The caller cannot supply the key path
-                   of pre-existing external key material.
-                -  Destruction of external key material associated with this
-                   [EkmConnection][google.cloud.kms.v1.EkmConnection] can be
-                   requested by calling
-                   [DestroyCryptoKeyVersion][google.cloud.kms.v1.KeyManagementService.DestroyCryptoKeyVersion].
-                -  Automatic rotation of key material is supported.
+                - When a
+                  [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion]
+                  associated with this
+                  [EkmConnection][google.cloud.kms.v1.EkmConnection] is
+                  created, the EKM automatically generates new key material
+                  and a new key path. The caller cannot supply the key path
+                  of pre-existing external key material.
+                - Destruction of external key material associated with this
+                  [EkmConnection][google.cloud.kms.v1.EkmConnection] can be
+                  requested by calling
+                  [DestroyCryptoKeyVersion][google.cloud.kms.v1.KeyManagementService.DestroyCryptoKeyVersion].
+                - Automatic rotation of key material is supported.
         """
+
         KEY_MANAGEMENT_MODE_UNSPECIFIED = 0
         MANUAL = 1
         CLOUD_KMS = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.netapp_v1.types import common
@@ -39,6 +39,7 @@ __protobuf__ = proto.module(
         "DeleteVolumeRequest",
         "RevertVolumeRequest",
         "Volume",
+        "LargeCapacityConfig",
         "ExportPolicy",
         "SimpleExportPolicyRule",
         "SnapshotPolicy",
@@ -51,6 +52,13 @@ __protobuf__ = proto.module(
         "BackupConfig",
         "TieringPolicy",
         "HybridReplicationParameters",
+        "CacheParameters",
+        "CacheConfig",
+        "CachePrePopulate",
+        "BlockDevice",
+        "RestoreBackupFilesRequest",
+        "RestoreBackupFilesResponse",
+        "EstablishVolumePeeringRequest",
     },
 )
 
@@ -68,11 +76,15 @@ class Protocols(proto.Enum):
             NFS V4 protocol
         SMB (3):
             SMB protocol
+        ISCSI (4):
+            ISCSI protocol
     """
+
     PROTOCOLS_UNSPECIFIED = 0
     NFSV3 = 1
     NFSV4 = 2
     SMB = 3
+    ISCSI = 4
 
 
 class AccessType(proto.Enum):
@@ -89,6 +101,7 @@ class AccessType(proto.Enum):
         READ_NONE (3):
             None
     """
+
     ACCESS_TYPE_UNSPECIFIED = 0
     READ_ONLY = 1
     READ_WRITE = 2
@@ -122,6 +135,7 @@ class SMBSettings(proto.Enum):
         CONTINUOUSLY_AVAILABLE (9):
             Continuously available enumeration
     """
+
     SMB_SETTINGS_UNSPECIFIED = 0
     ENCRYPT_DATA = 1
     BROWSABLE = 2
@@ -145,6 +159,7 @@ class SecurityStyle(proto.Enum):
         UNIX (2):
             SecurityStyle uses UNIX
     """
+
     SECURITY_STYLE_UNSPECIFIED = 0
     NTFS = 1
     UNIX = 2
@@ -160,6 +175,7 @@ class RestrictedAction(proto.Enum):
             Prevent volume from being deleted when
             mounted.
     """
+
     RESTRICTED_ACTION_UNSPECIFIED = 0
     DELETE = 1
 
@@ -449,8 +465,11 @@ class Volume(proto.Message):
             Optional. List of actions that are restricted
             on this volume.
         large_capacity (bool):
-            Optional. Flag indicating if the volume will
-            be a large capacity volume or a regular volume.
+            Optional. Flag indicating if the volume will be a large
+            capacity volume or a regular volume. This field is used for
+            legacy FILE pools. For Unified pools, use the
+            ``large_capacity_config`` field instead. This field and
+            ``large_capacity_config`` are mutually exclusive.
         multiple_endpoints (bool):
             Optional. Flag indicating if the volume will have an IP
             address per node for volumes supporting multiple IP
@@ -468,10 +487,31 @@ class Volume(proto.Message):
             regional volume.
         cold_tier_size_gib (int):
             Output only. Size of the volume cold tier
-            data in GiB.
+            data rounded down to the nearest GiB.
         hybrid_replication_parameters (google.cloud.netapp_v1.types.HybridReplicationParameters):
             Optional. The Hybrid Replication parameters
             for the volume.
+        throughput_mibps (float):
+            Optional. Throughput of the volume (in MiB/s)
+        cache_parameters (google.cloud.netapp_v1.types.CacheParameters):
+            Optional. Cache parameters for the volume.
+        hot_tier_size_used_gib (int):
+            Output only. Total hot tier data rounded down
+            to the nearest GiB used by the Volume. This
+            field is only used for flex Service Level
+        block_devices (MutableSequence[google.cloud.netapp_v1.types.BlockDevice]):
+            Optional. Block devices for the volume.
+            Currently, only one block device is permitted
+            per Volume.
+        large_capacity_config (google.cloud.netapp_v1.types.LargeCapacityConfig):
+            Optional. Large capacity config for the volume. Enables and
+            configures large capacity for volumes in Unified pools with
+            File protocols. Not applicable for Block protocols in
+            Unified pools. This field and the legacy ``large_capacity``
+            boolean field are mutually exclusive.
+        clone_details (google.cloud.netapp_v1.types.Volume.CloneDetails):
+            Output only. If this volume is a clone, this
+            field contains details about the clone.
     """
 
     class State(proto.Enum):
@@ -503,6 +543,7 @@ class Volume(proto.Message):
             READ_ONLY (9):
                 Volume State is Read Only
         """
+
         STATE_UNSPECIFIED = 0
         READY = 1
         CREATING = 2
@@ -513,6 +554,40 @@ class Volume(proto.Message):
         ERROR = 7
         PREPARING = 8
         READ_ONLY = 9
+
+    class CloneDetails(proto.Message):
+        r"""Details about a clone volume.
+
+        Attributes:
+            source_snapshot (str):
+                Output only. Specifies the full resource name
+                of the source snapshot from which this volume
+                was cloned. Format:
+
+                projects/{project}/locations/{location}/volumes/{volume}/snapshots/{snapshot}
+            source_volume (str):
+                Output only. Full name of the source volume
+                resource. Format:
+
+                projects/{project}/locations/{location}/volumes/{volume}
+            shared_space_gib (int):
+                Output only. Shared space in GiB. Determined
+                at volume creation time based on size of source
+                snapshot.
+        """
+
+        source_snapshot: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+        source_volume: str = proto.Field(
+            proto.STRING,
+            number=2,
+        )
+        shared_space_gib: int = proto.Field(
+            proto.INT64,
+            number=3,
+        )
 
     name: str = proto.Field(
         proto.STRING,
@@ -684,6 +759,53 @@ class Volume(proto.Message):
         number=40,
         message="HybridReplicationParameters",
     )
+    throughput_mibps: float = proto.Field(
+        proto.DOUBLE,
+        number=41,
+    )
+    cache_parameters: "CacheParameters" = proto.Field(
+        proto.MESSAGE,
+        number=42,
+        message="CacheParameters",
+    )
+    hot_tier_size_used_gib: int = proto.Field(
+        proto.INT64,
+        number=44,
+    )
+    block_devices: MutableSequence["BlockDevice"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=45,
+        message="BlockDevice",
+    )
+    large_capacity_config: "LargeCapacityConfig" = proto.Field(
+        proto.MESSAGE,
+        number=46,
+        message="LargeCapacityConfig",
+    )
+    clone_details: CloneDetails = proto.Field(
+        proto.MESSAGE,
+        number=47,
+        message=CloneDetails,
+    )
+
+
+class LargeCapacityConfig(proto.Message):
+    r"""Configuration for a Large Capacity Volume. A Large Capacity
+    Volume supports sizes ranging from 4.8 TiB to 20 PiB, it is
+    composed of multiple internal constituents, and must be created
+    in a large capacity pool.
+
+    Attributes:
+        constituent_count (int):
+            Optional. The number of internal constituents
+            (e.g., FlexVols) for this large volume. The
+            minimum number of constituents is 2.
+    """
+
+    constituent_count: int = proto.Field(
+        proto.INT32,
+        number=1,
+    )
 
 
 class ExportPolicy(proto.Message):
@@ -779,7 +901,44 @@ class SimpleExportPolicyRule(proto.Message):
             ignored if this is enabled.
 
             This field is a member of `oneof`_ ``_kerberos_5p_read_write``.
+        squash_mode (google.cloud.netapp_v1.types.SimpleExportPolicyRule.SquashMode):
+            Optional. Defines how user identity squashing is applied for
+            this export rule. This field is the preferred way to
+            configure squashing behavior and takes precedence over
+            ``has_root_access`` if both are provided.
+
+            This field is a member of `oneof`_ ``_squash_mode``.
+        anon_uid (int):
+            Optional. An integer representing the anonymous user ID.
+            Range is 0 to ``4294967295``. Required when ``squash_mode``
+            is ``ROOT_SQUASH`` or ``ALL_SQUASH``.
+
+            This field is a member of `oneof`_ ``_anon_uid``.
     """
+
+    class SquashMode(proto.Enum):
+        r"""``SquashMode`` defines how remote user privileges are restricted
+        when accessing an NFS export. It controls how user identities (like
+        root) are mapped to anonymous users to limit access and enforce
+        security.
+
+        Values:
+            SQUASH_MODE_UNSPECIFIED (0):
+                Defaults to ``NO_ROOT_SQUASH``.
+            NO_ROOT_SQUASH (1):
+                The root user (UID 0) retains full access.
+                Other users are unaffected.
+            ROOT_SQUASH (2):
+                The root user (UID 0) is squashed to
+                anonymous user ID. Other users are unaffected.
+            ALL_SQUASH (3):
+                All users are squashed to anonymous user ID.
+        """
+
+        SQUASH_MODE_UNSPECIFIED = 0
+        NO_ROOT_SQUASH = 1
+        ROOT_SQUASH = 2
+        ALL_SQUASH = 3
 
     allowed_clients: str = proto.Field(
         proto.STRING,
@@ -835,6 +994,17 @@ class SimpleExportPolicyRule(proto.Message):
     kerberos_5p_read_write: bool = proto.Field(
         proto.BOOL,
         number=11,
+        optional=True,
+    )
+    squash_mode: SquashMode = proto.Field(
+        proto.ENUM,
+        number=12,
+        optional=True,
+        enum=SquashMode,
+    )
+    anon_uid: int = proto.Field(
+        proto.INT64,
+        number=13,
         optional=True,
     )
 
@@ -1138,8 +1308,11 @@ class RestoreParameters(proto.Message):
 
             This field is a member of `oneof`_ ``source``.
         source_backup (str):
-            Full name of the backup resource. Format:
+            Full name of the backup resource. Format for standard
+            backup:
             projects/{project}/locations/{location}/backupVaults/{backup_vault_id}/backups/{backup_id}
+            Format for BackupDR backup:
+            projects/{project}/locations/{location}/backupVaults/{backup_vault}/dataSources/{data_source}/backups/{backup}
 
             This field is a member of `oneof`_ ``source``.
     """
@@ -1220,6 +1393,12 @@ class TieringPolicy(proto.Message):
             tiering, can be range from 2-183. Default is 31.
 
             This field is a member of `oneof`_ ``_cooling_threshold_days``.
+        hot_tier_bypass_mode_enabled (bool):
+            Optional. Flag indicating that the hot tier
+            bypass mode is enabled. Default is false. This
+            is only applicable to Flex service level.
+
+            This field is a member of `oneof`_ ``_hot_tier_bypass_mode_enabled``.
     """
 
     class TierAction(proto.Enum):
@@ -1236,6 +1415,7 @@ class TieringPolicy(proto.Message):
                 new data. Existing data stays tiered until
                 accessed.
         """
+
         TIER_ACTION_UNSPECIFIED = 0
         ENABLED = 1
         PAUSED = 2
@@ -1249,6 +1429,11 @@ class TieringPolicy(proto.Message):
     cooling_threshold_days: int = proto.Field(
         proto.INT32,
         number=2,
+        optional=True,
+    )
+    hot_tier_bypass_mode_enabled: bool = proto.Field(
+        proto.BOOL,
+        number=3,
         optional=True,
     )
 
@@ -1283,7 +1468,40 @@ class HybridReplicationParameters(proto.Message):
         labels (MutableMapping[str, str]):
             Optional. Labels to be added to the
             replication as the key value pairs.
+        replication_schedule (google.cloud.netapp_v1.types.HybridReplicationSchedule):
+            Optional. Replication Schedule for the
+            replication created.
+        hybrid_replication_type (google.cloud.netapp_v1.types.HybridReplicationParameters.VolumeHybridReplicationType):
+            Optional. Type of the hybrid replication.
+        large_volume_constituent_count (int):
+            Optional. Constituent volume count for large
+            volume.
     """
+
+    class VolumeHybridReplicationType(proto.Enum):
+        r"""Type of the volume's hybrid replication.
+
+        Values:
+            VOLUME_HYBRID_REPLICATION_TYPE_UNSPECIFIED (0):
+                Unspecified hybrid replication type.
+            MIGRATION (1):
+                Hybrid replication type for migration.
+            CONTINUOUS_REPLICATION (2):
+                Hybrid replication type for continuous
+                replication.
+            ONPREM_REPLICATION (3):
+                New field for reversible OnPrem replication,
+                to be used for data protection.
+            REVERSE_ONPREM_REPLICATION (4):
+                New field for reversible OnPrem replication,
+                to be used for data protection.
+        """
+
+        VOLUME_HYBRID_REPLICATION_TYPE_UNSPECIFIED = 0
+        MIGRATION = 1
+        CONTINUOUS_REPLICATION = 2
+        ONPREM_REPLICATION = 3
+        REVERSE_ONPREM_REPLICATION = 4
 
     replication: str = proto.Field(
         proto.STRING,
@@ -1317,6 +1535,408 @@ class HybridReplicationParameters(proto.Message):
         proto.STRING,
         proto.STRING,
         number=8,
+    )
+    replication_schedule: common.HybridReplicationSchedule = proto.Field(
+        proto.ENUM,
+        number=9,
+        enum=common.HybridReplicationSchedule,
+    )
+    hybrid_replication_type: VolumeHybridReplicationType = proto.Field(
+        proto.ENUM,
+        number=10,
+        enum=VolumeHybridReplicationType,
+    )
+    large_volume_constituent_count: int = proto.Field(
+        proto.INT32,
+        number=11,
+    )
+
+
+class CacheParameters(proto.Message):
+    r"""Cache Parameters for the volume.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        peer_volume_name (str):
+            Required. Name of the origin volume for the
+            cache volume.
+        peer_cluster_name (str):
+            Required. Name of the origin volume's ONTAP
+            cluster.
+        peer_svm_name (str):
+            Required. Name of the origin volume's SVM.
+        peer_ip_addresses (MutableSequence[str]):
+            Required. List of IC LIF addresses of the
+            origin volume's ONTAP cluster.
+        enable_global_file_lock (bool):
+            Optional. Indicates whether the cache volume
+            has global file lock enabled.
+
+            This field is a member of `oneof`_ ``_enable_global_file_lock``.
+        cache_config (google.cloud.netapp_v1.types.CacheConfig):
+            Optional. Configuration of the cache volume.
+        cache_state (google.cloud.netapp_v1.types.CacheParameters.CacheState):
+            Output only. State of the cache volume
+            indicating the peering status.
+        command (str):
+            Output only. Copy-paste-able commands to be
+            used on user's ONTAP to accept peering requests.
+        peering_command_expiry_time (google.protobuf.timestamp_pb2.Timestamp):
+            Optional. Expiration time for the peering
+            command to be executed on user's ONTAP.
+        passphrase (str):
+            Output only. Temporary passphrase generated
+            to accept cluster peering command.
+        state_details (str):
+            Output only. Detailed description of the
+            current cache state.
+    """
+
+    class CacheState(proto.Enum):
+        r"""State of the cache volume indicating the peering status.
+
+        Values:
+            CACHE_STATE_UNSPECIFIED (0):
+                Default unspecified state.
+            PENDING_CLUSTER_PEERING (1):
+                State indicating waiting for cluster peering
+                to be established.
+            PENDING_SVM_PEERING (2):
+                State indicating waiting for SVM peering to
+                be established.
+            PEERED (3):
+                State indicating successful establishment of
+                peering with origin volumes's ONTAP cluster.
+            ERROR (4):
+                Terminal state wherein peering with origin
+                volume's ONTAP cluster has failed.
+        """
+
+        CACHE_STATE_UNSPECIFIED = 0
+        PENDING_CLUSTER_PEERING = 1
+        PENDING_SVM_PEERING = 2
+        PEERED = 3
+        ERROR = 4
+
+    peer_volume_name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    peer_cluster_name: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    peer_svm_name: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    peer_ip_addresses: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=4,
+    )
+    enable_global_file_lock: bool = proto.Field(
+        proto.BOOL,
+        number=5,
+        optional=True,
+    )
+    cache_config: "CacheConfig" = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        message="CacheConfig",
+    )
+    cache_state: CacheState = proto.Field(
+        proto.ENUM,
+        number=7,
+        enum=CacheState,
+    )
+    command: str = proto.Field(
+        proto.STRING,
+        number=8,
+    )
+    peering_command_expiry_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=9,
+        message=timestamp_pb2.Timestamp,
+    )
+    passphrase: str = proto.Field(
+        proto.STRING,
+        number=10,
+    )
+    state_details: str = proto.Field(
+        proto.STRING,
+        number=12,
+    )
+
+
+class CacheConfig(proto.Message):
+    r"""Configuration of the cache volume.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        cache_pre_populate (google.cloud.netapp_v1.types.CachePrePopulate):
+            Optional. Pre-populate cache volume with data
+            from the origin volume.
+        writeback_enabled (bool):
+            Optional. Flag indicating whether writeback
+            is enabled for the FlexCache volume.
+
+            This field is a member of `oneof`_ ``_writeback_enabled``.
+        cifs_change_notify_enabled (bool):
+            Optional. Flag indicating whether a CIFS
+            change notification is enabled for the FlexCache
+            volume.
+
+            This field is a member of `oneof`_ ``_cifs_change_notify_enabled``.
+        cache_pre_populate_state (google.cloud.netapp_v1.types.CacheConfig.CachePrePopulateState):
+            Output only. State of the prepopulation job
+            indicating how the prepopulation is progressing.
+    """
+
+    class CachePrePopulateState(proto.Enum):
+        r"""State of the prepopulation job indicating how the
+        prepopulation is progressing.
+
+        Values:
+            CACHE_PRE_POPULATE_STATE_UNSPECIFIED (0):
+                Default unspecified state.
+            NOT_NEEDED (1):
+                State representing when the most recent
+                create or update request did not require a
+                prepopulation job.
+            IN_PROGRESS (2):
+                State representing when the most recent
+                update request requested a prepopulation job but
+                it has not yet completed.
+            COMPLETE (3):
+                State representing when the most recent
+                update request requested a prepopulation job and
+                it has completed successfully.
+            ERROR (4):
+                State representing when the most recent
+                update request requested a prepopulation job but
+                the prepopulate job failed.
+        """
+
+        CACHE_PRE_POPULATE_STATE_UNSPECIFIED = 0
+        NOT_NEEDED = 1
+        IN_PROGRESS = 2
+        COMPLETE = 3
+        ERROR = 4
+
+    cache_pre_populate: "CachePrePopulate" = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        message="CachePrePopulate",
+    )
+    writeback_enabled: bool = proto.Field(
+        proto.BOOL,
+        number=2,
+        optional=True,
+    )
+    cifs_change_notify_enabled: bool = proto.Field(
+        proto.BOOL,
+        number=5,
+        optional=True,
+    )
+    cache_pre_populate_state: CachePrePopulateState = proto.Field(
+        proto.ENUM,
+        number=6,
+        enum=CachePrePopulateState,
+    )
+
+
+class CachePrePopulate(proto.Message):
+    r"""Pre-populate cache volume with data from the origin volume.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        path_list (MutableSequence[str]):
+            Optional. List of directory-paths to be
+            pre-populated for the FlexCache volume.
+        exclude_path_list (MutableSequence[str]):
+            Optional. List of directory-paths to be
+            excluded for pre-population for the FlexCache
+            volume.
+        recursion (bool):
+            Optional. Flag indicating whether the directories listed
+            with the ``path_list`` need to be recursively pre-populated.
+
+            This field is a member of `oneof`_ ``_recursion``.
+    """
+
+    path_list: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=1,
+    )
+    exclude_path_list: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=2,
+    )
+    recursion: bool = proto.Field(
+        proto.BOOL,
+        number=3,
+        optional=True,
+    )
+
+
+class BlockDevice(proto.Message):
+    r"""Block device represents the device(s) which are stored in the
+    block volume.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        name (str):
+            Optional. User-defined name for the block device, unique
+            within the volume. In case no user input is provided, name
+            will be auto-generated in the backend. The name must meet
+            the following requirements:
+
+            - Be between 1 and 255 characters long.
+            - Contain only uppercase or lowercase letters (A-Z, a-z),
+              numbers (0-9), and the following special characters: "-",
+              "\_", "}", "{", ".".
+            - Spaces are not allowed.
+
+            This field is a member of `oneof`_ ``_name``.
+        host_groups (MutableSequence[str]):
+            Optional. A list of host groups that identify hosts that can
+            mount the block volume. Format:
+            ``projects/{project_id}/locations/{location}/hostGroups/{host_group_id}``
+            This field can be updated after the block device is created.
+        identifier (str):
+            Output only. Device identifier of the block volume. This
+            represents ``lun_serial_number`` for iSCSI volumes.
+        size_gib (int):
+            Optional. The size of the block device in GiB. Any value
+            provided for the ``size_gib`` field during volume creation
+            is ignored. The block device's size is system-managed and
+            will be set to match the parent Volume's ``capacity_gib``.
+
+            This field is a member of `oneof`_ ``_size_gib``.
+        os_type (google.cloud.netapp_v1.types.OsType):
+            Required. Immutable. The OS type of the
+            volume. This field can't be changed after the
+            block device is created.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+        optional=True,
+    )
+    host_groups: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=2,
+    )
+    identifier: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    size_gib: int = proto.Field(
+        proto.INT64,
+        number=4,
+        optional=True,
+    )
+    os_type: common.OsType = proto.Field(
+        proto.ENUM,
+        number=5,
+        enum=common.OsType,
+    )
+
+
+class RestoreBackupFilesRequest(proto.Message):
+    r"""RestoreBackupFilesRequest restores files from a backup to a
+    volume.
+
+    Attributes:
+        name (str):
+            Required. The volume resource name, in the format
+            ``projects/{project_id}/locations/{location}/volumes/{volume_id}``
+        backup (str):
+            Required. The backup resource name, in the format
+            ``projects/{project_id}/locations/{location}/backupVaults/{backup_vault_id}/backups/{backup_id}``
+        file_list (MutableSequence[str]):
+            Required. List of files to be restored,
+            specified by their absolute path in the source
+            volume.
+        restore_destination_path (str):
+            Optional. Absolute directory path in the destination volume.
+            This is required if the ``file_list`` is provided.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    backup: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    file_list: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=3,
+    )
+    restore_destination_path: str = proto.Field(
+        proto.STRING,
+        number=4,
+    )
+
+
+class RestoreBackupFilesResponse(proto.Message):
+    r"""RestoreBackupFilesResponse is the result of
+    RestoreBackupFilesRequest.
+
+    """
+
+
+class EstablishVolumePeeringRequest(proto.Message):
+    r"""EstablishVolumePeeringRequest establishes cluster and svm
+    peerings between the source and destination clusters.
+
+    Attributes:
+        name (str):
+            Required. The volume resource name, in the format
+            ``projects/{project_id}/locations/{location}/volumes/{volume_id}``
+        peer_cluster_name (str):
+            Required. Name of the user's local source
+            cluster to be peered with the destination
+            cluster.
+        peer_svm_name (str):
+            Required. Name of the user's local source
+            vserver svm to be peered with the destination
+            vserver svm.
+        peer_ip_addresses (MutableSequence[str]):
+            Optional. List of IPv4 ip addresses to be
+            used for peering.
+        peer_volume_name (str):
+            Required. Name of the user's local source
+            volume to be peered with the destination volume.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    peer_cluster_name: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    peer_svm_name: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    peer_ip_addresses: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=4,
+    )
+    peer_volume_name: str = proto.Field(
+        proto.STRING,
+        number=5,
     )
 
 

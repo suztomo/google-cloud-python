@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,14 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
     package="google.cloud.edgenetwork.v1",
     manifest={
         "ResourceState",
+        "RemotePeeringNetworkType",
         "Zone",
         "Network",
         "Subnet",
@@ -62,12 +63,32 @@ class ResourceState(proto.Enum):
         STATE_DELETING (5):
             The resource is under deletion.
     """
+
     STATE_UNKNOWN = 0
     STATE_PENDING = 1
     STATE_PROVISIONING = 2
     STATE_RUNNING = 3
     STATE_SUSPENDED = 4
     STATE_DELETING = 5
+
+
+class RemotePeeringNetworkType(proto.Enum):
+    r"""Defines the remote peering destination for the interface. It
+    is required when peering separation is enabled.
+
+    Values:
+        REMOTE_PEERING_NETWORK_TYPE_UNSPECIFIED (0):
+            Unspecified.
+        REMOTE_PEERING_NETWORK_TYPE_CUSTOMER_INTERNAL (1):
+            Customer's trusted internal network.
+        REMOTE_PEERING_NETWORK_TYPE_CUSTOMER_INTERNET (2):
+            Customer's untrust network that has internet
+            access.
+    """
+
+    REMOTE_PEERING_NETWORK_TYPE_UNSPECIFIED = 0
+    REMOTE_PEERING_NETWORK_TYPE_CUSTOMER_INTERNAL = 1
+    REMOTE_PEERING_NETWORK_TYPE_CUSTOMER_INTERNET = 2
 
 
 class Zone(proto.Message):
@@ -228,6 +249,7 @@ class Subnet(proto.Message):
             NON_BONDED (2):
                 Single homed.
         """
+
         BONDING_TYPE_UNSPECIFIED = 0
         BONDED = 1
         NON_BONDED = 2
@@ -312,6 +334,10 @@ class Interconnect(proto.Message):
         physical_ports (MutableSequence[str]):
             Output only. Physical ports (e.g.,
             TenGigE0/0/0/1) that form the interconnect.
+        remote_peering_network_type (google.cloud.edgenetwork_v1.types.RemotePeeringNetworkType):
+            Optional. The remote peering network type of
+            the interconnect. It is required when peering
+            separation is enabled.
     """
 
     class InterconnectType(proto.Enum):
@@ -323,6 +349,7 @@ class Interconnect(proto.Message):
             DEDICATED (1):
                 Dedicated Interconnect.
         """
+
         INTERCONNECT_TYPE_UNSPECIFIED = 0
         DEDICATED = 1
 
@@ -366,6 +393,11 @@ class Interconnect(proto.Message):
         proto.STRING,
         number=9,
     )
+    remote_peering_network_type: "RemotePeeringNetworkType" = proto.Field(
+        proto.ENUM,
+        number=10,
+        enum="RemotePeeringNetworkType",
+    )
 
 
 class InterconnectAttachment(proto.Message):
@@ -404,6 +436,10 @@ class InterconnectAttachment(proto.Message):
         state (google.cloud.edgenetwork_v1.types.ResourceState):
             Output only. Current stage of the resource to
             the device by config push.
+        peering_type (google.cloud.edgenetwork_v1.types.RemotePeeringNetworkType):
+            Optional. The remote peering network type of
+            the underlying interconnect. It is required when
+            peering separation is enabled.
     """
 
     name: str = proto.Field(
@@ -449,6 +485,11 @@ class InterconnectAttachment(proto.Message):
         proto.ENUM,
         number=10,
         enum="ResourceState",
+    )
+    peering_type: "RemotePeeringNetworkType" = proto.Field(
+        proto.ENUM,
+        number=12,
+        enum="RemotePeeringNetworkType",
     )
 
 
@@ -772,12 +813,12 @@ class InterconnectDiagnostics(proto.Message):
             number=2,
             message="InterconnectDiagnostics.LinkLACPStatus",
         )
-        lldp_statuses: MutableSequence[
-            "InterconnectDiagnostics.LinkLLDPStatus"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=3,
-            message="InterconnectDiagnostics.LinkLLDPStatus",
+        lldp_statuses: MutableSequence["InterconnectDiagnostics.LinkLLDPStatus"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=3,
+                message="InterconnectDiagnostics.LinkLLDPStatus",
+            )
         )
         packet_counts: "InterconnectDiagnostics.PacketCounts" = proto.Field(
             proto.MESSAGE,
@@ -879,6 +920,7 @@ class InterconnectDiagnostics(proto.Message):
                     this means the rest of the object should be
                     empty.
             """
+
             UNKNOWN = 0
             ACTIVE = 1
             DETACHED = 2
@@ -1008,7 +1050,7 @@ class RouterStatus(proto.Message):
                 Time this session has been up.
                 Format:
 
-                14 years, 51 weeks, 6 days, 23 hours, 59
+                 14 years, 51 weeks, 6 days, 23 hours, 59
                 minutes, 59 seconds
             uptime_seconds (int):
                 Time this session has been up, in seconds.
@@ -1030,6 +1072,7 @@ class RouterStatus(proto.Message):
                     The DOWN state indicating BGP session is not
                     established yet.
             """
+
             UNKNOWN = 0
             UP = 1
             DOWN = 2

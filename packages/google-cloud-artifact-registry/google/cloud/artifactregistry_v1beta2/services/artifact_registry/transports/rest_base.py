@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,21 +17,26 @@ import json  # type: ignore
 import re
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import gapic_v1, path_template
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 
-from google.cloud.artifactregistry_v1beta2.types import apt_artifact, file, package
+from google.cloud.artifactregistry_v1beta2.types import (
+    apt_artifact,
+    file,
+    package,
+    repository,
+    settings,
+    tag,
+    version,
+    yum_artifact,
+)
 from google.cloud.artifactregistry_v1beta2.types import repository as gda_repository
-from google.cloud.artifactregistry_v1beta2.types import repository
-from google.cloud.artifactregistry_v1beta2.types import settings
-from google.cloud.artifactregistry_v1beta2.types import tag
 from google.cloud.artifactregistry_v1beta2.types import tag as gda_tag
-from google.cloud.artifactregistry_v1beta2.types import version, yum_artifact
 
 from .base import DEFAULT_CLIENT_INFO, ArtifactRegistryTransport
 

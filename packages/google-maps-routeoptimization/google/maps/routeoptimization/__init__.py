@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,8 +37,12 @@ from google.maps.routeoptimization_v1.types.route_optimization_service import (
     InjectedSolutionConstraint,
     InputConfig,
     Location,
+    OptimizeToursLongRunningMetadata,
     OptimizeToursRequest,
     OptimizeToursResponse,
+    OptimizeToursUriMetadata,
+    OptimizeToursUriRequest,
+    OptimizeToursUriResponse,
     OptimizeToursValidationError,
     OutputConfig,
     RouteModifiers,
@@ -50,7 +54,9 @@ from google.maps.routeoptimization_v1.types.route_optimization_service import (
     SkippedShipment,
     TimeWindow,
     TransitionAttributes,
+    Uri,
     Vehicle,
+    VehicleFullness,
     Waypoint,
 )
 
@@ -68,8 +74,12 @@ __all__ = (
     "InjectedSolutionConstraint",
     "InputConfig",
     "Location",
+    "OptimizeToursLongRunningMetadata",
     "OptimizeToursRequest",
     "OptimizeToursResponse",
+    "OptimizeToursUriMetadata",
+    "OptimizeToursUriRequest",
+    "OptimizeToursUriResponse",
     "OptimizeToursValidationError",
     "OutputConfig",
     "RouteModifiers",
@@ -81,7 +91,9 @@ __all__ = (
     "SkippedShipment",
     "TimeWindow",
     "TransitionAttributes",
+    "Uri",
     "Vehicle",
+    "VehicleFullness",
     "Waypoint",
     "DataFormat",
 )

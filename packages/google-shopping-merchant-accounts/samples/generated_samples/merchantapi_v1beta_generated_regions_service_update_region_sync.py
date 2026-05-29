@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_region():
     client = merchant_accounts_v1beta.RegionsServiceClient()
 
     # Initialize request argument(s)
-    request = merchant_accounts_v1beta.UpdateRegionRequest(
-    )
+    request = merchant_accounts_v1beta.UpdateRegionRequest()
 
     # Make the request
     response = client.update_region(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END merchantapi_v1beta_generated_RegionsService_UpdateRegion_sync]

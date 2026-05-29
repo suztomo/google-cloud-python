@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,9 @@ async def sample_create_connection():
     # Initialize request argument(s)
     connection = dlp_v2.Connection()
     connection.cloud_sql.username_password.username = "username_value"
-    connection.cloud_sql.username_password.password_secret_version_name = "password_secret_version_name_value"
+    connection.cloud_sql.username_password.password_secret_version_name = (
+        "password_secret_version_name_value"
+    )
     connection.cloud_sql.max_connections = 1608
     connection.cloud_sql.database_engine = "DATABASE_ENGINE_POSTGRES"
     connection.state = "ERROR"
@@ -56,5 +58,6 @@ async def sample_create_connection():
 
     # Handle the response
     print(response)
+
 
 # [END dlp_v2_generated_DlpService_CreateConnection_async]

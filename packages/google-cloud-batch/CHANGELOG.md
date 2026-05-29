@@ -1,5 +1,65 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-batch/#history
+
+## [0.21.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-batch-v0.20.0...google-cloud-batch-v0.21.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.20.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-batch-v0.19.0...google-cloud-batch-v0.20.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.19.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-batch-v0.18.0...google-cloud-batch-v0.19.0) (2025-12-04)
+
+
+### Features
+
+* added new provisioning models ([c958ebdfe9351d3d4e80d388a6e95804b515d030](https://github.com/googleapis/google-cloud-python/commit/c958ebdfe9351d3d4e80d388a6e95804b515d030))
+
+## [0.18.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-batch-v0.17.37...google-cloud-batch-v0.18.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.17.37](https://github.com/googleapis/google-cloud-python/compare/google-cloud-batch-v0.17.36...google-cloud-batch-v0.17.37) (2025-09-22)
+
+
+### Features
+
+* [google-cloud-batch] added new provisioning models ([#14432](https://github.com/googleapis/google-cloud-python/issues/14432)) ([b77e02b](https://github.com/googleapis/google-cloud-python/commit/b77e02b14afff4e046eff81a9aea05320faa3017))
+
+## [0.17.36](https://github.com/googleapis/google-cloud-python/compare/google-cloud-batch-v0.17.35...google-cloud-batch-v0.17.36) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([eea9e6f](https://github.com/googleapis/google-cloud-python/commit/eea9e6f798406fec17a17dfd71e40fbeea42cf6a))
+
 ## [0.17.35](https://github.com/googleapis/google-cloud-python/compare/google-cloud-batch-v0.17.34...google-cloud-batch-v0.17.35) (2025-03-15)
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,6 +38,12 @@ from google.cloud.retail_v2.services.control_service.async_client import (
     ControlServiceAsyncClient,
 )
 from google.cloud.retail_v2.services.control_service.client import ControlServiceClient
+from google.cloud.retail_v2.services.conversational_search_service.async_client import (
+    ConversationalSearchServiceAsyncClient,
+)
+from google.cloud.retail_v2.services.conversational_search_service.client import (
+    ConversationalSearchServiceClient,
+)
 from google.cloud.retail_v2.services.generative_question_service.async_client import (
     GenerativeQuestionServiceAsyncClient,
 )
@@ -102,6 +108,7 @@ from google.cloud.retail_v2.types.common import (
     ColorInfo,
     Condition,
     CustomAttribute,
+    DoubleList,
     FulfillmentInfo,
     Image,
     Interval,
@@ -113,6 +120,7 @@ from google.cloud.retail_v2.types.common import (
     Rule,
     SearchSolutionUseCase,
     SolutionType,
+    StringList,
     UserInfo,
 )
 from google.cloud.retail_v2.types.completion_service import (
@@ -127,6 +135,10 @@ from google.cloud.retail_v2.types.control_service import (
     ListControlsRequest,
     ListControlsResponse,
     UpdateControlRequest,
+)
+from google.cloud.retail_v2.types.conversational_search_service import (
+    ConversationalSearchRequest,
+    ConversationalSearchResponse,
 )
 from google.cloud.retail_v2.types.export_config import (
     BigQueryOutputResult,
@@ -221,6 +233,7 @@ from google.cloud.retail_v2.types.purge_config import (
     PurgeUserEventsRequest,
     PurgeUserEventsResponse,
 )
+from google.cloud.retail_v2.types.safety import HarmCategory, SafetySetting
 from google.cloud.retail_v2.types.search_service import (
     ExperimentInfo,
     ProductAttributeInterval,
@@ -263,6 +276,8 @@ __all__ = (
     "CompletionServiceAsyncClient",
     "ControlServiceClient",
     "ControlServiceAsyncClient",
+    "ConversationalSearchServiceClient",
+    "ConversationalSearchServiceAsyncClient",
     "GenerativeQuestionServiceClient",
     "GenerativeQuestionServiceAsyncClient",
     "ModelServiceClient",
@@ -299,6 +314,7 @@ __all__ = (
     "ColorInfo",
     "Condition",
     "CustomAttribute",
+    "DoubleList",
     "FulfillmentInfo",
     "Image",
     "Interval",
@@ -307,6 +323,7 @@ __all__ = (
     "PriceInfo",
     "Rating",
     "Rule",
+    "StringList",
     "UserInfo",
     "AttributeConfigLevel",
     "RecommendationsFilteringOption",
@@ -321,6 +338,8 @@ __all__ = (
     "ListControlsRequest",
     "ListControlsResponse",
     "UpdateControlRequest",
+    "ConversationalSearchRequest",
+    "ConversationalSearchResponse",
     "BigQueryOutputResult",
     "ExportAnalyticsMetricsRequest",
     "ExportAnalyticsMetricsResponse",
@@ -398,6 +417,8 @@ __all__ = (
     "PurgeProductsResponse",
     "PurgeUserEventsRequest",
     "PurgeUserEventsResponse",
+    "SafetySetting",
+    "HarmCategory",
     "ExperimentInfo",
     "ProductAttributeInterval",
     "ProductAttributeValue",

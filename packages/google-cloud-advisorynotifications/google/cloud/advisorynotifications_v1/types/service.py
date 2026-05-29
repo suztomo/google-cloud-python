@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -58,6 +58,7 @@ class NotificationView(proto.Enum):
         FULL (2):
             Include everything.
     """
+
     NOTIFICATION_VIEW_UNSPECIFIED = 0
     BASIC = 1
     FULL = 2
@@ -86,6 +87,7 @@ class LocalizationState(proto.Enum):
             Localization for requested language is
             completed.
     """
+
     LOCALIZATION_STATE_UNSPECIFIED = 0
     LOCALIZATION_STATE_NOT_APPLICABLE = 1
     LOCALIZATION_STATE_PENDING = 2
@@ -107,6 +109,7 @@ class NotificationType(proto.Enum):
         NOTIFICATION_TYPE_THREAT_HORIZONS (4):
             Threat horizons MSA
     """
+
     NOTIFICATION_TYPE_UNSPECIFIED = 0
     NOTIFICATION_TYPE_SECURITY_PRIVACY_ADVISORY = 1
     NOTIFICATION_TYPE_SENSITIVE_ACTIONS = 2

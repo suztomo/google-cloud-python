@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -224,6 +224,7 @@ class DataPolicy(proto.Message):
                 Used to create a data policy for data
                 masking.
         """
+
         DATA_POLICY_TYPE_UNSPECIFIED = 0
         COLUMN_LEVEL_SECURITY_POLICY = 3
         DATA_MASKING_POLICY = 2
@@ -288,22 +289,23 @@ class DataMaskingPolicy(proto.Message):
                 masking values. The default masking values for each type
                 listed as below:
 
-                -  STRING: ""
-                -  BYTES: b''
-                -  INTEGER: 0
-                -  FLOAT: 0.0
-                -  NUMERIC: 0
-                -  BOOLEAN: FALSE
-                -  TIMESTAMP: 0001-01-01 00:00:00 UTC
-                -  DATE: 0001-01-01
-                -  TIME: 00:00:00
-                -  DATETIME: 0001-01-01T00:00:00
-                -  GEOGRAPHY: POINT(0 0)
-                -  BIGNUMERIC: 0
-                -  ARRAY: []
-                -  STRUCT: NOT_APPLICABLE
-                -  JSON: NULL
+                - STRING: ""
+                - BYTES: b''
+                - INTEGER: 0
+                - FLOAT: 0.0
+                - NUMERIC: 0
+                - BOOLEAN: FALSE
+                - TIMESTAMP: 0001-01-01 00:00:00 UTC
+                - DATE: 0001-01-01
+                - TIME: 00:00:00
+                - DATETIME: 0001-01-01T00:00:00
+                - GEOGRAPHY: POINT(0 0)
+                - BIGNUMERIC: 0
+                - ARRAY: []
+                - STRUCT: NOT_APPLICABLE
+                - JSON: NULL
         """
+
         PREDEFINED_EXPRESSION_UNSPECIFIED = 0
         SHA256 = 3
         ALWAYS_NULL = 5

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,15 +16,15 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -125,6 +125,14 @@ class UrlMapsRestInterceptor:
                 return request, metadata
 
             def post_patch(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_test_iam_permissions(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_test_iam_permissions(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -464,6 +472,56 @@ class UrlMapsRestInterceptor:
         """
         return response, metadata
 
+    def pre_test_iam_permissions(
+        self,
+        request: compute.TestIamPermissionsUrlMapRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        compute.TestIamPermissionsUrlMapRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for test_iam_permissions
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the UrlMaps server.
+        """
+        return request, metadata
+
+    def post_test_iam_permissions(
+        self, response: compute.TestPermissionsResponse
+    ) -> compute.TestPermissionsResponse:
+        """Post-rpc interceptor for test_iam_permissions
+
+        DEPRECATED. Please use the `post_test_iam_permissions_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the UrlMaps server but before
+        it is returned to user code. This `post_test_iam_permissions` interceptor runs
+        before the `post_test_iam_permissions_with_metadata` interceptor.
+        """
+        return response
+
+    def post_test_iam_permissions_with_metadata(
+        self,
+        response: compute.TestPermissionsResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        compute.TestPermissionsResponse, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Post-rpc interceptor for test_iam_permissions
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the UrlMaps server but before it is returned to user code.
+
+        We recommend only using this `post_test_iam_permissions_with_metadata`
+        interceptor in new development instead of the `post_test_iam_permissions` interceptor.
+        When both interceptors are used, this `post_test_iam_permissions_with_metadata` interceptor runs after the
+        `post_test_iam_permissions` interceptor. The (possibly modified) response returned by
+        `post_test_iam_permissions` will be passed to
+        `post_test_iam_permissions_with_metadata`.
+        """
+        return response, metadata
+
     def pre_update(
         self,
         request: compute.UpdateUrlMapRequest,
@@ -606,9 +664,10 @@ class UrlMapsRestTransport(_BaseUrlMapsRestTransport):
                  are specified, the client will attempt to ascertain the
                  credentials from the environment.
 
-             credentials_file (Optional[str]): A file with credentials that can
+             credentials_file (Optional[str]): Deprecated. A file with credentials that can
                  be loaded with :func:`google.auth.load_credentials_from_file`.
-                 This argument is ignored if ``channel`` is provided.
+                 This argument is ignored if ``channel`` is provided. This argument will be
+                 removed in the next major version of this library.
              scopes (Optional(Sequence[str])): A list of scopes. This argument is
                  ignored if ``channel`` is provided.
              client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -626,6 +685,12 @@ class UrlMapsRestTransport(_BaseUrlMapsRestTransport):
              url_scheme: the protocol scheme for the API endpoint.  Normally
                  "https", but for testing or local servers,
                  "http" can be specified.
+             interceptor (Optional[UrlMapsRestInterceptor]): Interceptor used
+                 to manipulate requests, request metadata, and responses.
+             api_audience (Optional[str]): The intended audience for the API calls
+                 to the service that will be set when using certain 3rd party
+                 authentication flows. Audience is typically a resource identifier.
+                 If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -847,21 +912,32 @@ class UrlMapsRestTransport(_BaseUrlMapsRestTransport):
 
             Returns:
                 ~.compute.Operation:
-                    Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                `Global </compute/docs/reference/rest/v1/globalOperations>`__
-                \*
-                `Regional </compute/docs/reference/rest/v1/regionOperations>`__
-                \*
-                `Zonal </compute/docs/reference/rest/v1/zoneOperations>`__
+                    Represents an Operation resource.
+
+                Google Compute Engine has three Operation resources:
+
+                - `Global </compute/docs/reference/rest/v1/globalOperations>`__
+                - `Regional </compute/docs/reference/rest/v1/regionOperations>`__
+                - `Zonal </compute/docs/reference/rest/v1/zoneOperations>`__
+
                 You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the ``globalOperations``
-                resource. - For regional operations, use the
-                ``regionOperations`` resource. - For zonal operations,
-                use the ``zoneOperations`` resource. For more
-                information, read Global, Regional, and Zonal Resources.
+                API requests. For more information, readHandling API
+                responses.
+
+                Operations can be global, regional or zonal.
+
+                ::
+
+                   - For global operations, use the `globalOperations`
+                   resource.
+                   - For regional operations, use the
+                   `regionOperations` resource.
+                   - For zonal operations, use
+                   the `zoneOperations` resource.
+
+                For more information, read Global, Regional, and Zonal
+                Resources.
+
                 Note that completed Operation resources have a limited
                 retention period.
 
@@ -1007,30 +1083,40 @@ class UrlMapsRestTransport(_BaseUrlMapsRestTransport):
 
             Returns:
                 ~.compute.UrlMap:
-                    Represents a URL Map resource. Compute Engine has two
-                URL Map resources: \*
-                `Global </compute/docs/reference/rest/v1/urlMaps>`__ \*
-                `Regional </compute/docs/reference/rest/v1/regionUrlMaps>`__
+                    Represents a URL Map resource.
+
+                Compute Engine has two URL Map resources:
+
+                - `Global </compute/docs/reference/rest/v1/urlMaps>`__
+                - `Regional </compute/docs/reference/rest/v1/regionUrlMaps>`__
+
                 A URL map resource is a component of certain types of
-                cloud load balancers and Traffic Director: \* urlMaps
-                are used by global external Application Load Balancers,
-                classic Application Load Balancers, and cross-region
-                internal Application Load Balancers. \* regionUrlMaps
-                are used by internal Application Load Balancers,
-                regional external Application Load Balancers and
-                regional internal Application Load Balancers. For a list
-                of supported URL map features by the load balancer type,
-                see the Load balancing features: Routing and traffic
-                management table. For a list of supported URL map
-                features for Traffic Director, see the Traffic Director
-                features: Routing and traffic management table. This
-                resource defines mappings from hostnames and URL paths
-                to either a backend service or a backend bucket. To use
-                the global urlMaps resource, the backend service must
-                have a loadBalancingScheme of either EXTERNAL,
-                EXTERNAL_MANAGED, or INTERNAL_SELF_MANAGED. To use the
-                regionUrlMaps resource, the backend service must have a
-                loadBalancingScheme of INTERNAL_MANAGED. For more
+                cloud load balancers and Traffic Director:
+
+                - urlMaps are used by global external Application Load
+                  Balancers, classic Application Load Balancers, and
+                  cross-region internal Application Load Balancers.
+                - regionUrlMaps are used by internal Application Load
+                  Balancers, regional external Application Load
+                  Balancers and regional internal Application Load
+                  Balancers.
+
+                For a list of supported URL map features by the load
+                balancer type, see the Load balancing features: Routing
+                and traffic management table.
+
+                For a list of supported URL map features for Traffic
+                Director, see the Traffic Director features: Routing and
+                traffic management table.
+
+                This resource defines mappings from hostnames and URL
+                paths to either a backend service or a backend bucket.
+
+                To use the global urlMaps resource, the backend service
+                must have a loadBalancingScheme of either
+                EXTERNAL,EXTERNAL_MANAGED, or INTERNAL_SELF_MANAGED. To
+                use the regionUrlMaps resource, the backend service must
+                have aloadBalancingScheme of INTERNAL_MANAGED. For more
                 information, read URL Map Concepts.
 
             """
@@ -1174,21 +1260,32 @@ class UrlMapsRestTransport(_BaseUrlMapsRestTransport):
 
             Returns:
                 ~.compute.Operation:
-                    Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                `Global </compute/docs/reference/rest/v1/globalOperations>`__
-                \*
-                `Regional </compute/docs/reference/rest/v1/regionOperations>`__
-                \*
-                `Zonal </compute/docs/reference/rest/v1/zoneOperations>`__
+                    Represents an Operation resource.
+
+                Google Compute Engine has three Operation resources:
+
+                - `Global </compute/docs/reference/rest/v1/globalOperations>`__
+                - `Regional </compute/docs/reference/rest/v1/regionOperations>`__
+                - `Zonal </compute/docs/reference/rest/v1/zoneOperations>`__
+
                 You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the ``globalOperations``
-                resource. - For regional operations, use the
-                ``regionOperations`` resource. - For zonal operations,
-                use the ``zoneOperations`` resource. For more
-                information, read Global, Regional, and Zonal Resources.
+                API requests. For more information, readHandling API
+                responses.
+
+                Operations can be global, regional or zonal.
+
+                ::
+
+                   - For global operations, use the `globalOperations`
+                   resource.
+                   - For regional operations, use the
+                   `regionOperations` resource.
+                   - For zonal operations, use
+                   the `zoneOperations` resource.
+
+                For more information, read Global, Regional, and Zonal
+                Resources.
+
                 Note that completed Operation resources have a limited
                 retention period.
 
@@ -1343,21 +1440,32 @@ class UrlMapsRestTransport(_BaseUrlMapsRestTransport):
 
             Returns:
                 ~.compute.Operation:
-                    Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                `Global </compute/docs/reference/rest/v1/globalOperations>`__
-                \*
-                `Regional </compute/docs/reference/rest/v1/regionOperations>`__
-                \*
-                `Zonal </compute/docs/reference/rest/v1/zoneOperations>`__
+                    Represents an Operation resource.
+
+                Google Compute Engine has three Operation resources:
+
+                - `Global </compute/docs/reference/rest/v1/globalOperations>`__
+                - `Regional </compute/docs/reference/rest/v1/regionOperations>`__
+                - `Zonal </compute/docs/reference/rest/v1/zoneOperations>`__
+
                 You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the ``globalOperations``
-                resource. - For regional operations, use the
-                ``regionOperations`` resource. - For zonal operations,
-                use the ``zoneOperations`` resource. For more
-                information, read Global, Regional, and Zonal Resources.
+                API requests. For more information, readHandling API
+                responses.
+
+                Operations can be global, regional or zonal.
+
+                ::
+
+                   - For global operations, use the `globalOperations`
+                   resource.
+                   - For regional operations, use the
+                   `regionOperations` resource.
+                   - For zonal operations, use
+                   the `zoneOperations` resource.
+
+                For more information, read Global, Regional, and Zonal
+                Resources.
+
                 Note that completed Operation resources have a limited
                 retention period.
 
@@ -1658,21 +1766,32 @@ class UrlMapsRestTransport(_BaseUrlMapsRestTransport):
 
             Returns:
                 ~.compute.Operation:
-                    Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                `Global </compute/docs/reference/rest/v1/globalOperations>`__
-                \*
-                `Regional </compute/docs/reference/rest/v1/regionOperations>`__
-                \*
-                `Zonal </compute/docs/reference/rest/v1/zoneOperations>`__
+                    Represents an Operation resource.
+
+                Google Compute Engine has three Operation resources:
+
+                - `Global </compute/docs/reference/rest/v1/globalOperations>`__
+                - `Regional </compute/docs/reference/rest/v1/regionOperations>`__
+                - `Zonal </compute/docs/reference/rest/v1/zoneOperations>`__
+
                 You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the ``globalOperations``
-                resource. - For regional operations, use the
-                ``regionOperations`` resource. - For zonal operations,
-                use the ``zoneOperations`` resource. For more
-                information, read Global, Regional, and Zonal Resources.
+                API requests. For more information, readHandling API
+                responses.
+
+                Operations can be global, regional or zonal.
+
+                ::
+
+                   - For global operations, use the `globalOperations`
+                   resource.
+                   - For regional operations, use the
+                   `regionOperations` resource.
+                   - For zonal operations, use
+                   the `zoneOperations` resource.
+
+                For more information, read Global, Regional, and Zonal
+                Resources.
+
                 Note that completed Operation resources have a limited
                 retention period.
 
@@ -1773,6 +1892,160 @@ class UrlMapsRestTransport(_BaseUrlMapsRestTransport):
                 )
             return resp
 
+    class _TestIamPermissions(
+        _BaseUrlMapsRestTransport._BaseTestIamPermissions, UrlMapsRestStub
+    ):
+        def __hash__(self):
+            return hash("UrlMapsRestTransport.TestIamPermissions")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: compute.TestIamPermissionsUrlMapRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> compute.TestPermissionsResponse:
+            r"""Call the test iam permissions method over HTTP.
+
+            Args:
+                request (~.compute.TestIamPermissionsUrlMapRequest):
+                    The request object. A request message for
+                UrlMaps.TestIamPermissions. See the
+                method description for details.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.compute.TestPermissionsResponse:
+
+            """
+
+            http_options = (
+                _BaseUrlMapsRestTransport._BaseTestIamPermissions._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_test_iam_permissions(
+                request, metadata
+            )
+            transcoded_request = _BaseUrlMapsRestTransport._BaseTestIamPermissions._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseUrlMapsRestTransport._BaseTestIamPermissions._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseUrlMapsRestTransport._BaseTestIamPermissions._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.compute_v1.UrlMapsClient.TestIamPermissions",
+                    extra={
+                        "serviceName": "google.cloud.compute.v1.UrlMaps",
+                        "rpcName": "TestIamPermissions",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = UrlMapsRestTransport._TestIamPermissions._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = compute.TestPermissionsResponse()
+            pb_resp = compute.TestPermissionsResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_test_iam_permissions(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_test_iam_permissions_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = compute.TestPermissionsResponse.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.compute_v1.UrlMapsClient.test_iam_permissions",
+                    extra={
+                        "serviceName": "google.cloud.compute.v1.UrlMaps",
+                        "rpcName": "TestIamPermissions",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     class _Update(_BaseUrlMapsRestTransport._BaseUpdate, UrlMapsRestStub):
         def __hash__(self):
             return hash("UrlMapsRestTransport.Update")
@@ -1824,21 +2097,32 @@ class UrlMapsRestTransport(_BaseUrlMapsRestTransport):
 
             Returns:
                 ~.compute.Operation:
-                    Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                `Global </compute/docs/reference/rest/v1/globalOperations>`__
-                \*
-                `Regional </compute/docs/reference/rest/v1/regionOperations>`__
-                \*
-                `Zonal </compute/docs/reference/rest/v1/zoneOperations>`__
+                    Represents an Operation resource.
+
+                Google Compute Engine has three Operation resources:
+
+                - `Global </compute/docs/reference/rest/v1/globalOperations>`__
+                - `Regional </compute/docs/reference/rest/v1/regionOperations>`__
+                - `Zonal </compute/docs/reference/rest/v1/zoneOperations>`__
+
                 You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the ``globalOperations``
-                resource. - For regional operations, use the
-                ``regionOperations`` resource. - For zonal operations,
-                use the ``zoneOperations`` resource. For more
-                information, read Global, Regional, and Zonal Resources.
+                API requests. For more information, readHandling API
+                responses.
+
+                Operations can be global, regional or zonal.
+
+                ::
+
+                   - For global operations, use the `globalOperations`
+                   resource.
+                   - For regional operations, use the
+                   `regionOperations` resource.
+                   - For zonal operations, use
+                   the `zoneOperations` resource.
+
+                For more information, read Global, Regional, and Zonal
+                Resources.
+
                 Note that completed Operation resources have a limited
                 retention period.
 
@@ -2138,6 +2422,16 @@ class UrlMapsRestTransport(_BaseUrlMapsRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._Patch(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def test_iam_permissions(
+        self,
+    ) -> Callable[
+        [compute.TestIamPermissionsUrlMapRequest], compute.TestPermissionsResponse
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._TestIamPermissions(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def update(self) -> Callable[[compute.UpdateUrlMapRequest], compute.Operation]:

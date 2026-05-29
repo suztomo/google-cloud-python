@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ __protobuf__ = proto.module(
     package="google.cloud.apihub.v1",
     manifest={
         "CreateApiHubInstanceRequest",
+        "DeleteApiHubInstanceRequest",
         "GetApiHubInstanceRequest",
         "LookupApiHubInstanceRequest",
         "LookupApiHubInstanceResponse",
@@ -65,6 +66,24 @@ class CreateApiHubInstanceRequest(proto.Message):
         proto.MESSAGE,
         number=3,
         message=common_fields.ApiHubInstance,
+    )
+
+
+class DeleteApiHubInstanceRequest(proto.Message):
+    r"""The
+    [DeleteApiHubInstance][google.cloud.apihub.v1.Provisioning.DeleteApiHubInstance]
+    method's request.
+
+    Attributes:
+        name (str):
+            Required. The name of the Api Hub instance to delete.
+            Format:
+            ``projects/{project}/locations/{location}/apiHubInstances/{apiHubInstance}``.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
     )
 
 

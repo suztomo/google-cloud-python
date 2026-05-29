@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.clouddms_v1.types import (
@@ -108,6 +108,7 @@ class DatabaseEntityView(proto.Enum):
             the page_size property of the request is ignored. The
             returned page will only include the top-most node types.
     """
+
     DATABASE_ENTITY_VIEW_UNSPECIFIED = 0
     DATABASE_ENTITY_VIEW_BASIC = 1
     DATABASE_ENTITY_VIEW_FULL = 2
@@ -195,12 +196,12 @@ class ListMigrationJobsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    migration_jobs: MutableSequence[
-        clouddms_resources.MigrationJob
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=clouddms_resources.MigrationJob,
+    migration_jobs: MutableSequence[clouddms_resources.MigrationJob] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=clouddms_resources.MigrationJob,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -249,7 +250,7 @@ class CreateMigrationJobRequest(proto.Message):
             It is recommended to always set this value to a UUID.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
     """
 
@@ -291,7 +292,7 @@ class UpdateMigrationJobRequest(proto.Message):
             It is recommended to always set this value to a UUID.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
     """
 
@@ -326,7 +327,7 @@ class DeleteMigrationJobRequest(proto.Message):
             It is recommended to always set this value to a UUID.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
         force (bool):
             The destination CloudSQL connection profile
@@ -723,12 +724,12 @@ class ListConnectionProfilesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    connection_profiles: MutableSequence[
-        clouddms_resources.ConnectionProfile
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=clouddms_resources.ConnectionProfile,
+    connection_profiles: MutableSequence[clouddms_resources.ConnectionProfile] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=clouddms_resources.ConnectionProfile,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -775,7 +776,7 @@ class CreateConnectionProfileRequest(proto.Message):
             It is recommended to always set this value to a UUID.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
         validate_only (bool):
             Optional. Only validate the connection
@@ -834,7 +835,7 @@ class UpdateConnectionProfileRequest(proto.Message):
             It is recommended to always set this value to a UUID.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
         validate_only (bool):
             Optional. Only validate the connection
@@ -886,7 +887,7 @@ class DeleteConnectionProfileRequest(proto.Message):
             It is recommended to always set this value to a UUID.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
         force (bool):
             In case of force delete, the CloudSQL replica
@@ -929,7 +930,7 @@ class CreatePrivateConnectionRequest(proto.Message):
             It is recommended to always set this value to a UUID.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
         skip_validation (bool):
             Optional. If set to true, will skip
@@ -1033,12 +1034,12 @@ class ListPrivateConnectionsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    private_connections: MutableSequence[
-        clouddms_resources.PrivateConnection
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=clouddms_resources.PrivateConnection,
+    private_connections: MutableSequence[clouddms_resources.PrivateConnection] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=clouddms_resources.PrivateConnection,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1065,7 +1066,7 @@ class DeletePrivateConnectionRequest(proto.Message):
             It is recommended to always set this value to a UUID.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
     """
 
@@ -1284,7 +1285,7 @@ class CreateConversionWorkspaceRequest(proto.Message):
             It is recommended to always set this value to a UUID.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
     """
 
@@ -1328,7 +1329,7 @@ class UpdateConversionWorkspaceRequest(proto.Message):
             It is recommended to always set this value to a UUID.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
     """
 
@@ -1365,7 +1366,7 @@ class DeleteConversionWorkspaceRequest(proto.Message):
             It is recommended to always set this value to a UUID.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
         force (bool):
             Force delete the conversion workspace, even
@@ -1529,12 +1530,12 @@ class ListMappingRulesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    mapping_rules: MutableSequence[
-        conversionworkspace_resources.MappingRule
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=conversionworkspace_resources.MappingRule,
+    mapping_rules: MutableSequence[conversionworkspace_resources.MappingRule] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=conversionworkspace_resources.MappingRule,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1773,6 +1774,7 @@ class DescribeDatabaseEntitiesRequest(proto.Message):
             DESTINATION_TREE (3):
                 The destination database tree.
         """
+
         DB_TREE_TYPE_UNSPECIFIED = 0
         SOURCE_TREE = 1
         DRAFT_TREE = 2
@@ -1831,12 +1833,12 @@ class DescribeDatabaseEntitiesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    database_entities: MutableSequence[
-        conversionworkspace_resources.DatabaseEntity
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=conversionworkspace_resources.DatabaseEntity,
+    database_entities: MutableSequence[conversionworkspace_resources.DatabaseEntity] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=conversionworkspace_resources.DatabaseEntity,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1895,12 +1897,12 @@ class SearchBackgroundJobsResponse(proto.Message):
             rules.
     """
 
-    jobs: MutableSequence[
-        conversionworkspace_resources.BackgroundJobLogEntry
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=conversionworkspace_resources.BackgroundJobLogEntry,
+    jobs: MutableSequence[conversionworkspace_resources.BackgroundJobLogEntry] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=conversionworkspace_resources.BackgroundJobLogEntry,
+        )
     )
 
 
@@ -1937,12 +1939,12 @@ class DescribeConversionWorkspaceRevisionsResponse(proto.Message):
             The list of conversion workspace revisions.
     """
 
-    revisions: MutableSequence[
-        conversionworkspace_resources.ConversionWorkspace
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=conversionworkspace_resources.ConversionWorkspace,
+    revisions: MutableSequence[conversionworkspace_resources.ConversionWorkspace] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=conversionworkspace_resources.ConversionWorkspace,
+        )
     )
 
 
@@ -1967,7 +1969,7 @@ class CreateMappingRuleRequest(proto.Message):
             It is recommended to always set this value to a UUID.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
     """
 
@@ -2005,7 +2007,7 @@ class DeleteMappingRuleRequest(proto.Message):
             It is recommended to always set this value to a UUID.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
     """
 

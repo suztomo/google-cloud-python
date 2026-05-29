@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -150,13 +150,13 @@ class PrincipalAccessBoundaryPolicyRule(proto.Message):
 
             The following resource types are supported:
 
-            -  Organizations, such as
-               ``//cloudresourcemanager.googleapis.com/organizations/123``.
-            -  Folders, such as
-               ``//cloudresourcemanager.googleapis.com/folders/123``.
-            -  Projects, such as
-               ``//cloudresourcemanager.googleapis.com/projects/123`` or
-               ``//cloudresourcemanager.googleapis.com/projects/my-project-id``.
+            - Organizations, such as
+              ``//cloudresourcemanager.googleapis.com/organizations/123``.
+            - Folders, such as
+              ``//cloudresourcemanager.googleapis.com/folders/123``.
+            - Projects, such as
+              ``//cloudresourcemanager.googleapis.com/projects/123`` or
+              ``//cloudresourcemanager.googleapis.com/projects/my-project-id``.
         effect (google.cloud.iam_v3.types.PrincipalAccessBoundaryPolicyRule.Effect):
             Required. The access relationship of
             principals to the resources in this rule.
@@ -171,6 +171,7 @@ class PrincipalAccessBoundaryPolicyRule(proto.Message):
             ALLOW (1):
                 Allows access to the resources in this rule.
         """
+
         EFFECT_UNSPECIFIED = 0
         ALLOW = 1
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -36,17 +36,17 @@ class ExternalSystem(proto.Message):
             Full resource name of the external system. The following
             list shows some examples:
 
-            -  ``organizations/1234/sources/5678/findings/123456/externalSystems/jira``
+            - ``organizations/1234/sources/5678/findings/123456/externalSystems/jira``
             -
 
             ``organizations/1234/sources/5678/locations/us/findings/123456/externalSystems/jira``
 
-            -  ``folders/1234/sources/5678/findings/123456/externalSystems/jira``
+            - ``folders/1234/sources/5678/findings/123456/externalSystems/jira``
             -
 
             ``folders/1234/sources/5678/locations/us/findings/123456/externalSystems/jira``
 
-            -  ``projects/1234/sources/5678/findings/123456/externalSystems/jira``
+            - ``projects/1234/sources/5678/findings/123456/externalSystems/jira``
             -
 
             ``projects/1234/sources/5678/locations/us/findings/123456/externalSystems/jira``

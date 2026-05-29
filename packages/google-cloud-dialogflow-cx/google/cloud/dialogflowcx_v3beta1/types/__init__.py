@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from .advanced_settings import AdvancedSettings
+from .advanced_settings import (
+    AdvancedSettings,
+)
 from .agent import (
     Agent,
     AgentValidationResult,
@@ -45,12 +47,17 @@ from .audio_config import (
     TextToSpeechSettings,
     VoiceSelectionParams,
 )
-from .bigquery_export import BigQueryExportSettings
+from .bigquery_export import (
+    BigQueryExportSettings,
+)
 from .changelog import (
     Changelog,
     GetChangelogRequest,
     ListChangelogsRequest,
     ListChangelogsResponse,
+)
+from .code_block import (
+    CodeBlock,
 )
 from .conversation_history import (
     Conversation,
@@ -107,22 +114,13 @@ from .environment import (
     UpdateEnvironmentRequest,
 )
 from .example import (
-    Action,
-    AgentUtterance,
     CreateExampleRequest,
     DeleteExampleRequest,
     Example,
-    FlowInvocation,
     GetExampleRequest,
     ListExamplesRequest,
     ListExamplesResponse,
-    OutputState,
-    PlaybookInput,
-    PlaybookInvocation,
-    PlaybookOutput,
-    ToolUse,
     UpdateExampleRequest,
-    UserUtterance,
 )
 from .experiment import (
     CreateExperimentRequest,
@@ -158,9 +156,16 @@ from .flow import (
     UpdateFlowRequest,
     ValidateFlowRequest,
 )
-from .fulfillment import Fulfillment
-from .gcs import GcsDestination
-from .generative_settings import GenerativeSettings, LlmModelSettings
+from .fulfillment import (
+    Fulfillment,
+)
+from .gcs import (
+    GcsDestination,
+)
+from .generative_settings import (
+    GenerativeSettings,
+    LlmModelSettings,
+)
 from .generator import (
     CreateGeneratorRequest,
     DeleteGeneratorRequest,
@@ -171,8 +176,13 @@ from .generator import (
     Phrase,
     UpdateGeneratorRequest,
 )
-from .import_strategy import ImportStrategy
-from .inline import InlineDestination, InlineSource
+from .import_strategy import (
+    ImportStrategy,
+)
+from .inline import (
+    InlineDestination,
+    InlineSource,
+)
 from .intent import (
     CreateIntentRequest,
     DeleteIntentRequest,
@@ -202,25 +212,41 @@ from .page import (
     TransitionRoute,
     UpdatePageRequest,
 )
-from .parameter_definition import ParameterDefinition
+from .parameter_definition import (
+    DataType,
+    InlineSchema,
+    ParameterDefinition,
+    TypeSchema,
+)
 from .playbook import (
     CreatePlaybookRequest,
     CreatePlaybookVersionRequest,
     DeletePlaybookRequest,
     DeletePlaybookVersionRequest,
+    ExportPlaybookRequest,
+    ExportPlaybookResponse,
     GetPlaybookRequest,
     GetPlaybookVersionRequest,
     Handler,
+    ImportPlaybookRequest,
+    ImportPlaybookResponse,
     ListPlaybooksRequest,
     ListPlaybooksResponse,
     ListPlaybookVersionsRequest,
     ListPlaybookVersionsResponse,
     Playbook,
+    PlaybookImportStrategy,
     PlaybookVersion,
+    RestorePlaybookVersionRequest,
+    RestorePlaybookVersionResponse,
     UpdatePlaybookRequest,
 )
-from .response_message import ResponseMessage
-from .safety_settings import SafetySettings
+from .response_message import (
+    ResponseMessage,
+)
+from .safety_settings import (
+    SafetySettings,
+)
 from .security_settings import (
     CreateSecuritySettingsRequest,
     DeleteSecuritySettingsRequest,
@@ -238,6 +264,7 @@ from .session import (
     CloudConversationDebuggingInfo,
     DetectIntentRequest,
     DetectIntentResponse,
+    DetectIntentResponseView,
     DtmfInput,
     EventInput,
     FilterSpecs,
@@ -324,7 +351,34 @@ from .tool import (
     ToolVersion,
     UpdateToolRequest,
 )
-from .tool_call import ToolCall, ToolCallResult
+from .tool_call import (
+    ToolCall,
+    ToolCallResult,
+)
+from .trace import (
+    Action,
+    AgentUtterance,
+    Event,
+    ExceptionDetail,
+    FlowInvocation,
+    FlowTraceMetadata,
+    FlowTransition,
+    LlmCall,
+    NamedMetric,
+    OutputState,
+    PlaybookInput,
+    PlaybookInvocation,
+    PlaybookOutput,
+    PlaybookTraceMetadata,
+    PlaybookTransition,
+    RetrievalStrategy,
+    Span,
+    SpeechProcessingMetadata,
+    Status,
+    ToolUse,
+    TraceBlock,
+    UserUtterance,
+)
 from .transition_route_group import (
     CreateTransitionRouteGroupRequest,
     DeleteTransitionRouteGroupRequest,
@@ -334,7 +388,10 @@ from .transition_route_group import (
     TransitionRouteGroup,
     UpdateTransitionRouteGroupRequest,
 )
-from .validation_message import ResourceName, ValidationMessage
+from .validation_message import (
+    ResourceName,
+    ValidationMessage,
+)
 from .version import (
     CompareVersionsRequest,
     CompareVersionsResponse,
@@ -397,6 +454,7 @@ __all__ = (
     "GetChangelogRequest",
     "ListChangelogsRequest",
     "ListChangelogsResponse",
+    "CodeBlock",
     "Conversation",
     "DeleteConversationRequest",
     "GetConversationRequest",
@@ -441,22 +499,13 @@ __all__ = (
     "RunContinuousTestRequest",
     "RunContinuousTestResponse",
     "UpdateEnvironmentRequest",
-    "Action",
-    "AgentUtterance",
     "CreateExampleRequest",
     "DeleteExampleRequest",
     "Example",
-    "FlowInvocation",
     "GetExampleRequest",
     "ListExamplesRequest",
     "ListExamplesResponse",
-    "PlaybookInput",
-    "PlaybookInvocation",
-    "PlaybookOutput",
-    "ToolUse",
     "UpdateExampleRequest",
-    "UserUtterance",
-    "OutputState",
     "CreateExperimentRequest",
     "DeleteExperimentRequest",
     "Experiment",
@@ -527,20 +576,30 @@ __all__ = (
     "Page",
     "TransitionRoute",
     "UpdatePageRequest",
+    "InlineSchema",
     "ParameterDefinition",
+    "TypeSchema",
+    "DataType",
     "CreatePlaybookRequest",
     "CreatePlaybookVersionRequest",
     "DeletePlaybookRequest",
     "DeletePlaybookVersionRequest",
+    "ExportPlaybookRequest",
+    "ExportPlaybookResponse",
     "GetPlaybookRequest",
     "GetPlaybookVersionRequest",
     "Handler",
+    "ImportPlaybookRequest",
+    "ImportPlaybookResponse",
     "ListPlaybooksRequest",
     "ListPlaybooksResponse",
     "ListPlaybookVersionsRequest",
     "ListPlaybookVersionsResponse",
     "Playbook",
+    "PlaybookImportStrategy",
     "PlaybookVersion",
+    "RestorePlaybookVersionRequest",
+    "RestorePlaybookVersionResponse",
     "UpdatePlaybookRequest",
     "ResponseMessage",
     "SafetySettings",
@@ -578,6 +637,7 @@ __all__ = (
     "StreamingRecognitionResult",
     "SubmitAnswerFeedbackRequest",
     "TextInput",
+    "DetectIntentResponseView",
     "CreateSessionEntityTypeRequest",
     "DeleteSessionEntityTypeRequest",
     "GetSessionEntityTypeRequest",
@@ -639,6 +699,28 @@ __all__ = (
     "UpdateToolRequest",
     "ToolCall",
     "ToolCallResult",
+    "Action",
+    "AgentUtterance",
+    "Event",
+    "ExceptionDetail",
+    "FlowInvocation",
+    "FlowTraceMetadata",
+    "FlowTransition",
+    "LlmCall",
+    "NamedMetric",
+    "PlaybookInput",
+    "PlaybookInvocation",
+    "PlaybookOutput",
+    "PlaybookTraceMetadata",
+    "PlaybookTransition",
+    "Span",
+    "SpeechProcessingMetadata",
+    "Status",
+    "ToolUse",
+    "TraceBlock",
+    "UserUtterance",
+    "OutputState",
+    "RetrievalStrategy",
     "CreateTransitionRouteGroupRequest",
     "DeleteTransitionRouteGroupRequest",
     "GetTransitionRouteGroupRequest",

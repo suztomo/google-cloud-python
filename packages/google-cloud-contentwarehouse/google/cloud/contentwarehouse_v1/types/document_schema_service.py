@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -169,12 +169,12 @@ class ListDocumentSchemasResponse(proto.Message):
     def raw_page(self):
         return self
 
-    document_schemas: MutableSequence[
-        gcc_document_schema.DocumentSchema
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=gcc_document_schema.DocumentSchema,
+    document_schemas: MutableSequence[gcc_document_schema.DocumentSchema] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=gcc_document_schema.DocumentSchema,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

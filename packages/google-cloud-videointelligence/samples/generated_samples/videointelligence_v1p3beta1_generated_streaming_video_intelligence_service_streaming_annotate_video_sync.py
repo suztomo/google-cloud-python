@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_streaming_annotate_video():
     client = videointelligence_v1p3beta1.StreamingVideoIntelligenceServiceClient()
 
     # Initialize request argument(s)
-    request = videointelligence_v1p3beta1.StreamingAnnotateVideoRequest(
-    )
+    request = videointelligence_v1p3beta1.StreamingAnnotateVideoRequest()
 
     # This method expects an iterator which contains
     # 'videointelligence_v1p3beta1.StreamingAnnotateVideoRequest' objects
@@ -58,5 +57,6 @@ def sample_streaming_annotate_video():
     # Handle the response
     for response in stream:
         print(response)
+
 
 # [END videointelligence_v1p3beta1_generated_StreamingVideoIntelligenceService_StreamingAnnotateVideo_sync]

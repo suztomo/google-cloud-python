@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_case():
     client = support_v2.CaseServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = support_v2.UpdateCaseRequest(
-    )
+    request = support_v2.UpdateCaseRequest()
 
     # Make the request
     response = await client.update_case(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END cloudsupport_v2_generated_CaseService_UpdateCase_async]

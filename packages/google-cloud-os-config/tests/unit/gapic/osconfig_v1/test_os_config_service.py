@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,20 +38,25 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api_core import gapic_v1, grpc_helpers, grpc_helpers_async, path_template
-from google.api_core import client_options
+import google.auth
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.datetime_pb2 as datetime_pb2  # type: ignore
+import google.type.dayofweek_pb2 as dayofweek_pb2  # type: ignore
+import google.type.timeofday_pb2 as timeofday_pb2  # type: ignore
+from google.api_core import (
+    client_options,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import datetime_pb2  # type: ignore
-from google.type import dayofweek_pb2  # type: ignore
-from google.type import timeofday_pb2  # type: ignore
 
 from google.cloud.osconfig_v1.services.os_config_service import (
     OsConfigServiceAsyncClient,
@@ -118,12 +118,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert OsConfigServiceClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -144,6 +160,10 @@ def test__get_default_mtls_endpoint():
     )
     assert (
         OsConfigServiceClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    )
+    assert (
+        OsConfigServiceClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -167,12 +187,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            OsConfigServiceClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                OsConfigServiceClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert OsConfigServiceClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert OsConfigServiceClient._read_environment_variables() == (
@@ -209,6 +236,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert OsConfigServiceClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert OsConfigServiceClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert OsConfigServiceClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert OsConfigServiceClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert OsConfigServiceClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert OsConfigServiceClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert OsConfigServiceClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert OsConfigServiceClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert OsConfigServiceClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                OsConfigServiceClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert OsConfigServiceClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert OsConfigServiceClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -580,17 +706,6 @@ def test_os_config_service_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -826,6 +941,117 @@ def test_os_config_service_client_get_mtls_endpoint_and_cert_source(client_class
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -858,10 +1084,9 @@ def test_os_config_service_client_get_mtls_endpoint_and_cert_source(client_class
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -874,18 +1099,6 @@ def test_os_config_service_client_get_mtls_endpoint_and_cert_source(client_class
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1116,13 +1329,13 @@ def test_os_config_service_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1147,8 +1360,8 @@ def test_os_config_service_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        patch_jobs.ExecutePatchJobRequest,
-        dict,
+        patch_jobs.ExecutePatchJobRequest(),
+        {},
     ],
 )
 def test_execute_patch_job(request_type, transport: str = "grpc"):
@@ -1159,7 +1372,7 @@ def test_execute_patch_job(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1223,11 +1436,12 @@ def test_execute_patch_job_non_empty_request_with_auto_populated_field():
         client.execute_patch_job(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == patch_jobs.ExecutePatchJobRequest(
+        request_msg = patch_jobs.ExecutePatchJobRequest(
             parent="parent_value",
             description="description_value",
             display_name="display_name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_execute_patch_job_use_cached_wrapped_rpc():
@@ -1251,9 +1465,9 @@ def test_execute_patch_job_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.execute_patch_job
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.execute_patch_job] = (
+            mock_rpc
+        )
         request = {}
         client.execute_patch_job(request)
 
@@ -1310,9 +1524,14 @@ async def test_execute_patch_job_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_execute_patch_job_async(
-    transport: str = "grpc_asyncio", request_type=patch_jobs.ExecutePatchJobRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        patch_jobs.ExecutePatchJobRequest(),
+        {},
+    ],
+)
+async def test_execute_patch_job_async(request_type, transport: str = "grpc_asyncio"):
     client = OsConfigServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1320,7 +1539,7 @@ async def test_execute_patch_job_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1357,11 +1576,6 @@ async def test_execute_patch_job_async(
     assert response.error_message == "error_message_value"
     assert math.isclose(response.percent_complete, 0.1705, rel_tol=1e-6)
     assert response.patch_deployment == "patch_deployment_value"
-
-
-@pytest.mark.asyncio
-async def test_execute_patch_job_async_from_dict():
-    await test_execute_patch_job_async(request_type=dict)
 
 
 def test_execute_patch_job_field_headers():
@@ -1430,8 +1644,8 @@ async def test_execute_patch_job_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        patch_jobs.GetPatchJobRequest,
-        dict,
+        patch_jobs.GetPatchJobRequest(),
+        {},
     ],
 )
 def test_get_patch_job(request_type, transport: str = "grpc"):
@@ -1442,7 +1656,7 @@ def test_get_patch_job(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_patch_job), "__call__") as call:
@@ -1500,9 +1714,10 @@ def test_get_patch_job_non_empty_request_with_auto_populated_field():
         client.get_patch_job(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == patch_jobs.GetPatchJobRequest(
+        request_msg = patch_jobs.GetPatchJobRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_patch_job_use_cached_wrapped_rpc():
@@ -1583,9 +1798,14 @@ async def test_get_patch_job_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_patch_job_async(
-    transport: str = "grpc_asyncio", request_type=patch_jobs.GetPatchJobRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        patch_jobs.GetPatchJobRequest(),
+        {},
+    ],
+)
+async def test_get_patch_job_async(request_type, transport: str = "grpc_asyncio"):
     client = OsConfigServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1593,7 +1813,7 @@ async def test_get_patch_job_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_patch_job), "__call__") as call:
@@ -1628,11 +1848,6 @@ async def test_get_patch_job_async(
     assert response.error_message == "error_message_value"
     assert math.isclose(response.percent_complete, 0.1705, rel_tol=1e-6)
     assert response.patch_deployment == "patch_deployment_value"
-
-
-@pytest.mark.asyncio
-async def test_get_patch_job_async_from_dict():
-    await test_get_patch_job_async(request_type=dict)
 
 
 def test_get_patch_job_field_headers():
@@ -1777,8 +1992,8 @@ async def test_get_patch_job_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        patch_jobs.CancelPatchJobRequest,
-        dict,
+        patch_jobs.CancelPatchJobRequest(),
+        {},
     ],
 )
 def test_cancel_patch_job(request_type, transport: str = "grpc"):
@@ -1789,7 +2004,7 @@ def test_cancel_patch_job(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.cancel_patch_job), "__call__") as call:
@@ -1847,9 +2062,10 @@ def test_cancel_patch_job_non_empty_request_with_auto_populated_field():
         client.cancel_patch_job(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == patch_jobs.CancelPatchJobRequest(
+        request_msg = patch_jobs.CancelPatchJobRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_cancel_patch_job_use_cached_wrapped_rpc():
@@ -1873,9 +2089,9 @@ def test_cancel_patch_job_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.cancel_patch_job
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.cancel_patch_job] = (
+            mock_rpc
+        )
         request = {}
         client.cancel_patch_job(request)
 
@@ -1932,9 +2148,14 @@ async def test_cancel_patch_job_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_cancel_patch_job_async(
-    transport: str = "grpc_asyncio", request_type=patch_jobs.CancelPatchJobRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        patch_jobs.CancelPatchJobRequest(),
+        {},
+    ],
+)
+async def test_cancel_patch_job_async(request_type, transport: str = "grpc_asyncio"):
     client = OsConfigServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1942,7 +2163,7 @@ async def test_cancel_patch_job_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.cancel_patch_job), "__call__") as call:
@@ -1977,11 +2198,6 @@ async def test_cancel_patch_job_async(
     assert response.error_message == "error_message_value"
     assert math.isclose(response.percent_complete, 0.1705, rel_tol=1e-6)
     assert response.patch_deployment == "patch_deployment_value"
-
-
-@pytest.mark.asyncio
-async def test_cancel_patch_job_async_from_dict():
-    await test_cancel_patch_job_async(request_type=dict)
 
 
 def test_cancel_patch_job_field_headers():
@@ -2046,8 +2262,8 @@ async def test_cancel_patch_job_field_headers_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        patch_jobs.ListPatchJobsRequest,
-        dict,
+        patch_jobs.ListPatchJobsRequest(),
+        {},
     ],
 )
 def test_list_patch_jobs(request_type, transport: str = "grpc"):
@@ -2058,7 +2274,7 @@ def test_list_patch_jobs(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_patch_jobs), "__call__") as call:
@@ -2104,11 +2320,12 @@ def test_list_patch_jobs_non_empty_request_with_auto_populated_field():
         client.list_patch_jobs(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == patch_jobs.ListPatchJobsRequest(
+        request_msg = patch_jobs.ListPatchJobsRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_patch_jobs_use_cached_wrapped_rpc():
@@ -2189,9 +2406,14 @@ async def test_list_patch_jobs_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_patch_jobs_async(
-    transport: str = "grpc_asyncio", request_type=patch_jobs.ListPatchJobsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        patch_jobs.ListPatchJobsRequest(),
+        {},
+    ],
+)
+async def test_list_patch_jobs_async(request_type, transport: str = "grpc_asyncio"):
     client = OsConfigServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2199,7 +2421,7 @@ async def test_list_patch_jobs_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_patch_jobs), "__call__") as call:
@@ -2220,11 +2442,6 @@ async def test_list_patch_jobs_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListPatchJobsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_patch_jobs_async_from_dict():
-    await test_list_patch_jobs_async(request_type=dict)
 
 
 def test_list_patch_jobs_field_headers():
@@ -2554,11 +2771,7 @@ async def test_list_patch_jobs_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_patch_jobs(request={})
-        ).pages:
+        async for page_ in (await client.list_patch_jobs(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -2567,8 +2780,8 @@ async def test_list_patch_jobs_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        patch_jobs.ListPatchJobInstanceDetailsRequest,
-        dict,
+        patch_jobs.ListPatchJobInstanceDetailsRequest(),
+        {},
     ],
 )
 def test_list_patch_job_instance_details(request_type, transport: str = "grpc"):
@@ -2579,7 +2792,7 @@ def test_list_patch_job_instance_details(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2629,11 +2842,12 @@ def test_list_patch_job_instance_details_non_empty_request_with_auto_populated_f
         client.list_patch_job_instance_details(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == patch_jobs.ListPatchJobInstanceDetailsRequest(
+        request_msg = patch_jobs.ListPatchJobInstanceDetailsRequest(
             parent="parent_value",
             page_token="page_token_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_patch_job_instance_details_use_cached_wrapped_rpc():
@@ -2719,9 +2933,15 @@ async def test_list_patch_job_instance_details_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        patch_jobs.ListPatchJobInstanceDetailsRequest(),
+        {},
+    ],
+)
 async def test_list_patch_job_instance_details_async(
-    transport: str = "grpc_asyncio",
-    request_type=patch_jobs.ListPatchJobInstanceDetailsRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = OsConfigServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -2730,7 +2950,7 @@ async def test_list_patch_job_instance_details_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2753,11 +2973,6 @@ async def test_list_patch_job_instance_details_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListPatchJobInstanceDetailsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_patch_job_instance_details_async_from_dict():
-    await test_list_patch_job_instance_details_async(request_type=dict)
 
 
 def test_list_patch_job_instance_details_field_headers():
@@ -3105,9 +3320,7 @@ async def test_list_patch_job_instance_details_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_patch_job_instance_details(request={})
         ).pages:
             pages.append(page_)
@@ -3118,8 +3331,8 @@ async def test_list_patch_job_instance_details_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        patch_deployments.CreatePatchDeploymentRequest,
-        dict,
+        patch_deployments.CreatePatchDeploymentRequest(),
+        {},
     ],
 )
 def test_create_patch_deployment(request_type, transport: str = "grpc"):
@@ -3130,7 +3343,7 @@ def test_create_patch_deployment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3183,10 +3396,11 @@ def test_create_patch_deployment_non_empty_request_with_auto_populated_field():
         client.create_patch_deployment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == patch_deployments.CreatePatchDeploymentRequest(
+        request_msg = patch_deployments.CreatePatchDeploymentRequest(
             parent="parent_value",
             patch_deployment_id="patch_deployment_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_patch_deployment_use_cached_wrapped_rpc():
@@ -3272,9 +3486,15 @@ async def test_create_patch_deployment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        patch_deployments.CreatePatchDeploymentRequest(),
+        {},
+    ],
+)
 async def test_create_patch_deployment_async(
-    transport: str = "grpc_asyncio",
-    request_type=patch_deployments.CreatePatchDeploymentRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = OsConfigServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -3283,7 +3503,7 @@ async def test_create_patch_deployment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3310,11 +3530,6 @@ async def test_create_patch_deployment_async(
     assert response.name == "name_value"
     assert response.description == "description_value"
     assert response.state == patch_deployments.PatchDeployment.State.ACTIVE
-
-
-@pytest.mark.asyncio
-async def test_create_patch_deployment_async_from_dict():
-    await test_create_patch_deployment_async(request_type=dict)
 
 
 def test_create_patch_deployment_field_headers():
@@ -3491,8 +3706,8 @@ async def test_create_patch_deployment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        patch_deployments.GetPatchDeploymentRequest,
-        dict,
+        patch_deployments.GetPatchDeploymentRequest(),
+        {},
     ],
 )
 def test_get_patch_deployment(request_type, transport: str = "grpc"):
@@ -3503,7 +3718,7 @@ def test_get_patch_deployment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3555,9 +3770,10 @@ def test_get_patch_deployment_non_empty_request_with_auto_populated_field():
         client.get_patch_deployment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == patch_deployments.GetPatchDeploymentRequest(
+        request_msg = patch_deployments.GetPatchDeploymentRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_patch_deployment_use_cached_wrapped_rpc():
@@ -3583,9 +3799,9 @@ def test_get_patch_deployment_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_patch_deployment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_patch_deployment] = (
+            mock_rpc
+        )
         request = {}
         client.get_patch_deployment(request)
 
@@ -3642,9 +3858,15 @@ async def test_get_patch_deployment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        patch_deployments.GetPatchDeploymentRequest(),
+        {},
+    ],
+)
 async def test_get_patch_deployment_async(
-    transport: str = "grpc_asyncio",
-    request_type=patch_deployments.GetPatchDeploymentRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = OsConfigServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -3653,7 +3875,7 @@ async def test_get_patch_deployment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3680,11 +3902,6 @@ async def test_get_patch_deployment_async(
     assert response.name == "name_value"
     assert response.description == "description_value"
     assert response.state == patch_deployments.PatchDeployment.State.ACTIVE
-
-
-@pytest.mark.asyncio
-async def test_get_patch_deployment_async_from_dict():
-    await test_get_patch_deployment_async(request_type=dict)
 
 
 def test_get_patch_deployment_field_headers():
@@ -3841,8 +4058,8 @@ async def test_get_patch_deployment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        patch_deployments.ListPatchDeploymentsRequest,
-        dict,
+        patch_deployments.ListPatchDeploymentsRequest(),
+        {},
     ],
 )
 def test_list_patch_deployments(request_type, transport: str = "grpc"):
@@ -3853,7 +4070,7 @@ def test_list_patch_deployments(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3902,10 +4119,11 @@ def test_list_patch_deployments_non_empty_request_with_auto_populated_field():
         client.list_patch_deployments(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == patch_deployments.ListPatchDeploymentsRequest(
+        request_msg = patch_deployments.ListPatchDeploymentsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_patch_deployments_use_cached_wrapped_rpc():
@@ -3932,9 +4150,9 @@ def test_list_patch_deployments_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_patch_deployments
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_patch_deployments] = (
+            mock_rpc
+        )
         request = {}
         client.list_patch_deployments(request)
 
@@ -3991,9 +4209,15 @@ async def test_list_patch_deployments_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        patch_deployments.ListPatchDeploymentsRequest(),
+        {},
+    ],
+)
 async def test_list_patch_deployments_async(
-    transport: str = "grpc_asyncio",
-    request_type=patch_deployments.ListPatchDeploymentsRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = OsConfigServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -4002,7 +4226,7 @@ async def test_list_patch_deployments_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4025,11 +4249,6 @@ async def test_list_patch_deployments_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListPatchDeploymentsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_patch_deployments_async_from_dict():
-    await test_list_patch_deployments_async(request_type=dict)
 
 
 def test_list_patch_deployments_field_headers():
@@ -4375,11 +4594,7 @@ async def test_list_patch_deployments_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_patch_deployments(request={})
-        ).pages:
+        async for page_ in (await client.list_patch_deployments(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -4388,8 +4603,8 @@ async def test_list_patch_deployments_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        patch_deployments.DeletePatchDeploymentRequest,
-        dict,
+        patch_deployments.DeletePatchDeploymentRequest(),
+        {},
     ],
 )
 def test_delete_patch_deployment(request_type, transport: str = "grpc"):
@@ -4400,7 +4615,7 @@ def test_delete_patch_deployment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4445,9 +4660,10 @@ def test_delete_patch_deployment_non_empty_request_with_auto_populated_field():
         client.delete_patch_deployment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == patch_deployments.DeletePatchDeploymentRequest(
+        request_msg = patch_deployments.DeletePatchDeploymentRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_patch_deployment_use_cached_wrapped_rpc():
@@ -4533,9 +4749,15 @@ async def test_delete_patch_deployment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        patch_deployments.DeletePatchDeploymentRequest(),
+        {},
+    ],
+)
 async def test_delete_patch_deployment_async(
-    transport: str = "grpc_asyncio",
-    request_type=patch_deployments.DeletePatchDeploymentRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = OsConfigServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -4544,7 +4766,7 @@ async def test_delete_patch_deployment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4562,11 +4784,6 @@ async def test_delete_patch_deployment_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_patch_deployment_async_from_dict():
-    await test_delete_patch_deployment_async(request_type=dict)
 
 
 def test_delete_patch_deployment_field_headers():
@@ -4719,8 +4936,8 @@ async def test_delete_patch_deployment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        patch_deployments.UpdatePatchDeploymentRequest,
-        dict,
+        patch_deployments.UpdatePatchDeploymentRequest(),
+        {},
     ],
 )
 def test_update_patch_deployment(request_type, transport: str = "grpc"):
@@ -4731,7 +4948,7 @@ def test_update_patch_deployment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4781,7 +4998,8 @@ def test_update_patch_deployment_non_empty_request_with_auto_populated_field():
         client.update_patch_deployment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == patch_deployments.UpdatePatchDeploymentRequest()
+        request_msg = patch_deployments.UpdatePatchDeploymentRequest()
+        assert args[0] == request_msg
 
 
 def test_update_patch_deployment_use_cached_wrapped_rpc():
@@ -4867,9 +5085,15 @@ async def test_update_patch_deployment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        patch_deployments.UpdatePatchDeploymentRequest(),
+        {},
+    ],
+)
 async def test_update_patch_deployment_async(
-    transport: str = "grpc_asyncio",
-    request_type=patch_deployments.UpdatePatchDeploymentRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = OsConfigServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -4878,7 +5102,7 @@ async def test_update_patch_deployment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -4905,11 +5129,6 @@ async def test_update_patch_deployment_async(
     assert response.name == "name_value"
     assert response.description == "description_value"
     assert response.state == patch_deployments.PatchDeployment.State.ACTIVE
-
-
-@pytest.mark.asyncio
-async def test_update_patch_deployment_async_from_dict():
-    await test_update_patch_deployment_async(request_type=dict)
 
 
 def test_update_patch_deployment_field_headers():
@@ -5076,8 +5295,8 @@ async def test_update_patch_deployment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        patch_deployments.PausePatchDeploymentRequest,
-        dict,
+        patch_deployments.PausePatchDeploymentRequest(),
+        {},
     ],
 )
 def test_pause_patch_deployment(request_type, transport: str = "grpc"):
@@ -5088,7 +5307,7 @@ def test_pause_patch_deployment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5140,9 +5359,10 @@ def test_pause_patch_deployment_non_empty_request_with_auto_populated_field():
         client.pause_patch_deployment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == patch_deployments.PausePatchDeploymentRequest(
+        request_msg = patch_deployments.PausePatchDeploymentRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_pause_patch_deployment_use_cached_wrapped_rpc():
@@ -5169,9 +5389,9 @@ def test_pause_patch_deployment_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.pause_patch_deployment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.pause_patch_deployment] = (
+            mock_rpc
+        )
         request = {}
         client.pause_patch_deployment(request)
 
@@ -5228,9 +5448,15 @@ async def test_pause_patch_deployment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        patch_deployments.PausePatchDeploymentRequest(),
+        {},
+    ],
+)
 async def test_pause_patch_deployment_async(
-    transport: str = "grpc_asyncio",
-    request_type=patch_deployments.PausePatchDeploymentRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = OsConfigServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -5239,7 +5465,7 @@ async def test_pause_patch_deployment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5266,11 +5492,6 @@ async def test_pause_patch_deployment_async(
     assert response.name == "name_value"
     assert response.description == "description_value"
     assert response.state == patch_deployments.PatchDeployment.State.ACTIVE
-
-
-@pytest.mark.asyncio
-async def test_pause_patch_deployment_async_from_dict():
-    await test_pause_patch_deployment_async(request_type=dict)
 
 
 def test_pause_patch_deployment_field_headers():
@@ -5427,8 +5648,8 @@ async def test_pause_patch_deployment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        patch_deployments.ResumePatchDeploymentRequest,
-        dict,
+        patch_deployments.ResumePatchDeploymentRequest(),
+        {},
     ],
 )
 def test_resume_patch_deployment(request_type, transport: str = "grpc"):
@@ -5439,7 +5660,7 @@ def test_resume_patch_deployment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5491,9 +5712,10 @@ def test_resume_patch_deployment_non_empty_request_with_auto_populated_field():
         client.resume_patch_deployment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == patch_deployments.ResumePatchDeploymentRequest(
+        request_msg = patch_deployments.ResumePatchDeploymentRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_resume_patch_deployment_use_cached_wrapped_rpc():
@@ -5579,9 +5801,15 @@ async def test_resume_patch_deployment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        patch_deployments.ResumePatchDeploymentRequest(),
+        {},
+    ],
+)
 async def test_resume_patch_deployment_async(
-    transport: str = "grpc_asyncio",
-    request_type=patch_deployments.ResumePatchDeploymentRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = OsConfigServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -5590,7 +5818,7 @@ async def test_resume_patch_deployment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5617,11 +5845,6 @@ async def test_resume_patch_deployment_async(
     assert response.name == "name_value"
     assert response.description == "description_value"
     assert response.state == patch_deployments.PatchDeployment.State.ACTIVE
-
-
-@pytest.mark.asyncio
-async def test_resume_patch_deployment_async_from_dict():
-    await test_resume_patch_deployment_async(request_type=dict)
 
 
 def test_resume_patch_deployment_field_headers():
@@ -5796,9 +6019,9 @@ def test_execute_patch_job_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.execute_patch_job
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.execute_patch_job] = (
+            mock_rpc
+        )
 
         request = {}
         client.execute_patch_job(request)
@@ -5886,7 +6109,7 @@ def test_execute_patch_job_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_execute_patch_job_rest_unset_required_fields():
@@ -6012,7 +6235,7 @@ def test_get_patch_job_rest_required_fields(request_type=patch_jobs.GetPatchJobR
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_patch_job_rest_unset_required_fields():
@@ -6101,9 +6324,9 @@ def test_cancel_patch_job_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.cancel_patch_job
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.cancel_patch_job] = (
+            mock_rpc
+        )
 
         request = {}
         client.cancel_patch_job(request)
@@ -6191,7 +6414,7 @@ def test_cancel_patch_job_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_cancel_patch_job_rest_unset_required_fields():
@@ -6319,7 +6542,7 @@ def test_list_patch_jobs_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_patch_jobs_rest_unset_required_fields():
@@ -6580,7 +6803,7 @@ def test_list_patch_job_instance_details_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_patch_job_instance_details_rest_unset_required_fields():
@@ -6855,7 +7078,7 @@ def test_create_patch_deployment_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_patch_deployment_rest_unset_required_fields():
@@ -6960,9 +7183,9 @@ def test_get_patch_deployment_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_patch_deployment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_patch_deployment] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_patch_deployment(request)
@@ -7049,7 +7272,7 @@ def test_get_patch_deployment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_patch_deployment_rest_unset_required_fields():
@@ -7142,9 +7365,9 @@ def test_list_patch_deployments_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_patch_deployments
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_patch_deployments] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_patch_deployments(request)
@@ -7240,7 +7463,7 @@ def test_list_patch_deployments_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_patch_deployments_rest_unset_required_fields():
@@ -7490,7 +7713,7 @@ def test_delete_patch_deployment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_patch_deployment_rest_unset_required_fields():
@@ -7668,7 +7891,7 @@ def test_update_patch_deployment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_patch_deployment_rest_unset_required_fields():
@@ -7766,9 +7989,9 @@ def test_pause_patch_deployment_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.pause_patch_deployment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.pause_patch_deployment] = (
+            mock_rpc
+        )
 
         request = {}
         client.pause_patch_deployment(request)
@@ -7856,7 +8079,7 @@ def test_pause_patch_deployment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_pause_patch_deployment_rest_unset_required_fields():
@@ -8039,7 +8262,7 @@ def test_resume_patch_deployment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_resume_patch_deployment_rest_unset_required_fields():
@@ -8234,7 +8457,6 @@ def test_execute_patch_job_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.ExecutePatchJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -8255,7 +8477,6 @@ def test_get_patch_job_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.GetPatchJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -8276,7 +8497,6 @@ def test_cancel_patch_job_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.CancelPatchJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -8297,7 +8517,6 @@ def test_list_patch_jobs_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.ListPatchJobsRequest()
-
         assert args[0] == request_msg
 
 
@@ -8320,7 +8539,6 @@ def test_list_patch_job_instance_details_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.ListPatchJobInstanceDetailsRequest()
-
         assert args[0] == request_msg
 
 
@@ -8343,7 +8561,6 @@ def test_create_patch_deployment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.CreatePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8366,7 +8583,6 @@ def test_get_patch_deployment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.GetPatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8389,7 +8605,6 @@ def test_list_patch_deployments_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.ListPatchDeploymentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -8412,7 +8627,6 @@ def test_delete_patch_deployment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.DeletePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8435,7 +8649,6 @@ def test_update_patch_deployment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.UpdatePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8458,7 +8671,6 @@ def test_pause_patch_deployment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.PausePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8481,7 +8693,6 @@ def test_resume_patch_deployment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.ResumePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8531,7 +8742,6 @@ async def test_execute_patch_job_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.ExecutePatchJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -8565,7 +8775,6 @@ async def test_get_patch_job_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.GetPatchJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -8599,7 +8808,6 @@ async def test_cancel_patch_job_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.CancelPatchJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -8626,7 +8834,6 @@ async def test_list_patch_jobs_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.ListPatchJobsRequest()
-
         assert args[0] == request_msg
 
 
@@ -8655,7 +8862,6 @@ async def test_list_patch_job_instance_details_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.ListPatchJobInstanceDetailsRequest()
-
         assert args[0] == request_msg
 
 
@@ -8686,7 +8892,6 @@ async def test_create_patch_deployment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.CreatePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8717,7 +8922,6 @@ async def test_get_patch_deployment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.GetPatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8746,7 +8950,6 @@ async def test_list_patch_deployments_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.ListPatchDeploymentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -8771,7 +8974,6 @@ async def test_delete_patch_deployment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.DeletePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8802,7 +9004,6 @@ async def test_update_patch_deployment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.UpdatePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8833,7 +9034,6 @@ async def test_pause_patch_deployment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.PausePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8864,7 +9064,6 @@ async def test_resume_patch_deployment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.ResumePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -8886,8 +9085,9 @@ def test_execute_patch_job_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8964,18 +9164,20 @@ def test_execute_patch_job_rest_interceptors(null_interceptor):
     )
     client = OsConfigServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "post_execute_patch_job"
-    ) as post, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor,
-        "post_execute_patch_job_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "pre_execute_patch_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "post_execute_patch_job"
+        ) as post,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor,
+            "post_execute_patch_job_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "pre_execute_patch_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -9026,8 +9228,9 @@ def test_get_patch_job_rest_bad_request(request_type=patch_jobs.GetPatchJobReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -9104,17 +9307,20 @@ def test_get_patch_job_rest_interceptors(null_interceptor):
     )
     client = OsConfigServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "post_get_patch_job"
-    ) as post, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "post_get_patch_job_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "pre_get_patch_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "post_get_patch_job"
+        ) as post,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor,
+            "post_get_patch_job_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "pre_get_patch_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -9165,8 +9371,9 @@ def test_cancel_patch_job_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -9243,17 +9450,20 @@ def test_cancel_patch_job_rest_interceptors(null_interceptor):
     )
     client = OsConfigServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "post_cancel_patch_job"
-    ) as post, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "post_cancel_patch_job_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "pre_cancel_patch_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "post_cancel_patch_job"
+        ) as post,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor,
+            "post_cancel_patch_job_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "pre_cancel_patch_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -9304,8 +9514,9 @@ def test_list_patch_jobs_rest_bad_request(request_type=patch_jobs.ListPatchJobsR
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -9368,17 +9579,20 @@ def test_list_patch_jobs_rest_interceptors(null_interceptor):
     )
     client = OsConfigServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "post_list_patch_jobs"
-    ) as post, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "post_list_patch_jobs_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "pre_list_patch_jobs"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "post_list_patch_jobs"
+        ) as post,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor,
+            "post_list_patch_jobs_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "pre_list_patch_jobs"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -9433,8 +9647,9 @@ def test_list_patch_job_instance_details_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -9497,19 +9712,22 @@ def test_list_patch_job_instance_details_rest_interceptors(null_interceptor):
     )
     client = OsConfigServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor,
-        "post_list_patch_job_instance_details",
-    ) as post, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor,
-        "post_list_patch_job_instance_details_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "pre_list_patch_job_instance_details"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor,
+            "post_list_patch_job_instance_details",
+        ) as post,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor,
+            "post_list_patch_job_instance_details_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor,
+            "pre_list_patch_job_instance_details",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -9567,8 +9785,9 @@ def test_create_patch_deployment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -9798,18 +10017,20 @@ def test_create_patch_deployment_rest_interceptors(null_interceptor):
     )
     client = OsConfigServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "post_create_patch_deployment"
-    ) as post, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor,
-        "post_create_patch_deployment_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "pre_create_patch_deployment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "post_create_patch_deployment"
+        ) as post,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor,
+            "post_create_patch_deployment_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "pre_create_patch_deployment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -9864,8 +10085,9 @@ def test_get_patch_deployment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -9932,18 +10154,20 @@ def test_get_patch_deployment_rest_interceptors(null_interceptor):
     )
     client = OsConfigServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "post_get_patch_deployment"
-    ) as post, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor,
-        "post_get_patch_deployment_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "pre_get_patch_deployment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "post_get_patch_deployment"
+        ) as post,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor,
+            "post_get_patch_deployment_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "pre_get_patch_deployment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -9998,8 +10222,9 @@ def test_list_patch_deployments_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -10062,18 +10287,20 @@ def test_list_patch_deployments_rest_interceptors(null_interceptor):
     )
     client = OsConfigServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "post_list_patch_deployments"
-    ) as post, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor,
-        "post_list_patch_deployments_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "pre_list_patch_deployments"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "post_list_patch_deployments"
+        ) as post,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor,
+            "post_list_patch_deployments_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "pre_list_patch_deployments"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -10131,8 +10358,9 @@ def test_delete_patch_deployment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -10189,13 +10417,13 @@ def test_delete_patch_deployment_rest_interceptors(null_interceptor):
     )
     client = OsConfigServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "pre_delete_patch_deployment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "pre_delete_patch_deployment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = patch_deployments.DeletePatchDeploymentRequest.pb(
             patch_deployments.DeletePatchDeploymentRequest()
@@ -10242,8 +10470,9 @@ def test_update_patch_deployment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -10475,18 +10704,20 @@ def test_update_patch_deployment_rest_interceptors(null_interceptor):
     )
     client = OsConfigServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "post_update_patch_deployment"
-    ) as post, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor,
-        "post_update_patch_deployment_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "pre_update_patch_deployment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "post_update_patch_deployment"
+        ) as post,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor,
+            "post_update_patch_deployment_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "pre_update_patch_deployment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -10541,8 +10772,9 @@ def test_pause_patch_deployment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -10609,18 +10841,20 @@ def test_pause_patch_deployment_rest_interceptors(null_interceptor):
     )
     client = OsConfigServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "post_pause_patch_deployment"
-    ) as post, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor,
-        "post_pause_patch_deployment_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "pre_pause_patch_deployment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "post_pause_patch_deployment"
+        ) as post,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor,
+            "post_pause_patch_deployment_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "pre_pause_patch_deployment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -10675,8 +10909,9 @@ def test_resume_patch_deployment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -10743,18 +10978,20 @@ def test_resume_patch_deployment_rest_interceptors(null_interceptor):
     )
     client = OsConfigServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "post_resume_patch_deployment"
-    ) as post, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor,
-        "post_resume_patch_deployment_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.OsConfigServiceRestInterceptor, "pre_resume_patch_deployment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "post_resume_patch_deployment"
+        ) as post,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor,
+            "post_resume_patch_deployment_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.OsConfigServiceRestInterceptor, "pre_resume_patch_deployment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -10823,7 +11060,6 @@ def test_execute_patch_job_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.ExecutePatchJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -10843,7 +11079,6 @@ def test_get_patch_job_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.GetPatchJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -10863,7 +11098,6 @@ def test_cancel_patch_job_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.CancelPatchJobRequest()
-
         assert args[0] == request_msg
 
 
@@ -10883,7 +11117,6 @@ def test_list_patch_jobs_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.ListPatchJobsRequest()
-
         assert args[0] == request_msg
 
 
@@ -10905,7 +11138,6 @@ def test_list_patch_job_instance_details_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_jobs.ListPatchJobInstanceDetailsRequest()
-
         assert args[0] == request_msg
 
 
@@ -10927,7 +11159,6 @@ def test_create_patch_deployment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.CreatePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -10949,7 +11180,6 @@ def test_get_patch_deployment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.GetPatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -10971,7 +11201,6 @@ def test_list_patch_deployments_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.ListPatchDeploymentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -10993,7 +11222,6 @@ def test_delete_patch_deployment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.DeletePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -11015,7 +11243,6 @@ def test_update_patch_deployment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.UpdatePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -11037,7 +11264,6 @@ def test_pause_patch_deployment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.PausePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -11059,7 +11285,6 @@ def test_resume_patch_deployment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = patch_deployments.ResumePatchDeploymentRequest()
-
         assert args[0] == request_msg
 
 
@@ -11127,11 +11352,14 @@ def test_os_config_service_base_transport():
 
 def test_os_config_service_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.osconfig_v1.services.os_config_service.transports.OsConfigServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.osconfig_v1.services.os_config_service.transports.OsConfigServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.OsConfigServiceTransport(
@@ -11148,9 +11376,12 @@ def test_os_config_service_base_transport_with_credentials_file():
 
 def test_os_config_service_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.osconfig_v1.services.os_config_service.transports.OsConfigServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.osconfig_v1.services.os_config_service.transports.OsConfigServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.OsConfigServiceTransport()
@@ -11222,11 +11453,12 @@ def test_os_config_service_transport_auth_gdch_credentials(transport_class):
 def test_os_config_service_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -11432,6 +11664,7 @@ def test_os_config_service_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [

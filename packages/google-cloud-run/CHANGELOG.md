@@ -1,5 +1,110 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-run/#history
+
+## [0.16.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-run-v0.15.0...google-cloud-run-v0.16.0) (2026-03-26)
+
+
+### Documentation
+
+* An existing repeated string field custom_audiences is marked deprecated for WorkerPools API ([397ae5384b5fa2741d0f479ba7efc1612e1195da](https://github.com/googleapis/google-cloud-python/commit/397ae5384b5fa2741d0f479ba7efc1612e1195da))
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.15.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-run-v0.14.0...google-cloud-run-v0.15.0) (2026-01-22)
+
+
+### Documentation
+
+* add instances description ([13f6df001f44f652e84e787f2d67d0f894ed57c4](https://github.com/googleapis/google-cloud-python/commit/13f6df001f44f652e84e787f2d67d0f894ed57c4))
+
+
+### Features
+
+* add instances client library ([13f6df001f44f652e84e787f2d67d0f894ed57c4](https://github.com/googleapis/google-cloud-python/commit/13f6df001f44f652e84e787f2d67d0f894ed57c4))
+
+## [0.14.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-run-v0.13.0...google-cloud-run-v0.14.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.13.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-run-v0.12.0...google-cloud-run-v0.13.0) (2025-12-11)
+
+
+### Documentation
+
+* A comment for field `custom_audiences` in message `.google.cloud.run.v2.WorkerPool` is changed ([4927067384eb6ed2018bb886f90265b7bcfc800e](https://github.com/googleapis/google-cloud-python/commit/4927067384eb6ed2018bb886f90265b7bcfc800e))
+* A comment for field `limits` in message `.google.cloud.run.v2.ResourceRequirements` is changed ([4927067384eb6ed2018bb886f90265b7bcfc800e](https://github.com/googleapis/google-cloud-python/commit/4927067384eb6ed2018bb886f90265b7bcfc800e))
+* A comment for field `etag` in message `.google.cloud.run.v2.Service` is changed ([4927067384eb6ed2018bb886f90265b7bcfc800e](https://github.com/googleapis/google-cloud-python/commit/4927067384eb6ed2018bb886f90265b7bcfc800e))
+* A comment for field `etag` in message `.google.cloud.run.v2.Job` is changed ([4927067384eb6ed2018bb886f90265b7bcfc800e](https://github.com/googleapis/google-cloud-python/commit/4927067384eb6ed2018bb886f90265b7bcfc800e))
+* A comment for field `items` in message `.google.cloud.run.v2.SecretVolumeSource` is changed ([4927067384eb6ed2018bb886f90265b7bcfc800e](https://github.com/googleapis/google-cloud-python/commit/4927067384eb6ed2018bb886f90265b7bcfc800e))
+* A comment for field `invoker_iam_disabled` in message `.google.cloud.run.v2.Service` is changed ([4927067384eb6ed2018bb886f90265b7bcfc800e](https://github.com/googleapis/google-cloud-python/commit/4927067384eb6ed2018bb886f90265b7bcfc800e))
+* A comment for field `etag` in message `.google.cloud.run.v2.WorkerPool` is changed ([4927067384eb6ed2018bb886f90265b7bcfc800e](https://github.com/googleapis/google-cloud-python/commit/4927067384eb6ed2018bb886f90265b7bcfc800e))
+* A comment for field `observed_generation` in message `.google.cloud.run.v2.WorkerPool` is changed ([4927067384eb6ed2018bb886f90265b7bcfc800e](https://github.com/googleapis/google-cloud-python/commit/4927067384eb6ed2018bb886f90265b7bcfc800e))
+* A comment for field `name` in message `.google.cloud.run.v2.Service` is changed ([4927067384eb6ed2018bb886f90265b7bcfc800e](https://github.com/googleapis/google-cloud-python/commit/4927067384eb6ed2018bb886f90265b7bcfc800e))
+* A comment for field `latest_ready_revision` in message `.google.cloud.run.v2.WorkerPool` is changed ([4927067384eb6ed2018bb886f90265b7bcfc800e](https://github.com/googleapis/google-cloud-python/commit/4927067384eb6ed2018bb886f90265b7bcfc800e))
+* A comment for field `reconciling` in message `.google.cloud.run.v2.WorkerPool` is changed ([4927067384eb6ed2018bb886f90265b7bcfc800e](https://github.com/googleapis/google-cloud-python/commit/4927067384eb6ed2018bb886f90265b7bcfc800e))
+
+
+### Features
+
+* add SourceCode proto to Run container config ([4927067384eb6ed2018bb886f90265b7bcfc800e](https://github.com/googleapis/google-cloud-python/commit/4927067384eb6ed2018bb886f90265b7bcfc800e))
+
+## [0.12.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-run-v0.11.0...google-cloud-run-v0.12.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.11.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-run-v0.10.19...google-cloud-run-v0.11.0) (2025-08-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* A type of an existing resource_reference option of the field `worker_pool` in message `.google.cloud.run.v2.SubmitBuildRequest` is changed from `cloudbuild.googleapis.com/WorkerPool` to `cloudbuild.googleapis.com/BuildWorkerPool`
+* A type of an existing resource_reference option of the field `worker_pool` in message `.google.cloud.run.v2.BuildConfig` is changed from `cloudbuild.googleapis.com/WorkerPool` to `cloudbuild.googleapis.com/BuildWorkerPool`
+* [google-cloud-run] An existing resource_definition `cloudbuild.googleapis.com/WorkerPool` is removed
+
+### Features
+
+* Adding new resource tpye run.googleapis.com/WorkerPool. ([077a8ff](https://github.com/googleapis/google-cloud-python/commit/077a8ffd3e2890dc1277bf516f4126bfdf666a96))
+
+
+### Bug Fixes
+
+* [google-cloud-run] An existing resource_definition `cloudbuild.googleapis.com/WorkerPool` is removed ([077a8ff](https://github.com/googleapis/google-cloud-python/commit/077a8ffd3e2890dc1277bf516f4126bfdf666a96))
+* A type of an existing resource_reference option of the field `worker_pool` in message `.google.cloud.run.v2.BuildConfig` is changed from `cloudbuild.googleapis.com/WorkerPool` to `cloudbuild.googleapis.com/BuildWorkerPool` ([077a8ff](https://github.com/googleapis/google-cloud-python/commit/077a8ffd3e2890dc1277bf516f4126bfdf666a96))
+* A type of an existing resource_reference option of the field `worker_pool` in message `.google.cloud.run.v2.SubmitBuildRequest` is changed from `cloudbuild.googleapis.com/WorkerPool` to `cloudbuild.googleapis.com/BuildWorkerPool` ([077a8ff](https://github.com/googleapis/google-cloud-python/commit/077a8ffd3e2890dc1277bf516f4126bfdf666a96))
+
+## [0.10.19](https://github.com/googleapis/google-cloud-python/compare/google-cloud-run-v0.10.18...google-cloud-run-v0.10.19) (2025-07-16)
+
+
+### Features
+
+* add new field `term_signal` to `.google.cloud.run.v2.TaskAttemptResult` ([078e0e2](https://github.com/googleapis/google-cloud-python/commit/078e0e2ccb5f59a9c78c89d63b7e57c9d7dca9c2))
+* support GPU zonal redundancy setting for Cloud Run jobs ([078e0e2](https://github.com/googleapis/google-cloud-python/commit/078e0e2ccb5f59a9c78c89d63b7e57c9d7dca9c2))
 
 ## [0.10.18](https://github.com/googleapis/google-cloud-python/compare/google-cloud-run-v0.10.17...google-cloud-run-v0.10.18) (2025-05-15)
 

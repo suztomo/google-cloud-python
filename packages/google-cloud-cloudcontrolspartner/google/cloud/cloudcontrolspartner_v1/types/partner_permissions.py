@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,6 +61,7 @@ class PartnerPermissions(proto.Message):
                 Permission for support case details for
                 Access Transparency log entries
         """
+
         PERMISSION_UNSPECIFIED = 0
         ACCESS_TRANSPARENCY_AND_EMERGENCY_ACCESS_LOGS = 1
         ASSURED_WORKLOADS_MONITORING = 2

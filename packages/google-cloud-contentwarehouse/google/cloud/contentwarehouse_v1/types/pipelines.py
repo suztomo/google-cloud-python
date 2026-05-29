@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.contentwarehouse_v1.types import common
@@ -197,12 +197,12 @@ class RunPipelineMetadata(proto.Message):
             message=ProcessWithDocAiPipelineMetadata,
         )
     )
-    individual_document_statuses: MutableSequence[
-        IndividualDocumentStatus
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=5,
-        message=IndividualDocumentStatus,
+    individual_document_statuses: MutableSequence[IndividualDocumentStatus] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=5,
+            message=IndividualDocumentStatus,
+        )
     )
 
 
@@ -253,17 +253,17 @@ class IngestPipelineConfig(proto.Message):
             The following roles are supported for document level acl
             control:
 
-            -  roles/contentwarehouse.documentAdmin
-            -  roles/contentwarehouse.documentEditor
-            -  roles/contentwarehouse.documentViewer
+            - roles/contentwarehouse.documentAdmin
+            - roles/contentwarehouse.documentEditor
+            - roles/contentwarehouse.documentViewer
 
             The following members are supported for document level acl
             control:
 
-            -  user:user-email@example.com
-            -  group:group-email@example.com Note that for documents
-               searched with LLM, only single level user or group acl
-               check is supported.
+            - user:user-email@example.com
+            - group:group-email@example.com Note that for documents
+              searched with LLM, only single level user or group acl
+              check is supported.
         enable_document_text_extraction (bool):
             The document text extraction enabled flag.
             If the flag is set to true, DWH will perform
@@ -282,13 +282,13 @@ class IngestPipelineConfig(proto.Message):
             ``https://{region}-{project_id}.cloudfunctions.net/{cloud_function}``
             The following keys are available the request json payload.
 
-            -  display_name
-            -  properties
-            -  plain_text
-            -  reference_id
-            -  document_schema_name
-            -  raw_document_path
-            -  raw_document_file_type
+            - display_name
+            - properties
+            - plain_text
+            - reference_id
+            - document_schema_name
+            - raw_document_path
+            - raw_document_file_type
 
             The following keys from the cloud function json response
             payload will be ingested to the Document AI Warehouse as
@@ -296,11 +296,11 @@ class IngestPipelineConfig(proto.Message):
             The original values will be overridden if any key is present
             in the response.
 
-            -  display_name
-            -  properties
-            -  plain_text
-            -  document_acl_policy
-            -  folder
+            - display_name
+            - properties
+            - plain_text
+            - document_acl_policy
+            - folder
     """
 
     document_acl_policy: policy_pb2.Policy = proto.Field(

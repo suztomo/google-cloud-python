@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -160,6 +160,7 @@ class Subscription(proto.Message):
             DELETED (3):
                 The subscription is deleted.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         SUSPENDED = 2
@@ -199,6 +200,7 @@ class Subscription(proto.Message):
             OTHER (5):
                 An unidentified error has occurred.
         """
+
         ERROR_TYPE_UNSPECIFIED = 0
         USER_SCOPE_REVOKED = 1
         RESOURCE_DELETED = 2

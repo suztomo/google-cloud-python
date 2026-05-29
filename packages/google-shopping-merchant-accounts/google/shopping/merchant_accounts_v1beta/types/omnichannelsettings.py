@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -100,6 +100,7 @@ class OmnichannelSetting(proto.Message):
                 article <https://support.google.com/merchants/answer/14617076>`__
                 for more details.
         """
+
         LSF_TYPE_UNSPECIFIED = 0
         GHLSF = 1
         MHLSF_BASIC = 2
@@ -170,6 +171,7 @@ class ReviewState(proto.Message):
                 The review process is waiting for the
                 merchant to take action.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         FAILED = 2
@@ -346,6 +348,7 @@ class InventoryVerification(proto.Message):
                 verification process and all attempts are
                 exhausted.
         """
+
         STATE_UNSPECIFIED = 0
         ACTION_REQUIRED = 1
         INACTIVE = 5
@@ -491,12 +494,12 @@ class UpdateOmnichannelSettingRequest(proto.Message):
 
             The following fields are supported in snake_case only:
 
-            -  ``lsf_type``
-            -  ``in_stock``
-            -  ``pickup``
-            -  ``odo``
-            -  ``about``
-            -  ``inventory_verification``
+            - ``lsf_type``
+            - ``in_stock``
+            - ``pickup``
+            - ``odo``
+            - ``about``
+            - ``inventory_verification``
 
             Full replacement with wildcard ``*``\ is supported, while
             empty/implied update mask is not.

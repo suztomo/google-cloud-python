@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_space():
     client = meet_v2beta.SpacesServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = meet_v2beta.UpdateSpaceRequest(
-    )
+    request = meet_v2beta.UpdateSpaceRequest()
 
     # Make the request
     response = await client.update_space(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END meet_v2beta_generated_SpacesService_UpdateSpace_async]

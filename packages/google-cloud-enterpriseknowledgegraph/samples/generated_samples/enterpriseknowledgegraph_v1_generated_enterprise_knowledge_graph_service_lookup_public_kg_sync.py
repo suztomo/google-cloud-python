@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ def sample_lookup_public_kg():
     # Initialize request argument(s)
     request = enterpriseknowledgegraph_v1.LookupPublicKgRequest(
         parent="parent_value",
-        ids=['ids_value1', 'ids_value2'],
+        ids=["ids_value1", "ids_value2"],
     )
 
     # Make the request
@@ -49,5 +49,6 @@ def sample_lookup_public_kg():
 
     # Handle the response
     print(response)
+
 
 # [END enterpriseknowledgegraph_v1_generated_EnterpriseKnowledgeGraphService_LookupPublicKg_sync]

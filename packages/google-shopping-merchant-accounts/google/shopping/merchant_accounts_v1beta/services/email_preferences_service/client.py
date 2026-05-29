@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.shopping.merchant_accounts_v1beta import gapic_version as package_version
 
@@ -61,7 +61,7 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 
 from google.shopping.merchant_accounts_v1beta.types import emailpreferences
 
@@ -79,9 +79,7 @@ class EmailPreferencesServiceClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[EmailPreferencesServiceTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[EmailPreferencesServiceTransport]]
     _transport_registry["grpc"] = EmailPreferencesServiceGrpcTransport
     _transport_registry["grpc_asyncio"] = EmailPreferencesServiceGrpcAsyncIOTransport
     _transport_registry["rest"] = EmailPreferencesServiceRestTransport
@@ -116,7 +114,7 @@ class EmailPreferencesServiceClient(metaclass=EmailPreferencesServiceClientMeta)
     """
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -124,7 +122,7 @@ class EmailPreferencesServiceClient(metaclass=EmailPreferencesServiceClientMeta)
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -134,6 +132,10 @@ class EmailPreferencesServiceClient(metaclass=EmailPreferencesServiceClientMeta)
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -153,6 +155,34 @@ class EmailPreferencesServiceClient(metaclass=EmailPreferencesServiceClientMeta)
 
     _DEFAULT_ENDPOINT_TEMPLATE = "merchantapi.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -338,12 +368,8 @@ class EmailPreferencesServiceClient(metaclass=EmailPreferencesServiceClientMeta)
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = EmailPreferencesServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -351,7 +377,7 @@ class EmailPreferencesServiceClient(metaclass=EmailPreferencesServiceClientMeta)
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -383,20 +409,14 @@ class EmailPreferencesServiceClient(metaclass=EmailPreferencesServiceClientMeta)
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = EmailPreferencesServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -420,7 +440,7 @@ class EmailPreferencesServiceClient(metaclass=EmailPreferencesServiceClientMeta)
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -519,7 +539,7 @@ class EmailPreferencesServiceClient(metaclass=EmailPreferencesServiceClientMeta)
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -610,11 +630,9 @@ class EmailPreferencesServiceClient(metaclass=EmailPreferencesServiceClientMeta)
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = EmailPreferencesServiceClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            EmailPreferencesServiceClient._read_environment_variables()
+        )
         self._client_cert_source = (
             EmailPreferencesServiceClient._get_client_cert_source(
                 self._client_options.client_cert_source, self._use_client_cert
@@ -623,7 +641,7 @@ class EmailPreferencesServiceClient(metaclass=EmailPreferencesServiceClientMeta)
         self._universe_domain = EmailPreferencesServiceClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -651,8 +669,7 @@ class EmailPreferencesServiceClient(metaclass=EmailPreferencesServiceClientMeta)
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(EmailPreferencesServiceTransport, transport)
             self._api_endpoint = self._transport.host
@@ -735,7 +752,7 @@ class EmailPreferencesServiceClient(metaclass=EmailPreferencesServiceClientMeta)
         r"""Returns the email preferences for a Merchant Center account
         user.
 
-        Use the `name=accounts/*/users/me/emailPreferences` alias to get
+        Use the name=accounts/\*/users/me/emailPreferences alias to get
         preferences for the authenticated user.
 
         .. code-block:: python
@@ -861,7 +878,7 @@ class EmailPreferencesServiceClient(metaclass=EmailPreferencesServiceClientMeta)
         It is invalid for updates to specify an UNCONFIRMED opt-in
         status value.
 
-        Use the `name=accounts/*/users/me/emailPreferences` alias to
+        Use the name=accounts/\*/users/me/emailPreferences alias to
         update preferences for the authenticated user.
 
         .. code-block:: python

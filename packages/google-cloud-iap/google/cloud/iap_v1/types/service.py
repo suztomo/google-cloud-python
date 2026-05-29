@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -376,6 +376,7 @@ class AccessSettings(proto.Message):
                 Use external identities set up on Google
                 Cloud Workforce Identity Federation.
         """
+
         IDENTITY_SOURCE_UNSPECIFIED = 0
         WORKFORCE_IDENTITY_FEDERATION = 3
 
@@ -480,6 +481,18 @@ class OAuthSettings(proto.Message):
             Note: IAP does not verify that the id token's hd
             claim matches this value since access behavior
             is managed by IAM policies.
+        client_id (google.protobuf.wrappers_pb2.StringValue):
+            Optional. OAuth 2.0 client ID used in the
+            OAuth flow. This allows for client sharing. The
+            risks of client sharing are outlined here:
+
+            https://cloud.google.com/iap/docs/sharing-oauth-clients#risks.
+        client_secret (google.protobuf.wrappers_pb2.StringValue):
+            Optional. Input only. OAuth secret paired
+            with client ID.
+        client_secret_sha256 (google.protobuf.wrappers_pb2.StringValue):
+            Output only. OAuth secret SHA256 paired with
+            client ID.
         programmatic_clients (MutableSequence[str]):
             Optional. List of client ids allowed to use
             IAP programmatically.
@@ -488,6 +501,21 @@ class OAuthSettings(proto.Message):
     login_hint: wrappers_pb2.StringValue = proto.Field(
         proto.MESSAGE,
         number=2,
+        message=wrappers_pb2.StringValue,
+    )
+    client_id: wrappers_pb2.StringValue = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        message=wrappers_pb2.StringValue,
+    )
+    client_secret: wrappers_pb2.StringValue = proto.Field(
+        proto.MESSAGE,
+        number=4,
+        message=wrappers_pb2.StringValue,
+    )
+    client_secret_sha256: wrappers_pb2.StringValue = proto.Field(
+        proto.MESSAGE,
+        number=6,
         message=wrappers_pb2.StringValue,
     )
     programmatic_clients: MutableSequence[str] = proto.RepeatedField(
@@ -584,6 +612,7 @@ class ReauthSettings(proto.Message):
             ENROLLED_SECOND_FACTORS (4):
                 User can use any enabled 2nd factor.
         """
+
         METHOD_UNSPECIFIED = 0
         LOGIN = 1
         PASSWORD = 2
@@ -604,6 +633,7 @@ class ReauthSettings(proto.Message):
                 This policy acts as a default if no other
                 reauth policy is set.
         """
+
         POLICY_TYPE_UNSPECIFIED = 0
         MINIMUM = 1
         DEFAULT = 2
@@ -772,30 +802,30 @@ class AttributePropagationSettings(proto.Message):
             ``attributes.iap_attributes``. The following functions are
             supported:
 
-            -  filter ``<list>.filter(<iter_var>, <predicate>)``:
-               Returns a subset of ``<list>`` where ``<predicate>`` is
-               true for every item.
+            - filter ``<list>.filter(<iter_var>, <predicate>)``: Returns
+              a subset of ``<list>`` where ``<predicate>`` is true for
+              every item.
 
-            -  in ``<var> in <list>``: Returns true if ``<list>``
-               contains ``<var>``.
+            - in ``<var> in <list>``: Returns true if ``<list>``
+              contains ``<var>``.
 
-            -  selectByName ``<list>.selectByName(<string>)``: Returns
-               the attribute in ``<list>`` with the given ``<string>``
-               name, otherwise returns empty.
+            - selectByName ``<list>.selectByName(<string>)``: Returns
+              the attribute in ``<list>`` with the given ``<string>``
+              name, otherwise returns empty.
 
-            -  emitAs ``<attribute>.emitAs(<string>)``: Sets the
-               ``<attribute>`` name field to the given ``<string>`` for
-               propagation in selected output credentials.
+            - emitAs ``<attribute>.emitAs(<string>)``: Sets the
+              ``<attribute>`` name field to the given ``<string>`` for
+              propagation in selected output credentials.
 
-            -  strict ``<attribute>.strict()``: Ignores the
-               ``x-goog-iap-attr-`` prefix for the provided
-               ``<attribute>`` when propagating with the ``HEADER``
-               output credential, such as request headers.
+            - strict ``<attribute>.strict()``: Ignores the
+              ``x-goog-iap-attr-`` prefix for the provided
+              ``<attribute>`` when propagating with the ``HEADER``
+              output credential, such as request headers.
 
-            -  append ``<target_list>.append(<attribute>)`` OR
-               ``<target_list>.append(<list>)``: Appends the provided
-               ``<attribute>`` or ``<list>`` to the end of
-               ``<target_list>``.
+            - append ``<target_list>.append(<attribute>)`` OR
+              ``<target_list>.append(<list>)``: Appends the provided
+              ``<attribute>`` or ``<list>`` to the end of
+              ``<target_list>``.
 
             Example expression:
             ``attributes.saml_attributes.filter(x, x.name in ['test']).append(attributes.iap_attributes.selectByName('exact').emitAs('custom').strict())``
@@ -835,6 +865,7 @@ class AttributePropagationSettings(proto.Message):
                 Propagate attributes in the RCToken of the form:
                 ``"additional_claims": { "my_attribute": ["value1", "value2"] }``
         """
+
         OUTPUT_CREDENTIALS_UNSPECIFIED = 0
         HEADER = 1
         JWT = 2
@@ -1005,12 +1036,12 @@ class ListIdentityAwareProxyClientsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    identity_aware_proxy_clients: MutableSequence[
-        "IdentityAwareProxyClient"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="IdentityAwareProxyClient",
+    identity_aware_proxy_clients: MutableSequence["IdentityAwareProxyClient"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="IdentityAwareProxyClient",
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

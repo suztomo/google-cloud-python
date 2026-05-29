@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.essential_contacts_v1 import gapic_version as package_version
 
@@ -44,8 +44,8 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 
 from google.cloud.essential_contacts_v1.services.essential_contacts_service import (
     pagers,
@@ -124,7 +124,10 @@ class EssentialContactsServiceAsyncClient:
         Returns:
             EssentialContactsServiceAsyncClient: The constructed client.
         """
-        return EssentialContactsServiceClient.from_service_account_info.__func__(EssentialContactsServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            EssentialContactsServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(EssentialContactsServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -140,7 +143,12 @@ class EssentialContactsServiceAsyncClient:
         Returns:
             EssentialContactsServiceAsyncClient: The constructed client.
         """
-        return EssentialContactsServiceClient.from_service_account_file.__func__(EssentialContactsServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            EssentialContactsServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(
+            EssentialContactsServiceAsyncClient, filename, *args, **kwargs
+        )
 
     from_service_account_json = from_service_account_file
 
@@ -178,7 +186,9 @@ class EssentialContactsServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return EssentialContactsServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return EssentialContactsServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> EssentialContactsServiceTransport:
@@ -190,7 +200,7 @@ class EssentialContactsServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:

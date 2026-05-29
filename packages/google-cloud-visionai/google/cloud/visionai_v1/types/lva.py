@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ class RunMode(proto.Enum):
             launched to handle bounded video files, with no
             packet drop. Completion status is tracked.
     """
+
     RUN_MODE_UNSPECIFIED = 0
     LIVE = 1
     SUBMISSION = 2
@@ -64,7 +65,7 @@ class OperatorDefinition(proto.Message):
         operator (str):
             The name of this operator.
 
-            Tentatively [A-Z][a-zA-Z0-9]*, e.g., BboxCounter,
+            Tentatively [A-Z][a-zA-Z0-9]\*, e.g., BboxCounter,
             PetDetector, PetDetector1.
         input_args (MutableSequence[google.cloud.visionai_v1.types.OperatorDefinition.ArgumentDefinition]):
             Declares input arguments.
@@ -323,7 +324,7 @@ class AnalyzerDefinition(proto.Message):
         analyzer (str):
             The name of this analyzer.
 
-            Tentatively [a-z][a-z0-9]*(_[a-z0-9]+)*.
+            Tentatively [a-z][a-z0-9]\ *(\_[a-z0-9]+)*.
         operator (str):
             The name of the operator that this analyzer
             runs.
@@ -494,6 +495,7 @@ class RunStatus(proto.Message):
                 PENDING means the Process is created but yet
                 to be scheduled.
         """
+
         STATE_UNSPECIFIED = 0
         INITIALIZING = 1
         RUNNING = 2

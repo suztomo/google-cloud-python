@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_crypto_key():
     client = kms_v1.KeyManagementServiceClient()
 
     # Initialize request argument(s)
-    request = kms_v1.UpdateCryptoKeyRequest(
-    )
+    request = kms_v1.UpdateCryptoKeyRequest()
 
     # Make the request
     response = client.update_crypto_key(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END cloudkms_v1_generated_KeyManagementService_UpdateCryptoKey_sync]

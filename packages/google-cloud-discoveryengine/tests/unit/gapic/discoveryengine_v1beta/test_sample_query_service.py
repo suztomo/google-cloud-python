@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +38,13 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,19 +53,13 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
 
 from google.cloud.discoveryengine_v1beta.services.sample_query_service import (
     SampleQueryServiceAsyncClient,
@@ -72,10 +67,12 @@ from google.cloud.discoveryengine_v1beta.services.sample_query_service import (
     pagers,
     transports,
 )
+from google.cloud.discoveryengine_v1beta.types import (
+    import_config,
+    sample_query,
+    sample_query_service,
+)
 from google.cloud.discoveryengine_v1beta.types import sample_query as gcd_sample_query
-from google.cloud.discoveryengine_v1beta.types import import_config
-from google.cloud.discoveryengine_v1beta.types import sample_query
-from google.cloud.discoveryengine_v1beta.types import sample_query_service
 
 CRED_INFO_JSON = {
     "credential_source": "/path/to/file",
@@ -125,12 +122,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert SampleQueryServiceClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -152,6 +165,10 @@ def test__get_default_mtls_endpoint():
     assert (
         SampleQueryServiceClient._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
+    )
+    assert (
+        SampleQueryServiceClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -179,12 +196,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            SampleQueryServiceClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                SampleQueryServiceClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert SampleQueryServiceClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert SampleQueryServiceClient._read_environment_variables() == (
@@ -221,6 +245,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert SampleQueryServiceClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert SampleQueryServiceClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert SampleQueryServiceClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert SampleQueryServiceClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert SampleQueryServiceClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert SampleQueryServiceClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert SampleQueryServiceClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert SampleQueryServiceClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert SampleQueryServiceClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                SampleQueryServiceClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert SampleQueryServiceClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert SampleQueryServiceClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -600,17 +723,6 @@ def test_sample_query_service_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -846,6 +958,117 @@ def test_sample_query_service_client_get_mtls_endpoint_and_cert_source(client_cl
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -878,10 +1101,9 @@ def test_sample_query_service_client_get_mtls_endpoint_and_cert_source(client_cl
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -894,18 +1116,6 @@ def test_sample_query_service_client_get_mtls_endpoint_and_cert_source(client_cl
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1141,13 +1351,13 @@ def test_sample_query_service_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1172,8 +1382,8 @@ def test_sample_query_service_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        sample_query_service.GetSampleQueryRequest,
-        dict,
+        sample_query_service.GetSampleQueryRequest(),
+        {},
     ],
 )
 def test_get_sample_query(request_type, transport: str = "grpc"):
@@ -1184,7 +1394,7 @@ def test_get_sample_query(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_sample_query), "__call__") as call:
@@ -1228,9 +1438,10 @@ def test_get_sample_query_non_empty_request_with_auto_populated_field():
         client.get_sample_query(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == sample_query_service.GetSampleQueryRequest(
+        request_msg = sample_query_service.GetSampleQueryRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_sample_query_use_cached_wrapped_rpc():
@@ -1254,9 +1465,9 @@ def test_get_sample_query_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_sample_query
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_sample_query] = (
+            mock_rpc
+        )
         request = {}
         client.get_sample_query(request)
 
@@ -1313,10 +1524,14 @@ async def test_get_sample_query_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_sample_query_async(
-    transport: str = "grpc_asyncio",
-    request_type=sample_query_service.GetSampleQueryRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        sample_query_service.GetSampleQueryRequest(),
+        {},
+    ],
+)
+async def test_get_sample_query_async(request_type, transport: str = "grpc_asyncio"):
     client = SampleQueryServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1324,7 +1539,7 @@ async def test_get_sample_query_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_sample_query), "__call__") as call:
@@ -1345,11 +1560,6 @@ async def test_get_sample_query_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, sample_query.SampleQuery)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_sample_query_async_from_dict():
-    await test_get_sample_query_async(request_type=dict)
 
 
 def test_get_sample_query_field_headers():
@@ -1498,8 +1708,8 @@ async def test_get_sample_query_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        sample_query_service.ListSampleQueriesRequest,
-        dict,
+        sample_query_service.ListSampleQueriesRequest(),
+        {},
     ],
 )
 def test_list_sample_queries(request_type, transport: str = "grpc"):
@@ -1510,7 +1720,7 @@ def test_list_sample_queries(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1559,10 +1769,11 @@ def test_list_sample_queries_non_empty_request_with_auto_populated_field():
         client.list_sample_queries(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == sample_query_service.ListSampleQueriesRequest(
+        request_msg = sample_query_service.ListSampleQueriesRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_sample_queries_use_cached_wrapped_rpc():
@@ -1588,9 +1799,9 @@ def test_list_sample_queries_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_sample_queries
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_sample_queries] = (
+            mock_rpc
+        )
         request = {}
         client.list_sample_queries(request)
 
@@ -1647,10 +1858,14 @@ async def test_list_sample_queries_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_sample_queries_async(
-    transport: str = "grpc_asyncio",
-    request_type=sample_query_service.ListSampleQueriesRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        sample_query_service.ListSampleQueriesRequest(),
+        {},
+    ],
+)
+async def test_list_sample_queries_async(request_type, transport: str = "grpc_asyncio"):
     client = SampleQueryServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1658,7 +1873,7 @@ async def test_list_sample_queries_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1681,11 +1896,6 @@ async def test_list_sample_queries_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListSampleQueriesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_sample_queries_async_from_dict():
-    await test_list_sample_queries_async(request_type=dict)
 
 
 def test_list_sample_queries_field_headers():
@@ -2031,11 +2241,7 @@ async def test_list_sample_queries_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_sample_queries(request={})
-        ).pages:
+        async for page_ in (await client.list_sample_queries(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -2044,8 +2250,8 @@ async def test_list_sample_queries_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        sample_query_service.CreateSampleQueryRequest,
-        dict,
+        sample_query_service.CreateSampleQueryRequest(),
+        {},
     ],
 )
 def test_create_sample_query(request_type, transport: str = "grpc"):
@@ -2056,7 +2262,7 @@ def test_create_sample_query(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2105,10 +2311,11 @@ def test_create_sample_query_non_empty_request_with_auto_populated_field():
         client.create_sample_query(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == sample_query_service.CreateSampleQueryRequest(
+        request_msg = sample_query_service.CreateSampleQueryRequest(
             parent="parent_value",
             sample_query_id="sample_query_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_sample_query_use_cached_wrapped_rpc():
@@ -2134,9 +2341,9 @@ def test_create_sample_query_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_sample_query
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_sample_query] = (
+            mock_rpc
+        )
         request = {}
         client.create_sample_query(request)
 
@@ -2193,10 +2400,14 @@ async def test_create_sample_query_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_sample_query_async(
-    transport: str = "grpc_asyncio",
-    request_type=sample_query_service.CreateSampleQueryRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        sample_query_service.CreateSampleQueryRequest(),
+        {},
+    ],
+)
+async def test_create_sample_query_async(request_type, transport: str = "grpc_asyncio"):
     client = SampleQueryServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2204,7 +2415,7 @@ async def test_create_sample_query_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2227,11 +2438,6 @@ async def test_create_sample_query_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, gcd_sample_query.SampleQuery)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_create_sample_query_async_from_dict():
-    await test_create_sample_query_async(request_type=dict)
 
 
 def test_create_sample_query_field_headers():
@@ -2420,8 +2626,8 @@ async def test_create_sample_query_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        sample_query_service.UpdateSampleQueryRequest,
-        dict,
+        sample_query_service.UpdateSampleQueryRequest(),
+        {},
     ],
 )
 def test_update_sample_query(request_type, transport: str = "grpc"):
@@ -2432,7 +2638,7 @@ def test_update_sample_query(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2478,7 +2684,8 @@ def test_update_sample_query_non_empty_request_with_auto_populated_field():
         client.update_sample_query(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == sample_query_service.UpdateSampleQueryRequest()
+        request_msg = sample_query_service.UpdateSampleQueryRequest()
+        assert args[0] == request_msg
 
 
 def test_update_sample_query_use_cached_wrapped_rpc():
@@ -2504,9 +2711,9 @@ def test_update_sample_query_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_sample_query
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_sample_query] = (
+            mock_rpc
+        )
         request = {}
         client.update_sample_query(request)
 
@@ -2563,10 +2770,14 @@ async def test_update_sample_query_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_sample_query_async(
-    transport: str = "grpc_asyncio",
-    request_type=sample_query_service.UpdateSampleQueryRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        sample_query_service.UpdateSampleQueryRequest(),
+        {},
+    ],
+)
+async def test_update_sample_query_async(request_type, transport: str = "grpc_asyncio"):
     client = SampleQueryServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2574,7 +2785,7 @@ async def test_update_sample_query_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2597,11 +2808,6 @@ async def test_update_sample_query_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, gcd_sample_query.SampleQuery)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_update_sample_query_async_from_dict():
-    await test_update_sample_query_async(request_type=dict)
 
 
 def test_update_sample_query_field_headers():
@@ -2780,8 +2986,8 @@ async def test_update_sample_query_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        sample_query_service.DeleteSampleQueryRequest,
-        dict,
+        sample_query_service.DeleteSampleQueryRequest(),
+        {},
     ],
 )
 def test_delete_sample_query(request_type, transport: str = "grpc"):
@@ -2792,7 +2998,7 @@ def test_delete_sample_query(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2837,9 +3043,10 @@ def test_delete_sample_query_non_empty_request_with_auto_populated_field():
         client.delete_sample_query(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == sample_query_service.DeleteSampleQueryRequest(
+        request_msg = sample_query_service.DeleteSampleQueryRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_sample_query_use_cached_wrapped_rpc():
@@ -2865,9 +3072,9 @@ def test_delete_sample_query_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_sample_query
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_sample_query] = (
+            mock_rpc
+        )
         request = {}
         client.delete_sample_query(request)
 
@@ -2924,10 +3131,14 @@ async def test_delete_sample_query_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_sample_query_async(
-    transport: str = "grpc_asyncio",
-    request_type=sample_query_service.DeleteSampleQueryRequest,
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        sample_query_service.DeleteSampleQueryRequest(),
+        {},
+    ],
+)
+async def test_delete_sample_query_async(request_type, transport: str = "grpc_asyncio"):
     client = SampleQueryServiceAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2935,7 +3146,7 @@ async def test_delete_sample_query_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2953,11 +3164,6 @@ async def test_delete_sample_query_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_sample_query_async_from_dict():
-    await test_delete_sample_query_async(request_type=dict)
 
 
 def test_delete_sample_query_field_headers():
@@ -3110,8 +3316,8 @@ async def test_delete_sample_query_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        import_config.ImportSampleQueriesRequest,
-        dict,
+        import_config.ImportSampleQueriesRequest(),
+        {},
     ],
 )
 def test_import_sample_queries(request_type, transport: str = "grpc"):
@@ -3122,7 +3328,7 @@ def test_import_sample_queries(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3167,9 +3373,10 @@ def test_import_sample_queries_non_empty_request_with_auto_populated_field():
         client.import_sample_queries(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == import_config.ImportSampleQueriesRequest(
+        request_msg = import_config.ImportSampleQueriesRequest(
             parent="parent_value",
         )
+        assert args[0] == request_msg
 
 
 def test_import_sample_queries_use_cached_wrapped_rpc():
@@ -3196,9 +3403,9 @@ def test_import_sample_queries_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.import_sample_queries
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.import_sample_queries] = (
+            mock_rpc
+        )
         request = {}
         client.import_sample_queries(request)
 
@@ -3265,9 +3472,15 @@ async def test_import_sample_queries_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        import_config.ImportSampleQueriesRequest(),
+        {},
+    ],
+)
 async def test_import_sample_queries_async(
-    transport: str = "grpc_asyncio",
-    request_type=import_config.ImportSampleQueriesRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = SampleQueryServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -3276,7 +3489,7 @@ async def test_import_sample_queries_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -3296,11 +3509,6 @@ async def test_import_sample_queries_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_import_sample_queries_async_from_dict():
-    await test_import_sample_queries_async(request_type=dict)
 
 
 def test_import_sample_queries_field_headers():
@@ -3389,9 +3597,9 @@ def test_get_sample_query_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_sample_query
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_sample_query] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_sample_query(request)
@@ -3478,7 +3686,7 @@ def test_get_sample_query_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_sample_query_rest_unset_required_fields():
@@ -3573,9 +3781,9 @@ def test_list_sample_queries_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_sample_queries
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_sample_queries] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_sample_queries(request)
@@ -3671,7 +3879,7 @@ def test_list_sample_queries_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_sample_queries_rest_unset_required_fields():
@@ -3839,9 +4047,9 @@ def test_create_sample_query_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_sample_query
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_sample_query] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_sample_query(request)
@@ -3944,7 +4152,7 @@ def test_create_sample_query_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_sample_query_rest_unset_required_fields():
@@ -4056,9 +4264,9 @@ def test_update_sample_query_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_sample_query
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_sample_query] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_sample_query(request)
@@ -4143,7 +4351,7 @@ def test_update_sample_query_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_sample_query_rest_unset_required_fields():
@@ -4246,9 +4454,9 @@ def test_delete_sample_query_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_sample_query
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_sample_query] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_sample_query(request)
@@ -4332,7 +4540,7 @@ def test_delete_sample_query_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_sample_query_rest_unset_required_fields():
@@ -4426,9 +4634,9 @@ def test_import_sample_queries_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.import_sample_queries
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.import_sample_queries] = (
+            mock_rpc
+        )
 
         request = {}
         client.import_sample_queries(request)
@@ -4517,7 +4725,7 @@ def test_import_sample_queries_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_import_sample_queries_rest_unset_required_fields():
@@ -4652,7 +4860,6 @@ def test_get_sample_query_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.GetSampleQueryRequest()
-
         assert args[0] == request_msg
 
 
@@ -4675,7 +4882,6 @@ def test_list_sample_queries_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.ListSampleQueriesRequest()
-
         assert args[0] == request_msg
 
 
@@ -4698,7 +4904,6 @@ def test_create_sample_query_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.CreateSampleQueryRequest()
-
         assert args[0] == request_msg
 
 
@@ -4721,7 +4926,6 @@ def test_update_sample_query_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.UpdateSampleQueryRequest()
-
         assert args[0] == request_msg
 
 
@@ -4744,7 +4948,6 @@ def test_delete_sample_query_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.DeleteSampleQueryRequest()
-
         assert args[0] == request_msg
 
 
@@ -4767,7 +4970,6 @@ def test_import_sample_queries_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = import_config.ImportSampleQueriesRequest()
-
         assert args[0] == request_msg
 
 
@@ -4808,7 +5010,6 @@ async def test_get_sample_query_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.GetSampleQueryRequest()
-
         assert args[0] == request_msg
 
 
@@ -4837,7 +5038,6 @@ async def test_list_sample_queries_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.ListSampleQueriesRequest()
-
         assert args[0] == request_msg
 
 
@@ -4866,7 +5066,6 @@ async def test_create_sample_query_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.CreateSampleQueryRequest()
-
         assert args[0] == request_msg
 
 
@@ -4895,7 +5094,6 @@ async def test_update_sample_query_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.UpdateSampleQueryRequest()
-
         assert args[0] == request_msg
 
 
@@ -4920,7 +5118,6 @@ async def test_delete_sample_query_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.DeleteSampleQueryRequest()
-
         assert args[0] == request_msg
 
 
@@ -4947,7 +5144,6 @@ async def test_import_sample_queries_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = import_config.ImportSampleQueriesRequest()
-
         assert args[0] == request_msg
 
 
@@ -4971,8 +5167,9 @@ def test_get_sample_query_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5037,18 +5234,20 @@ def test_get_sample_query_rest_interceptors(null_interceptor):
     )
     client = SampleQueryServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor, "post_get_sample_query"
-    ) as post, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor,
-        "post_get_sample_query_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor, "pre_get_sample_query"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor, "post_get_sample_query"
+        ) as post,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor,
+            "post_get_sample_query_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor, "pre_get_sample_query"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -5103,8 +5302,9 @@ def test_list_sample_queries_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5169,18 +5369,20 @@ def test_list_sample_queries_rest_interceptors(null_interceptor):
     )
     client = SampleQueryServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor, "post_list_sample_queries"
-    ) as post, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor,
-        "post_list_sample_queries_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor, "pre_list_sample_queries"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor, "post_list_sample_queries"
+        ) as post,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor,
+            "post_list_sample_queries_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor, "pre_list_sample_queries"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -5240,8 +5442,9 @@ def test_create_sample_query_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5385,18 +5588,20 @@ def test_create_sample_query_rest_interceptors(null_interceptor):
     )
     client = SampleQueryServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor, "post_create_sample_query"
-    ) as post, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor,
-        "post_create_sample_query_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor, "pre_create_sample_query"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor, "post_create_sample_query"
+        ) as post,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor,
+            "post_create_sample_query_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor, "pre_create_sample_query"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -5455,8 +5660,9 @@ def test_update_sample_query_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5602,18 +5808,20 @@ def test_update_sample_query_rest_interceptors(null_interceptor):
     )
     client = SampleQueryServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor, "post_update_sample_query"
-    ) as post, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor,
-        "post_update_sample_query_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor, "pre_update_sample_query"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor, "post_update_sample_query"
+        ) as post,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor,
+            "post_update_sample_query_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor, "pre_update_sample_query"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -5670,8 +5878,9 @@ def test_delete_sample_query_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5730,13 +5939,13 @@ def test_delete_sample_query_rest_interceptors(null_interceptor):
     )
     client = SampleQueryServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor, "pre_delete_sample_query"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor, "pre_delete_sample_query"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = sample_query_service.DeleteSampleQueryRequest.pb(
             sample_query_service.DeleteSampleQueryRequest()
@@ -5783,8 +5992,9 @@ def test_import_sample_queries_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5843,20 +6053,21 @@ def test_import_sample_queries_rest_interceptors(null_interceptor):
     )
     client = SampleQueryServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor, "post_import_sample_queries"
-    ) as post, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor,
-        "post_import_sample_queries_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SampleQueryServiceRestInterceptor, "pre_import_sample_queries"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor, "post_import_sample_queries"
+        ) as post,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor,
+            "post_import_sample_queries_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SampleQueryServiceRestInterceptor, "pre_import_sample_queries"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -5914,8 +6125,9 @@ def test_cancel_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5981,8 +6193,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -6048,8 +6261,9 @@ def test_list_operations_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -6122,7 +6336,6 @@ def test_get_sample_query_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.GetSampleQueryRequest()
-
         assert args[0] == request_msg
 
 
@@ -6144,7 +6357,6 @@ def test_list_sample_queries_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.ListSampleQueriesRequest()
-
         assert args[0] == request_msg
 
 
@@ -6166,7 +6378,6 @@ def test_create_sample_query_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.CreateSampleQueryRequest()
-
         assert args[0] == request_msg
 
 
@@ -6188,7 +6399,6 @@ def test_update_sample_query_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.UpdateSampleQueryRequest()
-
         assert args[0] == request_msg
 
 
@@ -6210,7 +6420,6 @@ def test_delete_sample_query_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = sample_query_service.DeleteSampleQueryRequest()
-
         assert args[0] == request_msg
 
 
@@ -6232,7 +6441,6 @@ def test_import_sample_queries_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = import_config.ImportSampleQueriesRequest()
-
         assert args[0] == request_msg
 
 
@@ -6319,11 +6527,14 @@ def test_sample_query_service_base_transport():
 
 def test_sample_query_service_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.discoveryengine_v1beta.services.sample_query_service.transports.SampleQueryServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.discoveryengine_v1beta.services.sample_query_service.transports.SampleQueryServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.SampleQueryServiceTransport(
@@ -6340,9 +6551,12 @@ def test_sample_query_service_base_transport_with_credentials_file():
 
 def test_sample_query_service_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.discoveryengine_v1beta.services.sample_query_service.transports.SampleQueryServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.discoveryengine_v1beta.services.sample_query_service.transports.SampleQueryServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.SampleQueryServiceTransport()
@@ -6414,11 +6628,12 @@ def test_sample_query_service_transport_auth_gdch_credentials(transport_class):
 def test_sample_query_service_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -6608,6 +6823,7 @@ def test_sample_query_service_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [
@@ -7064,6 +7280,38 @@ async def test_cancel_operation_from_dict_async():
         call.assert_called()
 
 
+def test_cancel_operation_flattened():
+    client = SampleQueryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = SampleQueryServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
 def test_get_operation(transport: str = "grpc"):
     client = SampleQueryServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -7209,6 +7457,40 @@ async def test_get_operation_from_dict_async():
         call.assert_called()
 
 
+def test_get_operation_flattened():
+    client = SampleQueryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = SampleQueryServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
 def test_list_operations(transport: str = "grpc"):
     client = SampleQueryServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -7352,6 +7634,40 @@ async def test_list_operations_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_list_operations_flattened():
+    client = SampleQueryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = SampleQueryServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
 
 
 def test_transport_close_grpc():

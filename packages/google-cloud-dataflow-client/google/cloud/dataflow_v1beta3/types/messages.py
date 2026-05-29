@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -77,6 +77,7 @@ class JobMessageImportance(proto.Enum):
             default, and these messages are displayed by
             default in the Dataflow monitoring UI.
     """
+
     JOB_MESSAGE_IMPORTANCE_UNKNOWN = 0
     JOB_MESSAGE_DEBUG = 1
     JOB_MESSAGE_DETAILED = 2
@@ -224,6 +225,7 @@ class AutoscalingEvent(proto.Message):
                 specify both target_num_workers, current_num_workers and a
                 decision_message.
         """
+
         TYPE_UNKNOWN = 0
         TARGET_NUM_WORKERS_CHANGED = 1
         CURRENT_NUM_WORKERS_CHANGED = 2

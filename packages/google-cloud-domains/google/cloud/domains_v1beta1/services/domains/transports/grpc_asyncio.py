@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,12 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async, operations_v1
 from google.api_core import retry_async as retries
@@ -27,10 +30,7 @@ from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
 from google.cloud.domains_v1beta1.types import domains
 
@@ -61,7 +61,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -96,7 +96,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -149,8 +149,9 @@ class DomainsGrpcAsyncIOTransport(DomainsTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -201,9 +202,10 @@ class DomainsGrpcAsyncIOTransport(DomainsTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -235,6 +237,10 @@ class DomainsGrpcAsyncIOTransport(DomainsTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -403,12 +409,12 @@ class DomainsGrpcAsyncIOTransport(DomainsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "retrieve_register_parameters" not in self._stubs:
-            self._stubs[
-                "retrieve_register_parameters"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.domains.v1beta1.Domains/RetrieveRegisterParameters",
-                request_serializer=domains.RetrieveRegisterParametersRequest.serialize,
-                response_deserializer=domains.RetrieveRegisterParametersResponse.deserialize,
+            self._stubs["retrieve_register_parameters"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.domains.v1beta1.Domains/RetrieveRegisterParameters",
+                    request_serializer=domains.RetrieveRegisterParametersRequest.serialize,
+                    response_deserializer=domains.RetrieveRegisterParametersResponse.deserialize,
+                )
             )
         return self._stubs["retrieve_register_parameters"]
 
@@ -477,12 +483,12 @@ class DomainsGrpcAsyncIOTransport(DomainsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "retrieve_transfer_parameters" not in self._stubs:
-            self._stubs[
-                "retrieve_transfer_parameters"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.domains.v1beta1.Domains/RetrieveTransferParameters",
-                request_serializer=domains.RetrieveTransferParametersRequest.serialize,
-                response_deserializer=domains.RetrieveTransferParametersResponse.deserialize,
+            self._stubs["retrieve_transfer_parameters"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.domains.v1beta1.Domains/RetrieveTransferParameters",
+                    request_serializer=domains.RetrieveTransferParametersRequest.serialize,
+                    response_deserializer=domains.RetrieveTransferParametersResponse.deserialize,
+                )
             )
         return self._stubs["retrieve_transfer_parameters"]
 
@@ -601,11 +607,11 @@ class DomainsGrpcAsyncIOTransport(DomainsTransport):
         ``labels``. To update other fields, use the appropriate custom
         update method:
 
-        -  To update management settings, see
-           ``ConfigureManagementSettings``
-        -  To update DNS configuration, see ``ConfigureDnsSettings``
-        -  To update contact information, see
-           ``ConfigureContactSettings``
+        - To update management settings, see
+          ``ConfigureManagementSettings``
+        - To update DNS configuration, see ``ConfigureDnsSettings``
+        - To update contact information, see
+          ``ConfigureContactSettings``
 
         Returns:
             Callable[[~.UpdateRegistrationRequest],
@@ -647,12 +653,12 @@ class DomainsGrpcAsyncIOTransport(DomainsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "configure_management_settings" not in self._stubs:
-            self._stubs[
-                "configure_management_settings"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.domains.v1beta1.Domains/ConfigureManagementSettings",
-                request_serializer=domains.ConfigureManagementSettingsRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["configure_management_settings"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.domains.v1beta1.Domains/ConfigureManagementSettings",
+                    request_serializer=domains.ConfigureManagementSettingsRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["configure_management_settings"]
 
@@ -706,12 +712,12 @@ class DomainsGrpcAsyncIOTransport(DomainsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "configure_contact_settings" not in self._stubs:
-            self._stubs[
-                "configure_contact_settings"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.domains.v1beta1.Domains/ConfigureContactSettings",
-                request_serializer=domains.ConfigureContactSettingsRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["configure_contact_settings"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.domains.v1beta1.Domains/ConfigureContactSettings",
+                    request_serializer=domains.ConfigureContactSettingsRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["configure_contact_settings"]
 
@@ -771,9 +777,9 @@ class DomainsGrpcAsyncIOTransport(DomainsTransport):
         billing </domains/pricing#billing-models>`__, this method works
         if:
 
-        -  ``state`` is ``EXPORTED`` with ``expire_time`` in the past
-        -  ``state`` is ``REGISTRATION_FAILED``
-        -  ``state`` is ``TRANSFER_FAILED``
+        - ``state`` is ``EXPORTED`` with ``expire_time`` in the past
+        - ``state`` is ``REGISTRATION_FAILED``
+        - ``state`` is ``TRANSFER_FAILED``
 
         When an active registration is successfully deleted, you can
         continue to use the domain in `Google
@@ -826,12 +832,12 @@ class DomainsGrpcAsyncIOTransport(DomainsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "retrieve_authorization_code" not in self._stubs:
-            self._stubs[
-                "retrieve_authorization_code"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.domains.v1beta1.Domains/RetrieveAuthorizationCode",
-                request_serializer=domains.RetrieveAuthorizationCodeRequest.serialize,
-                response_deserializer=domains.AuthorizationCode.deserialize,
+            self._stubs["retrieve_authorization_code"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.domains.v1beta1.Domains/RetrieveAuthorizationCode",
+                    request_serializer=domains.RetrieveAuthorizationCodeRequest.serialize,
+                    response_deserializer=domains.AuthorizationCode.deserialize,
+                )
             )
         return self._stubs["retrieve_authorization_code"]
 

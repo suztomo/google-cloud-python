@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,10 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from .actor import Actor
-from .attachment import Attachment
-from .attachment_service import ListAttachmentsRequest, ListAttachmentsResponse
-from .case import Case, CaseClassification, Product, ProductLine
+from .actor import (
+    Actor,
+)
+from .attachment import (
+    Attachment,
+)
+from .attachment_service import (
+    GetAttachmentRequest,
+    ListAttachmentsRequest,
+    ListAttachmentsResponse,
+)
+from .case import (
+    Case,
+    CaseClassification,
+    Product,
+    ProductLine,
+)
 from .case_service import (
     CloseCaseRequest,
     CreateCaseRequest,
@@ -30,21 +43,36 @@ from .case_service import (
     SearchCasesResponse,
     UpdateCaseRequest,
 )
-from .comment import Comment
+from .comment import (
+    Comment,
+)
 from .comment_service import (
     CreateCommentRequest,
+    GetCommentRequest,
     ListCommentsRequest,
     ListCommentsResponse,
 )
-from .content import TextContent
-from .email_message import EmailMessage
-from .escalation import Escalation
-from .feed_item import FeedItem
-from .feed_service import ShowFeedRequest, ShowFeedResponse
+from .content import (
+    TextContent,
+)
+from .email_message import (
+    EmailMessage,
+)
+from .escalation import (
+    Escalation,
+)
+from .feed_item import (
+    FeedItem,
+)
+from .feed_service import (
+    ShowFeedRequest,
+    ShowFeedResponse,
+)
 
 __all__ = (
     "Actor",
     "Attachment",
+    "GetAttachmentRequest",
     "ListAttachmentsRequest",
     "ListAttachmentsResponse",
     "Case",
@@ -64,6 +92,7 @@ __all__ = (
     "UpdateCaseRequest",
     "Comment",
     "CreateCommentRequest",
+    "GetCommentRequest",
     "ListCommentsRequest",
     "ListCommentsResponse",
     "TextContent",

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import localized_text_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.localized_text_pb2 as localized_text_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.maps.places_v1.types import attribution
@@ -59,6 +60,10 @@ class Review(proto.Message):
             the review.
         google_maps_uri (str):
             A link to show the review on Google Maps.
+        visit_date (google.type.date_pb2.Date):
+            The date when the author visited the place.
+            This is truncated to the year and month of the
+            visit.
     """
 
     name: str = proto.Field(
@@ -100,6 +105,11 @@ class Review(proto.Message):
     google_maps_uri: str = proto.Field(
         proto.STRING,
         number=16,
+    )
+    visit_date: date_pb2.Date = proto.Field(
+        proto.MESSAGE,
+        number=17,
+        message=date_pb2.Date,
     )
 
 

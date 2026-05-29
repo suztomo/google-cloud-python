@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ async def sample_update_session_entity_type():
     session_entity_type.name = "name_value"
     session_entity_type.entity_override_mode = "ENTITY_OVERRIDE_MODE_SUPPLEMENT"
     session_entity_type.entities.value = "value_value"
-    session_entity_type.entities.synonyms = ['synonyms_value1', 'synonyms_value2']
+    session_entity_type.entities.synonyms = ["synonyms_value1", "synonyms_value2"]
 
     request = dialogflow_v2.UpdateSessionEntityTypeRequest(
         session_entity_type=session_entity_type,
@@ -54,5 +54,6 @@ async def sample_update_session_entity_type():
 
     # Handle the response
     print(response)
+
 
 # [END dialogflow_v2_generated_SessionEntityTypes_UpdateSessionEntityType_async]

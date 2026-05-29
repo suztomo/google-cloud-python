@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,18 +38,18 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.extended_operation as extended_operation  # type: ignore
+import google.auth
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
     grpc_helpers_async,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import extended_operation  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.oauth2 import service_account
@@ -110,12 +105,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert DisksClient._get_default_mtls_endpoint(None) is None
     assert DisksClient._get_default_mtls_endpoint(api_endpoint) == api_mtls_endpoint
@@ -131,6 +142,7 @@ def test__get_default_mtls_endpoint():
         == sandbox_mtls_endpoint
     )
     assert DisksClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    assert DisksClient._get_default_mtls_endpoint(custom_endpoint) == custom_endpoint
 
 
 def test__read_environment_variables():
@@ -145,12 +157,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            DisksClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                DisksClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert DisksClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert DisksClient._read_environment_variables() == (False, "never", None)
@@ -171,6 +190,105 @@ def test__read_environment_variables():
 
     with mock.patch.dict(os.environ, {"GOOGLE_CLOUD_UNIVERSE_DOMAIN": "foo.com"}):
         assert DisksClient._read_environment_variables() == (False, "auto", "foo.com")
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert DisksClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert DisksClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert DisksClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert DisksClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert DisksClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert DisksClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert DisksClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert DisksClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert DisksClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                DisksClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert DisksClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert DisksClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -501,17 +619,6 @@ def test_disks_client_client_options(client_class, transport_class, transport_na
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -699,6 +806,117 @@ def test_disks_client_get_mtls_endpoint_and_cert_source(client_class):
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -731,10 +949,9 @@ def test_disks_client_get_mtls_endpoint_and_cert_source(client_class):
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -747,18 +964,6 @@ def test_disks_client_get_mtls_endpoint_and_cert_source(client_class):
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -926,9 +1131,9 @@ def test_add_resource_policies_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.add_resource_policies
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.add_resource_policies] = (
+            mock_rpc
+        )
 
         request = {}
         client.add_resource_policies(request)
@@ -1030,7 +1235,7 @@ def test_add_resource_policies_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_add_resource_policies_rest_unset_required_fields():
@@ -1144,9 +1349,9 @@ def test_add_resource_policies_unary_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.add_resource_policies
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.add_resource_policies] = (
+            mock_rpc
+        )
 
         request = {}
         client.add_resource_policies_unary(request)
@@ -1248,7 +1453,7 @@ def test_add_resource_policies_unary_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_add_resource_policies_unary_rest_unset_required_fields():
@@ -1458,7 +1663,7 @@ def test_aggregated_list_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_aggregated_list_rest_unset_required_fields():
@@ -1728,7 +1933,7 @@ def test_bulk_insert_rest_required_fields(request_type=compute.BulkInsertDiskReq
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_bulk_insert_rest_unset_required_fields():
@@ -1768,7 +1973,9 @@ def test_bulk_insert_rest_flattened():
             project="project_value",
             zone="zone_value",
             bulk_insert_disk_resource_resource=compute.BulkInsertDiskResource(
-                source_consistency_group_policy="source_consistency_group_policy_value"
+                instant_snapshot_group_parameters=compute.InstantSnapshotGroupParameters(
+                    source_instant_snapshot_group="source_instant_snapshot_group_value"
+                )
             ),
         )
         mock_args.update(sample_request)
@@ -1810,7 +2017,9 @@ def test_bulk_insert_rest_flattened_error(transport: str = "rest"):
             project="project_value",
             zone="zone_value",
             bulk_insert_disk_resource_resource=compute.BulkInsertDiskResource(
-                source_consistency_group_policy="source_consistency_group_policy_value"
+                instant_snapshot_group_parameters=compute.InstantSnapshotGroupParameters(
+                    source_instant_snapshot_group="source_instant_snapshot_group_value"
+                )
             ),
         )
 
@@ -1934,7 +2143,7 @@ def test_bulk_insert_unary_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_bulk_insert_unary_rest_unset_required_fields():
@@ -1974,7 +2183,9 @@ def test_bulk_insert_unary_rest_flattened():
             project="project_value",
             zone="zone_value",
             bulk_insert_disk_resource_resource=compute.BulkInsertDiskResource(
-                source_consistency_group_policy="source_consistency_group_policy_value"
+                instant_snapshot_group_parameters=compute.InstantSnapshotGroupParameters(
+                    source_instant_snapshot_group="source_instant_snapshot_group_value"
+                )
             ),
         )
         mock_args.update(sample_request)
@@ -2016,7 +2227,457 @@ def test_bulk_insert_unary_rest_flattened_error(transport: str = "rest"):
             project="project_value",
             zone="zone_value",
             bulk_insert_disk_resource_resource=compute.BulkInsertDiskResource(
-                source_consistency_group_policy="source_consistency_group_policy_value"
+                instant_snapshot_group_parameters=compute.InstantSnapshotGroupParameters(
+                    source_instant_snapshot_group="source_instant_snapshot_group_value"
+                )
+            ),
+        )
+
+
+def test_bulk_set_labels_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = DisksClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.bulk_set_labels in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.bulk_set_labels] = mock_rpc
+
+        request = {}
+        client.bulk_set_labels(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.bulk_set_labels(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_bulk_set_labels_rest_required_fields(
+    request_type=compute.BulkSetLabelsDiskRequest,
+):
+    transport_class = transports.DisksRestTransport
+
+    request_init = {}
+    request_init["project"] = ""
+    request_init["zone"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).bulk_set_labels._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["project"] = "project_value"
+    jsonified_request["zone"] = "zone_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).bulk_set_labels._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "request_id",
+            "resource",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "project" in jsonified_request
+    assert jsonified_request["project"] == "project_value"
+    assert "zone" in jsonified_request
+    assert jsonified_request["zone"] == "zone_value"
+
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = compute.Operation()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = compute.Operation.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.bulk_set_labels(request)
+
+            expected_params = []
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_bulk_set_labels_rest_unset_required_fields():
+    transport = transports.DisksRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.bulk_set_labels._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "requestId",
+                "resource",
+            )
+        )
+        & set(
+            (
+                "bulkZoneSetLabelsRequestResource",
+                "project",
+                "zone",
+            )
+        )
+    )
+
+
+def test_bulk_set_labels_rest_flattened():
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = compute.Operation()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"project": "sample1", "zone": "sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            project="project_value",
+            zone="zone_value",
+            bulk_zone_set_labels_request_resource=compute.BulkZoneSetLabelsRequest(
+                requests=[
+                    compute.BulkSetLabelsRequest(
+                        label_fingerprint="label_fingerprint_value"
+                    )
+                ]
+            ),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = compute.Operation.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.bulk_set_labels(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/compute/v1/projects/{project}/zones/{zone}/disks/bulkSetLabels"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_bulk_set_labels_rest_flattened_error(transport: str = "rest"):
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.bulk_set_labels(
+            compute.BulkSetLabelsDiskRequest(),
+            project="project_value",
+            zone="zone_value",
+            bulk_zone_set_labels_request_resource=compute.BulkZoneSetLabelsRequest(
+                requests=[
+                    compute.BulkSetLabelsRequest(
+                        label_fingerprint="label_fingerprint_value"
+                    )
+                ]
+            ),
+        )
+
+
+def test_bulk_set_labels_unary_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = DisksClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.bulk_set_labels in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.bulk_set_labels] = mock_rpc
+
+        request = {}
+        client.bulk_set_labels_unary(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.bulk_set_labels_unary(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_bulk_set_labels_unary_rest_required_fields(
+    request_type=compute.BulkSetLabelsDiskRequest,
+):
+    transport_class = transports.DisksRestTransport
+
+    request_init = {}
+    request_init["project"] = ""
+    request_init["zone"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).bulk_set_labels._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["project"] = "project_value"
+    jsonified_request["zone"] = "zone_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).bulk_set_labels._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "request_id",
+            "resource",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "project" in jsonified_request
+    assert jsonified_request["project"] == "project_value"
+    assert "zone" in jsonified_request
+    assert jsonified_request["zone"] == "zone_value"
+
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = compute.Operation()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = compute.Operation.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.bulk_set_labels_unary(request)
+
+            expected_params = []
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_bulk_set_labels_unary_rest_unset_required_fields():
+    transport = transports.DisksRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.bulk_set_labels._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "requestId",
+                "resource",
+            )
+        )
+        & set(
+            (
+                "bulkZoneSetLabelsRequestResource",
+                "project",
+                "zone",
+            )
+        )
+    )
+
+
+def test_bulk_set_labels_unary_rest_flattened():
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = compute.Operation()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"project": "sample1", "zone": "sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            project="project_value",
+            zone="zone_value",
+            bulk_zone_set_labels_request_resource=compute.BulkZoneSetLabelsRequest(
+                requests=[
+                    compute.BulkSetLabelsRequest(
+                        label_fingerprint="label_fingerprint_value"
+                    )
+                ]
+            ),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = compute.Operation.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.bulk_set_labels_unary(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/compute/v1/projects/{project}/zones/{zone}/disks/bulkSetLabels"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_bulk_set_labels_unary_rest_flattened_error(transport: str = "rest"):
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.bulk_set_labels_unary(
+            compute.BulkSetLabelsDiskRequest(),
+            project="project_value",
+            zone="zone_value",
+            bulk_zone_set_labels_request_resource=compute.BulkZoneSetLabelsRequest(
+                requests=[
+                    compute.BulkSetLabelsRequest(
+                        label_fingerprint="label_fingerprint_value"
+                    )
+                ]
             ),
         )
 
@@ -2149,7 +2810,7 @@ def test_create_snapshot_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_snapshot_rest_unset_required_fields():
@@ -2368,7 +3029,7 @@ def test_create_snapshot_unary_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_snapshot_unary_rest_unset_required_fields():
@@ -2579,7 +3240,7 @@ def test_delete_rest_required_fields(request_type=compute.DeleteDiskRequest):
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_rest_unset_required_fields():
@@ -2782,7 +3443,7 @@ def test_delete_unary_rest_required_fields(request_type=compute.DeleteDiskReques
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_unary_rest_unset_required_fields():
@@ -2979,7 +3640,7 @@ def test_get_rest_required_fields(request_type=compute.GetDiskRequest):
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_rest_unset_required_fields():
@@ -3180,7 +3841,7 @@ def test_get_iam_policy_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_iam_policy_rest_unset_required_fields():
@@ -3389,7 +4050,7 @@ def test_insert_rest_required_fields(request_type=compute.InsertDiskRequest):
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_insert_rest_unset_required_fields():
@@ -3599,7 +4260,7 @@ def test_insert_unary_rest_required_fields(request_type=compute.InsertDiskReques
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_insert_unary_rest_unset_required_fields():
@@ -3807,7 +4468,7 @@ def test_list_rest_required_fields(request_type=compute.ListDisksRequest):
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_rest_unset_required_fields():
@@ -4084,7 +4745,7 @@ def test_remove_resource_policies_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_remove_resource_policies_rest_unset_required_fields():
@@ -4302,7 +4963,7 @@ def test_remove_resource_policies_unary_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_remove_resource_policies_unary_rest_unset_required_fields():
@@ -4513,7 +5174,7 @@ def test_resize_rest_required_fields(request_type=compute.ResizeDiskRequest):
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_resize_rest_unset_required_fields():
@@ -4720,7 +5381,7 @@ def test_resize_unary_rest_required_fields(request_type=compute.ResizeDiskReques
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_resize_unary_rest_unset_required_fields():
@@ -4923,7 +5584,7 @@ def test_set_iam_policy_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_iam_policy_rest_unset_required_fields():
@@ -5138,7 +5799,7 @@ def test_set_labels_rest_required_fields(request_type=compute.SetLabelsDiskReque
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_labels_rest_unset_required_fields():
@@ -5355,7 +6016,7 @@ def test_set_labels_unary_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_labels_unary_rest_unset_required_fields():
@@ -5577,7 +6238,7 @@ def test_start_async_replication_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_start_async_replication_rest_unset_required_fields():
@@ -5795,7 +6456,7 @@ def test_start_async_replication_unary_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_start_async_replication_unary_rest_unset_required_fields():
@@ -5909,9 +6570,9 @@ def test_stop_async_replication_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.stop_async_replication
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.stop_async_replication] = (
+            mock_rpc
+        )
 
         request = {}
         client.stop_async_replication(request)
@@ -6012,7 +6673,7 @@ def test_stop_async_replication_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_stop_async_replication_rest_unset_required_fields():
@@ -6119,9 +6780,9 @@ def test_stop_async_replication_unary_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.stop_async_replication
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.stop_async_replication] = (
+            mock_rpc
+        )
 
         request = {}
         client.stop_async_replication_unary(request)
@@ -6222,7 +6883,7 @@ def test_stop_async_replication_unary_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_stop_async_replication_unary_rest_unset_required_fields():
@@ -6429,7 +7090,7 @@ def test_stop_group_async_replication_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_stop_group_async_replication_rest_unset_required_fields():
@@ -6640,7 +7301,7 @@ def test_stop_group_async_replication_unary_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_stop_group_async_replication_unary_rest_unset_required_fields():
@@ -6752,9 +7413,9 @@ def test_test_iam_permissions_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.test_iam_permissions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.test_iam_permissions] = (
+            mock_rpc
+        )
 
         request = {}
         client.test_iam_permissions(request)
@@ -6850,7 +7511,7 @@ def test_test_iam_permissions_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_test_iam_permissions_rest_unset_required_fields():
@@ -7071,7 +7732,7 @@ def test_update_rest_required_fields(request_type=compute.UpdateDiskRequest):
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_rest_unset_required_fields():
@@ -7290,7 +7951,7 @@ def test_update_unary_rest_required_fields(request_type=compute.UpdateDiskReques
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_unary_rest_unset_required_fields():
@@ -7379,6 +8040,432 @@ def test_update_unary_rest_flattened_error(transport: str = "rest"):
             zone="zone_value",
             disk="disk_value",
             disk_resource=compute.Disk(access_mode="access_mode_value"),
+        )
+
+
+def test_update_kms_key_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = DisksClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.update_kms_key in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.update_kms_key] = mock_rpc
+
+        request = {}
+        client.update_kms_key(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.update_kms_key(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_update_kms_key_rest_required_fields(
+    request_type=compute.UpdateKmsKeyDiskRequest,
+):
+    transport_class = transports.DisksRestTransport
+
+    request_init = {}
+    request_init["disk"] = ""
+    request_init["project"] = ""
+    request_init["zone"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_kms_key._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["disk"] = "disk_value"
+    jsonified_request["project"] = "project_value"
+    jsonified_request["zone"] = "zone_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_kms_key._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("request_id",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "disk" in jsonified_request
+    assert jsonified_request["disk"] == "disk_value"
+    assert "project" in jsonified_request
+    assert jsonified_request["project"] == "project_value"
+    assert "zone" in jsonified_request
+    assert jsonified_request["zone"] == "zone_value"
+
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = compute.Operation()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = compute.Operation.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.update_kms_key(request)
+
+            expected_params = []
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_update_kms_key_rest_unset_required_fields():
+    transport = transports.DisksRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.update_kms_key._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(("requestId",))
+        & set(
+            (
+                "disk",
+                "diskUpdateKmsKeyRequestResource",
+                "project",
+                "zone",
+            )
+        )
+    )
+
+
+def test_update_kms_key_rest_flattened():
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = compute.Operation()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"project": "sample1", "zone": "sample2", "disk": "sample3"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            project="project_value",
+            zone="zone_value",
+            disk="disk_value",
+            disk_update_kms_key_request_resource=compute.DiskUpdateKmsKeyRequest(
+                kms_key_name="kms_key_name_value"
+            ),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = compute.Operation.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.update_kms_key(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/compute/v1/projects/{project}/zones/{zone}/disks/{disk}/updateKmsKey"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_update_kms_key_rest_flattened_error(transport: str = "rest"):
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_kms_key(
+            compute.UpdateKmsKeyDiskRequest(),
+            project="project_value",
+            zone="zone_value",
+            disk="disk_value",
+            disk_update_kms_key_request_resource=compute.DiskUpdateKmsKeyRequest(
+                kms_key_name="kms_key_name_value"
+            ),
+        )
+
+
+def test_update_kms_key_unary_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = DisksClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.update_kms_key in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.update_kms_key] = mock_rpc
+
+        request = {}
+        client.update_kms_key_unary(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.update_kms_key_unary(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_update_kms_key_unary_rest_required_fields(
+    request_type=compute.UpdateKmsKeyDiskRequest,
+):
+    transport_class = transports.DisksRestTransport
+
+    request_init = {}
+    request_init["disk"] = ""
+    request_init["project"] = ""
+    request_init["zone"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_kms_key._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["disk"] = "disk_value"
+    jsonified_request["project"] = "project_value"
+    jsonified_request["zone"] = "zone_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_kms_key._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("request_id",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "disk" in jsonified_request
+    assert jsonified_request["disk"] == "disk_value"
+    assert "project" in jsonified_request
+    assert jsonified_request["project"] == "project_value"
+    assert "zone" in jsonified_request
+    assert jsonified_request["zone"] == "zone_value"
+
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = compute.Operation()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = compute.Operation.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.update_kms_key_unary(request)
+
+            expected_params = []
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_update_kms_key_unary_rest_unset_required_fields():
+    transport = transports.DisksRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.update_kms_key._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(("requestId",))
+        & set(
+            (
+                "disk",
+                "diskUpdateKmsKeyRequestResource",
+                "project",
+                "zone",
+            )
+        )
+    )
+
+
+def test_update_kms_key_unary_rest_flattened():
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = compute.Operation()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"project": "sample1", "zone": "sample2", "disk": "sample3"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            project="project_value",
+            zone="zone_value",
+            disk="disk_value",
+            disk_update_kms_key_request_resource=compute.DiskUpdateKmsKeyRequest(
+                kms_key_name="kms_key_name_value"
+            ),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = compute.Operation.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.update_kms_key_unary(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/compute/v1/projects/{project}/zones/{zone}/disks/{disk}/updateKmsKey"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_update_kms_key_unary_rest_flattened_error(transport: str = "rest"):
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_kms_key_unary(
+            compute.UpdateKmsKeyDiskRequest(),
+            project="project_value",
+            zone="zone_value",
+            disk="disk_value",
+            disk_update_kms_key_request_resource=compute.DiskUpdateKmsKeyRequest(
+                kms_key_name="kms_key_name_value"
+            ),
         )
 
 
@@ -7475,8 +8562,9 @@ def test_add_resource_policies_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7664,17 +8752,19 @@ def test_add_resource_policies_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_add_resource_policies"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_add_resource_policies_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_add_resource_policies"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_add_resource_policies"
+        ) as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_add_resource_policies_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "pre_add_resource_policies"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7727,8 +8817,9 @@ def test_aggregated_list_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7797,17 +8888,19 @@ def test_aggregated_list_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_aggregated_list"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_aggregated_list_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_aggregated_list"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_aggregated_list"
+        ) as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_aggregated_list_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "pre_aggregated_list"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7858,8 +8951,9 @@ def test_bulk_insert_rest_bad_request(request_type=compute.BulkInsertDiskRequest
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7887,7 +8981,15 @@ def test_bulk_insert_rest_call_success(request_type):
     # send a request that will satisfy transcoding
     request_init = {"project": "sample1", "zone": "sample2"}
     request_init["bulk_insert_disk_resource_resource"] = {
-        "source_consistency_group_policy": "source_consistency_group_policy_value"
+        "instant_snapshot_group_parameters": {
+            "source_instant_snapshot_group": "source_instant_snapshot_group_value"
+        },
+        "snapshot_group_parameters": {
+            "replica_zones": ["replica_zones_value1", "replica_zones_value2"],
+            "source_snapshot_group": "source_snapshot_group_value",
+            "type_": "type__value",
+        },
+        "source_consistency_group_policy": "source_consistency_group_policy_value",
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -8040,17 +9142,15 @@ def test_bulk_insert_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_bulk_insert"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_bulk_insert_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_bulk_insert"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.DisksRestInterceptor, "post_bulk_insert") as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_bulk_insert_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.DisksRestInterceptor, "pre_bulk_insert") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8090,6 +9190,256 @@ def test_bulk_insert_rest_interceptors(null_interceptor):
         post_with_metadata.assert_called_once()
 
 
+def test_bulk_set_labels_rest_bad_request(
+    request_type=compute.BulkSetLabelsDiskRequest,
+):
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"project": "sample1", "zone": "sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.bulk_set_labels(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        compute.BulkSetLabelsDiskRequest,
+        dict,
+    ],
+)
+def test_bulk_set_labels_rest_call_success(request_type):
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"project": "sample1", "zone": "sample2"}
+    request_init["bulk_zone_set_labels_request_resource"] = {
+        "requests": [{"label_fingerprint": "label_fingerprint_value", "labels": {}}]
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = compute.BulkSetLabelsDiskRequest.meta.fields[
+        "bulk_zone_set_labels_request_resource"
+    ]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init[
+        "bulk_zone_set_labels_request_resource"
+    ].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(
+                    0, len(request_init["bulk_zone_set_labels_request_resource"][field])
+                ):
+                    del request_init["bulk_zone_set_labels_request_resource"][field][i][
+                        subfield
+                    ]
+            else:
+                del request_init["bulk_zone_set_labels_request_resource"][field][
+                    subfield
+                ]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = compute.Operation(
+            client_operation_id="client_operation_id_value",
+            creation_timestamp="creation_timestamp_value",
+            description="description_value",
+            end_time="end_time_value",
+            http_error_message="http_error_message_value",
+            http_error_status_code=2374,
+            id=205,
+            insert_time="insert_time_value",
+            kind="kind_value",
+            name="name_value",
+            operation_group_id="operation_group_id_value",
+            operation_type="operation_type_value",
+            progress=885,
+            region="region_value",
+            self_link="self_link_value",
+            start_time="start_time_value",
+            status=compute.Operation.Status.DONE,
+            status_message="status_message_value",
+            target_id=947,
+            target_link="target_link_value",
+            user="user_value",
+            zone="zone_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = compute.Operation.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.bulk_set_labels(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, extended_operation.ExtendedOperation)
+    assert response.client_operation_id == "client_operation_id_value"
+    assert response.creation_timestamp == "creation_timestamp_value"
+    assert response.description == "description_value"
+    assert response.end_time == "end_time_value"
+    assert response.http_error_message == "http_error_message_value"
+    assert response.http_error_status_code == 2374
+    assert response.id == 205
+    assert response.insert_time == "insert_time_value"
+    assert response.kind == "kind_value"
+    assert response.name == "name_value"
+    assert response.operation_group_id == "operation_group_id_value"
+    assert response.operation_type == "operation_type_value"
+    assert response.progress == 885
+    assert response.region == "region_value"
+    assert response.self_link == "self_link_value"
+    assert response.start_time == "start_time_value"
+    assert response.status == compute.Operation.Status.DONE
+    assert response.status_message == "status_message_value"
+    assert response.target_id == 947
+    assert response.target_link == "target_link_value"
+    assert response.user == "user_value"
+    assert response.zone == "zone_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_bulk_set_labels_rest_interceptors(null_interceptor):
+    transport = transports.DisksRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None if null_interceptor else transports.DisksRestInterceptor(),
+    )
+    client = DisksClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_bulk_set_labels"
+        ) as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_bulk_set_labels_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "pre_bulk_set_labels"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = compute.BulkSetLabelsDiskRequest.pb(
+            compute.BulkSetLabelsDiskRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = compute.Operation.to_json(compute.Operation())
+        req.return_value.content = return_value
+
+        request = compute.BulkSetLabelsDiskRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = compute.Operation()
+        post_with_metadata.return_value = compute.Operation(), metadata
+
+        client.bulk_set_labels(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
 def test_create_snapshot_rest_bad_request(
     request_type=compute.CreateSnapshotDiskRequest,
 ):
@@ -8101,8 +9451,9 @@ def test_create_snapshot_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8149,6 +9500,8 @@ def test_create_snapshot_rest_call_success(request_type):
         "licenses": ["licenses_value1", "licenses_value2"],
         "location_hint": "location_hint_value",
         "name": "name_value",
+        "params": {"resource_manager_tags": {}},
+        "region": "region_value",
         "satisfies_pzi": True,
         "satisfies_pzs": True,
         "self_link": "self_link_value",
@@ -8159,6 +9512,8 @@ def test_create_snapshot_rest_call_success(request_type):
             "rsa_encrypted_key": "rsa_encrypted_key_value",
             "sha256": "sha256_value",
         },
+        "snapshot_group_id": "snapshot_group_id_value",
+        "snapshot_group_name": "snapshot_group_name_value",
         "snapshot_type": "snapshot_type_value",
         "source_disk": "source_disk_value",
         "source_disk_encryption_key": {},
@@ -8317,17 +9672,19 @@ def test_create_snapshot_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_create_snapshot"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_create_snapshot_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_create_snapshot"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_create_snapshot"
+        ) as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_create_snapshot_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "pre_create_snapshot"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8378,8 +9735,9 @@ def test_delete_rest_bad_request(request_type=compute.DeleteDiskRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8482,17 +9840,15 @@ def test_delete_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_delete"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_delete_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_delete"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.DisksRestInterceptor, "post_delete") as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_delete_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.DisksRestInterceptor, "pre_delete") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8541,8 +9897,9 @@ def test_get_rest_bad_request(request_type=compute.GetDiskRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8689,17 +10046,15 @@ def test_get_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_get"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_get_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_get"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.DisksRestInterceptor, "post_get") as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_get_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.DisksRestInterceptor, "pre_get") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8748,8 +10103,9 @@ def test_get_iam_policy_rest_bad_request(request_type=compute.GetIamPolicyDiskRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -8814,17 +10170,17 @@ def test_get_iam_policy_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_get_iam_policy"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_get_iam_policy_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_get_iam_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_get_iam_policy"
+        ) as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_get_iam_policy_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.DisksRestInterceptor, "pre_get_iam_policy") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -8875,8 +10231,9 @@ def test_insert_rest_bad_request(request_type=compute.InsertDiskRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -9112,17 +10469,15 @@ def test_insert_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_insert"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_insert_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_insert"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.DisksRestInterceptor, "post_insert") as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_insert_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.DisksRestInterceptor, "pre_insert") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -9171,8 +10526,9 @@ def test_list_rest_bad_request(request_type=compute.ListDisksRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -9239,17 +10595,15 @@ def test_list_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_list"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_list_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_list"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.DisksRestInterceptor, "post_list") as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_list_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.DisksRestInterceptor, "pre_list") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -9300,8 +10654,9 @@ def test_remove_resource_policies_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -9489,17 +10844,20 @@ def test_remove_resource_policies_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_remove_resource_policies"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_remove_resource_policies_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_remove_resource_policies"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_remove_resource_policies"
+        ) as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor,
+            "post_remove_resource_policies_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "pre_remove_resource_policies"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -9550,8 +10908,9 @@ def test_resize_rest_bad_request(request_type=compute.ResizeDiskRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -9728,17 +11087,15 @@ def test_resize_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_resize"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_resize_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_resize"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.DisksRestInterceptor, "post_resize") as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_resize_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.DisksRestInterceptor, "pre_resize") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -9787,8 +11144,9 @@ def test_set_iam_policy_rest_bad_request(request_type=compute.SetIamPolicyDiskRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -9969,17 +11327,17 @@ def test_set_iam_policy_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_set_iam_policy"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_set_iam_policy_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_set_iam_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_set_iam_policy"
+        ) as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_set_iam_policy_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.DisksRestInterceptor, "pre_set_iam_policy") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -10030,8 +11388,9 @@ def test_set_labels_rest_bad_request(request_type=compute.SetLabelsDiskRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -10213,17 +11572,15 @@ def test_set_labels_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_set_labels"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_set_labels_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_set_labels"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.DisksRestInterceptor, "post_set_labels") as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_set_labels_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.DisksRestInterceptor, "pre_set_labels") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -10274,8 +11631,9 @@ def test_start_async_replication_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -10463,17 +11821,20 @@ def test_start_async_replication_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_start_async_replication"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_start_async_replication_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_start_async_replication"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_start_async_replication"
+        ) as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor,
+            "post_start_async_replication_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "pre_start_async_replication"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -10526,8 +11887,9 @@ def test_stop_async_replication_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -10630,17 +11992,19 @@ def test_stop_async_replication_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_stop_async_replication"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_stop_async_replication_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_stop_async_replication"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_stop_async_replication"
+        ) as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_stop_async_replication_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "pre_stop_async_replication"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -10693,8 +12057,9 @@ def test_stop_group_async_replication_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -10882,18 +12247,20 @@ def test_stop_group_async_replication_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_stop_group_async_replication"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor,
-        "post_stop_group_async_replication_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_stop_group_async_replication"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_stop_group_async_replication"
+        ) as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor,
+            "post_stop_group_async_replication_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "pre_stop_group_async_replication"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -10946,8 +12313,9 @@ def test_test_iam_permissions_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -11086,17 +12454,19 @@ def test_test_iam_permissions_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_test_iam_permissions"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_test_iam_permissions_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_test_iam_permissions"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_test_iam_permissions"
+        ) as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_test_iam_permissions_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "pre_test_iam_permissions"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -11149,8 +12519,9 @@ def test_update_rest_bad_request(request_type=compute.UpdateDiskRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -11386,17 +12757,15 @@ def test_update_rest_interceptors(null_interceptor):
     )
     client = DisksClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DisksRestInterceptor, "post_update"
-    ) as post, mock.patch.object(
-        transports.DisksRestInterceptor, "post_update_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.DisksRestInterceptor, "pre_update"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.DisksRestInterceptor, "post_update") as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_update_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.DisksRestInterceptor, "pre_update") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -11436,6 +12805,252 @@ def test_update_rest_interceptors(null_interceptor):
         post_with_metadata.assert_called_once()
 
 
+def test_update_kms_key_rest_bad_request(request_type=compute.UpdateKmsKeyDiskRequest):
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"project": "sample1", "zone": "sample2", "disk": "sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.update_kms_key(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        compute.UpdateKmsKeyDiskRequest,
+        dict,
+    ],
+)
+def test_update_kms_key_rest_call_success(request_type):
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"project": "sample1", "zone": "sample2", "disk": "sample3"}
+    request_init["disk_update_kms_key_request_resource"] = {
+        "kms_key_name": "kms_key_name_value"
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = compute.UpdateKmsKeyDiskRequest.meta.fields[
+        "disk_update_kms_key_request_resource"
+    ]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init[
+        "disk_update_kms_key_request_resource"
+    ].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(
+                    0, len(request_init["disk_update_kms_key_request_resource"][field])
+                ):
+                    del request_init["disk_update_kms_key_request_resource"][field][i][
+                        subfield
+                    ]
+            else:
+                del request_init["disk_update_kms_key_request_resource"][field][
+                    subfield
+                ]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = compute.Operation(
+            client_operation_id="client_operation_id_value",
+            creation_timestamp="creation_timestamp_value",
+            description="description_value",
+            end_time="end_time_value",
+            http_error_message="http_error_message_value",
+            http_error_status_code=2374,
+            id=205,
+            insert_time="insert_time_value",
+            kind="kind_value",
+            name="name_value",
+            operation_group_id="operation_group_id_value",
+            operation_type="operation_type_value",
+            progress=885,
+            region="region_value",
+            self_link="self_link_value",
+            start_time="start_time_value",
+            status=compute.Operation.Status.DONE,
+            status_message="status_message_value",
+            target_id=947,
+            target_link="target_link_value",
+            user="user_value",
+            zone="zone_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = compute.Operation.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.update_kms_key(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, extended_operation.ExtendedOperation)
+    assert response.client_operation_id == "client_operation_id_value"
+    assert response.creation_timestamp == "creation_timestamp_value"
+    assert response.description == "description_value"
+    assert response.end_time == "end_time_value"
+    assert response.http_error_message == "http_error_message_value"
+    assert response.http_error_status_code == 2374
+    assert response.id == 205
+    assert response.insert_time == "insert_time_value"
+    assert response.kind == "kind_value"
+    assert response.name == "name_value"
+    assert response.operation_group_id == "operation_group_id_value"
+    assert response.operation_type == "operation_type_value"
+    assert response.progress == 885
+    assert response.region == "region_value"
+    assert response.self_link == "self_link_value"
+    assert response.start_time == "start_time_value"
+    assert response.status == compute.Operation.Status.DONE
+    assert response.status_message == "status_message_value"
+    assert response.target_id == 947
+    assert response.target_link == "target_link_value"
+    assert response.user == "user_value"
+    assert response.zone == "zone_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_update_kms_key_rest_interceptors(null_interceptor):
+    transport = transports.DisksRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None if null_interceptor else transports.DisksRestInterceptor(),
+    )
+    client = DisksClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_update_kms_key"
+        ) as post,
+        mock.patch.object(
+            transports.DisksRestInterceptor, "post_update_kms_key_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.DisksRestInterceptor, "pre_update_kms_key") as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = compute.UpdateKmsKeyDiskRequest.pb(
+            compute.UpdateKmsKeyDiskRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = compute.Operation.to_json(compute.Operation())
+        req.return_value.content = return_value
+
+        request = compute.UpdateKmsKeyDiskRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = compute.Operation()
+        post_with_metadata.return_value = compute.Operation(), metadata
+
+        client.update_kms_key(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
 def test_initialize_client_w_rest():
     client = DisksClient(
         credentials=ga_credentials.AnonymousCredentials(), transport="rest"
@@ -11461,7 +13076,6 @@ def test_add_resource_policies_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.AddResourcePoliciesDiskRequest()
-
         assert args[0] == request_msg
 
 
@@ -11481,7 +13095,6 @@ def test_aggregated_list_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.AggregatedListDisksRequest()
-
         assert args[0] == request_msg
 
 
@@ -11501,7 +13114,25 @@ def test_bulk_insert_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.BulkInsertDiskRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_bulk_set_labels_unary_empty_call_rest():
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.bulk_set_labels), "__call__") as call:
+        client.bulk_set_labels_unary(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = compute.BulkSetLabelsDiskRequest()
         assert args[0] == request_msg
 
 
@@ -11521,7 +13152,6 @@ def test_create_snapshot_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.CreateSnapshotDiskRequest()
-
         assert args[0] == request_msg
 
 
@@ -11541,7 +13171,6 @@ def test_delete_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.DeleteDiskRequest()
-
         assert args[0] == request_msg
 
 
@@ -11561,7 +13190,6 @@ def test_get_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.GetDiskRequest()
-
         assert args[0] == request_msg
 
 
@@ -11581,7 +13209,6 @@ def test_get_iam_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.GetIamPolicyDiskRequest()
-
         assert args[0] == request_msg
 
 
@@ -11601,7 +13228,6 @@ def test_insert_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.InsertDiskRequest()
-
         assert args[0] == request_msg
 
 
@@ -11621,7 +13247,6 @@ def test_list_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.ListDisksRequest()
-
         assert args[0] == request_msg
 
 
@@ -11643,7 +13268,6 @@ def test_remove_resource_policies_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.RemoveResourcePoliciesDiskRequest()
-
         assert args[0] == request_msg
 
 
@@ -11663,7 +13287,6 @@ def test_resize_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.ResizeDiskRequest()
-
         assert args[0] == request_msg
 
 
@@ -11683,7 +13306,6 @@ def test_set_iam_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.SetIamPolicyDiskRequest()
-
         assert args[0] == request_msg
 
 
@@ -11703,7 +13325,6 @@ def test_set_labels_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.SetLabelsDiskRequest()
-
         assert args[0] == request_msg
 
 
@@ -11725,7 +13346,6 @@ def test_start_async_replication_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.StartAsyncReplicationDiskRequest()
-
         assert args[0] == request_msg
 
 
@@ -11747,7 +13367,6 @@ def test_stop_async_replication_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.StopAsyncReplicationDiskRequest()
-
         assert args[0] == request_msg
 
 
@@ -11769,7 +13388,6 @@ def test_stop_group_async_replication_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.StopGroupAsyncReplicationDiskRequest()
-
         assert args[0] == request_msg
 
 
@@ -11791,7 +13409,6 @@ def test_test_iam_permissions_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.TestIamPermissionsDiskRequest()
-
         assert args[0] == request_msg
 
 
@@ -11811,7 +13428,25 @@ def test_update_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.UpdateDiskRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_update_kms_key_unary_empty_call_rest():
+    client = DisksClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.update_kms_key), "__call__") as call:
+        client.update_kms_key_unary(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = compute.UpdateKmsKeyDiskRequest()
         assert args[0] == request_msg
 
 
@@ -11840,6 +13475,7 @@ def test_disks_base_transport():
         "add_resource_policies",
         "aggregated_list",
         "bulk_insert",
+        "bulk_set_labels",
         "create_snapshot",
         "delete",
         "get",
@@ -11855,6 +13491,7 @@ def test_disks_base_transport():
         "stop_group_async_replication",
         "test_iam_permissions",
         "update",
+        "update_kms_key",
     )
     for method in methods:
         with pytest.raises(NotImplementedError):
@@ -11874,11 +13511,14 @@ def test_disks_base_transport():
 
 def test_disks_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.compute_v1.services.disks.transports.DisksTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.compute_v1.services.disks.transports.DisksTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.DisksTransport(
@@ -11898,9 +13538,12 @@ def test_disks_base_transport_with_credentials_file():
 
 def test_disks_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.compute_v1.services.disks.transports.DisksTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.compute_v1.services.disks.transports.DisksTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.DisksTransport()
@@ -12001,6 +13644,9 @@ def test_disks_client_transport_session_collision(transport_name):
     session1 = client1.transport.bulk_insert._session
     session2 = client2.transport.bulk_insert._session
     assert session1 != session2
+    session1 = client1.transport.bulk_set_labels._session
+    session2 = client2.transport.bulk_set_labels._session
+    assert session1 != session2
     session1 = client1.transport.create_snapshot._session
     session2 = client2.transport.create_snapshot._session
     assert session1 != session2
@@ -12045,6 +13691,9 @@ def test_disks_client_transport_session_collision(transport_name):
     assert session1 != session2
     session1 = client1.transport.update._session
     session2 = client2.transport.update._session
+    assert session1 != session2
+    session1 = client1.transport.update_kms_key._session
+    session2 = client2.transport.update_kms_key._session
     assert session1 != session2
 
 

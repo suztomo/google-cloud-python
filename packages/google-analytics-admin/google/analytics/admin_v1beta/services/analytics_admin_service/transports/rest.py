@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -2872,9 +2872,10 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -2892,6 +2893,12 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[AnalyticsAdminServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -2975,9 +2982,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseAcknowledgeUserDataCollection._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseAcknowledgeUserDataCollection._get_http_options()
 
             request, metadata = self._interceptor.pre_acknowledge_user_data_collection(
                 request, metadata
@@ -3046,11 +3051,10 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             resp = self._interceptor.post_acknowledge_user_data_collection(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_acknowledge_user_data_collection_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_acknowledge_user_data_collection_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -3132,9 +3136,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseArchiveCustomDimension._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseArchiveCustomDimension._get_http_options()
 
             request, metadata = self._interceptor.pre_archive_custom_dimension(
                 request, metadata
@@ -3160,7 +3162,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3248,9 +3250,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseArchiveCustomMetric._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseArchiveCustomMetric._get_http_options()
 
             request, metadata = self._interceptor.pre_archive_custom_metric(
                 request, metadata
@@ -3276,7 +3276,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3372,9 +3372,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseCreateConversionEvent._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseCreateConversionEvent._get_http_options()
 
             request, metadata = self._interceptor.pre_create_conversion_event(
                 request, metadata
@@ -3528,9 +3526,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     A definition for a CustomDimension.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseCreateCustomDimension._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseCreateCustomDimension._get_http_options()
 
             request, metadata = self._interceptor.pre_create_custom_dimension(
                 request, metadata
@@ -3684,9 +3680,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     A definition for a custom metric.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseCreateCustomMetric._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseCreateCustomMetric._get_http_options()
 
             request, metadata = self._interceptor.pre_create_custom_metric(
                 request, metadata
@@ -3842,9 +3836,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseCreateDataStream._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseCreateDataStream._get_http_options()
 
             request, metadata = self._interceptor.pre_create_data_stream(
                 request, metadata
@@ -4000,9 +3992,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseCreateFirebaseLink._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseCreateFirebaseLink._get_http_options()
 
             request, metadata = self._interceptor.pre_create_firebase_link(
                 request, metadata
@@ -4158,9 +4148,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseCreateGoogleAdsLink._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseCreateGoogleAdsLink._get_http_options()
 
             request, metadata = self._interceptor.pre_create_google_ads_link(
                 request, metadata
@@ -4316,9 +4304,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseCreateKeyEvent._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseCreateKeyEvent._get_http_options()
 
             request, metadata = self._interceptor.pre_create_key_event(
                 request, metadata
@@ -4475,15 +4461,12 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseCreateMeasurementProtocolSecret._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseCreateMeasurementProtocolSecret._get_http_options()
 
-            (
-                request,
-                metadata,
-            ) = self._interceptor.pre_create_measurement_protocol_secret(
-                request, metadata
+            request, metadata = (
+                self._interceptor.pre_create_measurement_protocol_secret(
+                    request, metadata
+                )
             )
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseCreateMeasurementProtocolSecret._get_transcoded_request(
                 http_options, request
@@ -4549,11 +4532,10 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             resp = self._interceptor.post_create_measurement_protocol_secret(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_create_measurement_protocol_secret_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_create_measurement_protocol_secret_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -4639,9 +4621,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseCreateProperty._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseCreateProperty._get_http_options()
 
             request, metadata = self._interceptor.pre_create_property(request, metadata)
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseCreateProperty._get_transcoded_request(
@@ -4786,9 +4766,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseDeleteAccount._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseDeleteAccount._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_account(request, metadata)
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseDeleteAccount._get_transcoded_request(
@@ -4808,7 +4786,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4894,9 +4872,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseDeleteConversionEvent._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseDeleteConversionEvent._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_conversion_event(
                 request, metadata
@@ -4918,7 +4894,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5006,9 +4982,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseDeleteDataStream._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseDeleteDataStream._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_data_stream(
                 request, metadata
@@ -5030,7 +5004,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5118,9 +5092,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseDeleteFirebaseLink._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseDeleteFirebaseLink._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_firebase_link(
                 request, metadata
@@ -5142,7 +5114,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5230,9 +5202,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseDeleteGoogleAdsLink._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseDeleteGoogleAdsLink._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_google_ads_link(
                 request, metadata
@@ -5254,7 +5224,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5342,9 +5312,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseDeleteKeyEvent._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseDeleteKeyEvent._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_key_event(
                 request, metadata
@@ -5366,7 +5334,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5455,15 +5423,12 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                         be of type `bytes`.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseDeleteMeasurementProtocolSecret._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseDeleteMeasurementProtocolSecret._get_http_options()
 
-            (
-                request,
-                metadata,
-            ) = self._interceptor.pre_delete_measurement_protocol_secret(
-                request, metadata
+            request, metadata = (
+                self._interceptor.pre_delete_measurement_protocol_secret(
+                    request, metadata
+                )
             )
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseDeleteMeasurementProtocolSecret._get_transcoded_request(
                 http_options, request
@@ -5482,7 +5447,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5574,9 +5539,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseDeleteProperty._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseDeleteProperty._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_property(request, metadata)
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseDeleteProperty._get_transcoded_request(
@@ -5721,9 +5684,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseGetAccount._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseGetAccount._get_http_options()
 
             request, metadata = self._interceptor.pre_get_account(request, metadata)
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseGetAccount._get_transcoded_request(
@@ -5869,9 +5830,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseGetConversionEvent._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseGetConversionEvent._get_http_options()
 
             request, metadata = self._interceptor.pre_get_conversion_event(
                 request, metadata
@@ -6019,9 +5978,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     A definition for a CustomDimension.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseGetCustomDimension._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseGetCustomDimension._get_http_options()
 
             request, metadata = self._interceptor.pre_get_custom_dimension(
                 request, metadata
@@ -6169,9 +6126,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     A definition for a custom metric.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseGetCustomMetric._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseGetCustomMetric._get_http_options()
 
             request, metadata = self._interceptor.pre_get_custom_metric(
                 request, metadata
@@ -6322,9 +6277,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseGetDataRetentionSettings._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseGetDataRetentionSettings._get_http_options()
 
             request, metadata = self._interceptor.pre_get_data_retention_settings(
                 request, metadata
@@ -6473,9 +6426,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseGetDataSharingSettings._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseGetDataSharingSettings._get_http_options()
 
             request, metadata = self._interceptor.pre_get_data_sharing_settings(
                 request, metadata
@@ -6623,9 +6574,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseGetDataStream._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseGetDataStream._get_http_options()
 
             request, metadata = self._interceptor.pre_get_data_stream(request, metadata)
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseGetDataStream._get_transcoded_request(
@@ -6770,9 +6719,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseGetKeyEvent._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseGetKeyEvent._get_http_options()
 
             request, metadata = self._interceptor.pre_get_key_event(request, metadata)
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseGetKeyEvent._get_transcoded_request(
@@ -6921,9 +6868,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseGetMeasurementProtocolSecret._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseGetMeasurementProtocolSecret._get_http_options()
 
             request, metadata = self._interceptor.pre_get_measurement_protocol_secret(
                 request, metadata
@@ -6987,11 +6932,10 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             resp = self._interceptor.post_get_measurement_protocol_secret(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_get_measurement_protocol_secret_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_get_measurement_protocol_secret_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -7075,9 +7019,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseGetProperty._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseGetProperty._get_http_options()
 
             request, metadata = self._interceptor.pre_get_property(request, metadata)
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseGetProperty._get_transcoded_request(
@@ -7220,9 +7162,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     Request message for ListAccounts RPC.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseListAccounts._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseListAccounts._get_http_options()
 
             request, metadata = self._interceptor.pre_list_accounts(request, metadata)
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseListAccounts._get_transcoded_request(
@@ -7370,9 +7310,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseListAccountSummaries._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseListAccountSummaries._get_http_options()
 
             request, metadata = self._interceptor.pre_list_account_summaries(
                 request, metadata
@@ -7524,9 +7462,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseListConversionEvents._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseListConversionEvents._get_http_options()
 
             request, metadata = self._interceptor.pre_list_conversion_events(
                 request, metadata
@@ -7678,9 +7614,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseListCustomDimensions._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseListCustomDimensions._get_http_options()
 
             request, metadata = self._interceptor.pre_list_custom_dimensions(
                 request, metadata
@@ -7832,9 +7766,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseListCustomMetrics._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseListCustomMetrics._get_http_options()
 
             request, metadata = self._interceptor.pre_list_custom_metrics(
                 request, metadata
@@ -7986,9 +7918,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseListDataStreams._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseListDataStreams._get_http_options()
 
             request, metadata = self._interceptor.pre_list_data_streams(
                 request, metadata
@@ -8140,9 +8070,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseListFirebaseLinks._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseListFirebaseLinks._get_http_options()
 
             request, metadata = self._interceptor.pre_list_firebase_links(
                 request, metadata
@@ -8294,9 +8222,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseListGoogleAdsLinks._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseListGoogleAdsLinks._get_http_options()
 
             request, metadata = self._interceptor.pre_list_google_ads_links(
                 request, metadata
@@ -8447,9 +8373,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseListKeyEvents._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseListKeyEvents._get_http_options()
 
             request, metadata = self._interceptor.pre_list_key_events(request, metadata)
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseListKeyEvents._get_transcoded_request(
@@ -8600,9 +8524,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseListMeasurementProtocolSecrets._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseListMeasurementProtocolSecrets._get_http_options()
 
             request, metadata = self._interceptor.pre_list_measurement_protocol_secrets(
                 request, metadata
@@ -8666,11 +8588,10 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             resp = self._interceptor.post_list_measurement_protocol_secrets(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_list_measurement_protocol_secrets_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_list_measurement_protocol_secrets_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -8757,9 +8678,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseListProperties._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseListProperties._get_http_options()
 
             request, metadata = self._interceptor.pre_list_properties(request, metadata)
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseListProperties._get_transcoded_request(
@@ -8908,9 +8827,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseProvisionAccountTicket._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseProvisionAccountTicket._get_http_options()
 
             request, metadata = self._interceptor.pre_provision_account_ticket(
                 request, metadata
@@ -9066,9 +8983,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseRunAccessReport._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseRunAccessReport._get_http_options()
 
             request, metadata = self._interceptor.pre_run_access_report(
                 request, metadata
@@ -9227,9 +9142,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseSearchChangeHistoryEvents._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseSearchChangeHistoryEvents._get_http_options()
 
             request, metadata = self._interceptor.pre_search_change_history_events(
                 request, metadata
@@ -9387,9 +9300,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseUpdateAccount._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseUpdateAccount._get_http_options()
 
             request, metadata = self._interceptor.pre_update_account(request, metadata)
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseUpdateAccount._get_transcoded_request(
@@ -9541,9 +9452,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseUpdateConversionEvent._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseUpdateConversionEvent._get_http_options()
 
             request, metadata = self._interceptor.pre_update_conversion_event(
                 request, metadata
@@ -9697,9 +9606,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     A definition for a CustomDimension.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseUpdateCustomDimension._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseUpdateCustomDimension._get_http_options()
 
             request, metadata = self._interceptor.pre_update_custom_dimension(
                 request, metadata
@@ -9853,9 +9760,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
                     A definition for a custom metric.
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseUpdateCustomMetric._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseUpdateCustomMetric._get_http_options()
 
             request, metadata = self._interceptor.pre_update_custom_metric(
                 request, metadata
@@ -10014,9 +9919,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseUpdateDataRetentionSettings._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseUpdateDataRetentionSettings._get_http_options()
 
             request, metadata = self._interceptor.pre_update_data_retention_settings(
                 request, metadata
@@ -10085,11 +9988,10 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             resp = self._interceptor.post_update_data_retention_settings(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_update_data_retention_settings_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_update_data_retention_settings_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -10173,9 +10075,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseUpdateDataStream._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseUpdateDataStream._get_http_options()
 
             request, metadata = self._interceptor.pre_update_data_stream(
                 request, metadata
@@ -10331,9 +10231,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseUpdateGoogleAdsLink._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseUpdateGoogleAdsLink._get_http_options()
 
             request, metadata = self._interceptor.pre_update_google_ads_link(
                 request, metadata
@@ -10489,9 +10387,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseUpdateKeyEvent._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseUpdateKeyEvent._get_http_options()
 
             request, metadata = self._interceptor.pre_update_key_event(
                 request, metadata
@@ -10648,15 +10544,12 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseUpdateMeasurementProtocolSecret._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseUpdateMeasurementProtocolSecret._get_http_options()
 
-            (
-                request,
-                metadata,
-            ) = self._interceptor.pre_update_measurement_protocol_secret(
-                request, metadata
+            request, metadata = (
+                self._interceptor.pre_update_measurement_protocol_secret(
+                    request, metadata
+                )
             )
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseUpdateMeasurementProtocolSecret._get_transcoded_request(
                 http_options, request
@@ -10722,11 +10615,10 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             resp = self._interceptor.post_update_measurement_protocol_secret(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_update_measurement_protocol_secret_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_update_measurement_protocol_secret_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -10812,9 +10704,7 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
 
             """
 
-            http_options = (
-                _BaseAnalyticsAdminServiceRestTransport._BaseUpdateProperty._get_http_options()
-            )
+            http_options = _BaseAnalyticsAdminServiceRestTransport._BaseUpdateProperty._get_http_options()
 
             request, metadata = self._interceptor.pre_update_property(request, metadata)
             transcoded_request = _BaseAnalyticsAdminServiceRestTransport._BaseUpdateProperty._get_transcoded_request(
@@ -10916,7 +10806,9 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._AcknowledgeUserDataCollection(self._session, self._host, self._interceptor)  # type: ignore
+        return self._AcknowledgeUserDataCollection(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def archive_custom_dimension(
@@ -10924,7 +10816,9 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
     ) -> Callable[[analytics_admin.ArchiveCustomDimensionRequest], empty_pb2.Empty]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ArchiveCustomDimension(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ArchiveCustomDimension(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def archive_custom_metric(
@@ -11005,7 +10899,9 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateMeasurementProtocolSecret(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateMeasurementProtocolSecret(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_property(
@@ -11071,7 +10967,9 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteMeasurementProtocolSecret(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteMeasurementProtocolSecret(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_property(
@@ -11126,7 +11024,9 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetDataRetentionSettings(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetDataRetentionSettings(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_data_sharing_settings(
@@ -11136,7 +11036,9 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetDataSharingSettings(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetDataSharingSettings(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_data_stream(
@@ -11163,7 +11065,9 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetMeasurementProtocolSecret(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetMeasurementProtocolSecret(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_property(
@@ -11279,7 +11183,9 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListMeasurementProtocolSecrets(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListMeasurementProtocolSecrets(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_properties(
@@ -11300,7 +11206,9 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ProvisionAccountTicket(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ProvisionAccountTicket(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def run_access_report(
@@ -11322,7 +11230,9 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._SearchChangeHistoryEvents(self._session, self._host, self._interceptor)  # type: ignore
+        return self._SearchChangeHistoryEvents(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_account(
@@ -11369,7 +11279,9 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateDataRetentionSettings(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateDataRetentionSettings(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_data_stream(
@@ -11406,7 +11318,9 @@ class AnalyticsAdminServiceRestTransport(_BaseAnalyticsAdminServiceRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateMeasurementProtocolSecret(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateMeasurementProtocolSecret(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_property(

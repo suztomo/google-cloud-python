@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,23 +17,21 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from grafeas.grafeas_v1.types import attestation as g_attestation
 from grafeas.grafeas_v1.types import build as g_build
-from grafeas.grafeas_v1.types import common
+from grafeas.grafeas_v1.types import common, sbom, vex
 from grafeas.grafeas_v1.types import compliance as g_compliance
 from grafeas.grafeas_v1.types import deployment as g_deployment
 from grafeas.grafeas_v1.types import discovery as g_discovery
 from grafeas.grafeas_v1.types import dsse_attestation as g_dsse_attestation
 from grafeas.grafeas_v1.types import image as g_image
 from grafeas.grafeas_v1.types import package as g_package
-from grafeas.grafeas_v1.types import sbom
 from grafeas.grafeas_v1.types import secret as g_secret
 from grafeas.grafeas_v1.types import upgrade as g_upgrade
-from grafeas.grafeas_v1.types import vex
 from grafeas.grafeas_v1.types import vulnerability as g_vulnerability
 
 __protobuf__ = proto.module(
@@ -517,6 +515,12 @@ class ListOccurrencesRequest(proto.Message):
         page_token (str):
             Token to provide to skip to a particular spot
             in the list.
+        return_partial_success (bool):
+            If set, the request will return all reachable Occurrences
+            and report all unreachable regions in the ``unreachable``
+            field in the response.
+
+            Only applicable for requests in the global region.
     """
 
     parent: str = proto.Field(
@@ -535,6 +539,10 @@ class ListOccurrencesRequest(proto.Message):
         proto.STRING,
         number=4,
     )
+    return_partial_success: bool = proto.Field(
+        proto.BOOL,
+        number=5,
+    )
 
 
 class ListOccurrencesResponse(proto.Message):
@@ -547,6 +555,11 @@ class ListOccurrencesResponse(proto.Message):
             The next pagination token in the list response. It should be
             used as ``page_token`` for the following request. An empty
             value means no more results.
+        unreachable (MutableSequence[str]):
+            Unreachable regions. Populated for requests from the global
+            region when ``return_partial_success`` is set.
+
+            Format: ``projects/[PROJECT_ID]/locations/[LOCATION]``
     """
 
     @property
@@ -561,6 +574,10 @@ class ListOccurrencesResponse(proto.Message):
     next_page_token: str = proto.Field(
         proto.STRING,
         number=2,
+    )
+    unreachable: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=3,
     )
 
 
@@ -678,6 +695,12 @@ class ListNotesRequest(proto.Message):
         page_token (str):
             Token to provide to skip to a particular spot
             in the list.
+        return_partial_success (bool):
+            If set, the request will return all reachable Notes and
+            report all unreachable regions in the ``unreachable`` field
+            in the response.
+
+            Only applicable for requests in the global region.
     """
 
     parent: str = proto.Field(
@@ -696,6 +719,10 @@ class ListNotesRequest(proto.Message):
         proto.STRING,
         number=4,
     )
+    return_partial_success: bool = proto.Field(
+        proto.BOOL,
+        number=5,
+    )
 
 
 class ListNotesResponse(proto.Message):
@@ -708,6 +735,11 @@ class ListNotesResponse(proto.Message):
             The next pagination token in the list response. It should be
             used as ``page_token`` for the following request. An empty
             value means no more results.
+        unreachable (MutableSequence[str]):
+            Unreachable regions. Populated for requests from the global
+            region when ``return_partial_success`` is set.
+
+            Format: ``projects/[PROJECT_ID]/locations/[LOCATION]``
     """
 
     @property
@@ -722,6 +754,10 @@ class ListNotesResponse(proto.Message):
     next_page_token: str = proto.Field(
         proto.STRING,
         number=2,
+    )
+    unreachable: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=3,
     )
 
 

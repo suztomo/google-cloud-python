@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_create_tag_binding():
     client = resourcemanager_v3.TagBindingsClient()
 
     # Initialize request argument(s)
-    request = resourcemanager_v3.CreateTagBindingRequest(
-    )
+    request = resourcemanager_v3.CreateTagBindingRequest()
 
     # Make the request
     operation = client.create_tag_binding(request=request)
@@ -51,5 +50,6 @@ def sample_create_tag_binding():
 
     # Handle the response
     print(response)
+
 
 # [END cloudresourcemanager_v3_generated_TagBindings_CreateTagBinding_sync]

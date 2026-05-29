@@ -1,5 +1,48 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-access-context-manager/#history
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-access-context-manager-v0.4.0...google-cloud-access-context-manager-v0.5.0) (2026-05-06)
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-access-context-manager-v0.3.0...google-cloud-access-context-manager-v0.4.0) (2026-03-26)
+
+
+### Features
+
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:c8612d3fffb3f6a32353b2d1abd16b61e87811866f7ec9d65b59b02eb452a620 ([d3579bf00f0cd37df54f7287518a9e2330bdcc83](https://github.com/googleapis/google-cloud-python/commit/d3579bf00f0cd37df54f7287518a9e2330bdcc83))
+
+
+### Bug Fixes
+
+* Allow Protobuf 7.x, require Python 3.9 (#16102) ([ec9262c45055d3d2b596cdde1649d3ce90b4347d](https://github.com/googleapis/google-cloud-python/commit/ec9262c45055d3d2b596cdde1649d3ce90b4347d))
+* Require Python 3.9 ([ec9262c45055d3d2b596cdde1649d3ce90b4347d](https://github.com/googleapis/google-cloud-python/commit/ec9262c45055d3d2b596cdde1649d3ce90b4347d))
+
+## [0.3.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-access-context-manager-v0.2.3...google-cloud-access-context-manager-v0.3.0) (2025-10-16)
+
+
+### Features
+
+* add support for Python 3.14 (#14699) Towards b/375664027 ([8b69540bf6fd862bc1aebb3baf423c419b1556d4](https://github.com/googleapis/google-cloud-python/commit/8b69540bf6fd862bc1aebb3baf423c419b1556d4))
+
+## [0.2.3](https://github.com/googleapis/google-cloud-python/compare/google-cloud-access-context-manager-v0.2.2...google-cloud-access-context-manager-v0.2.3) (2025-10-07)
+
+
+### Bug Fixes
+
+* regenerate pb2 files with protoc v25.3 (#14569) This PR
+- adds *.proto files to `packages/google-cloud-access-context-manager`
+for consistency with what we have in `googleapis-common-protos`:
+https://github.com/googleapis/google-cloud-python/tree/main/packages/googleapis-common-protos/google/api
+- uses `protoc v25.3` for consistency with what we have in
+`googleapis-common-protos`:
+https://github.com/googleapis/google-cloud-python/tree/main/packages/googleapis-common-protos/google/api
+- Adds `*.pyi` files for consistency with what we have in
+`googleapis-common-protos`:
+https://github.com/googleapis/google-cloud-python/tree/main/packages/googleapis-common-protos/google/api
+Towards https://github.com/googleapis/librarian/issues/1061 ([001097bc95a964d063eca7605a0c3acdd2f59727](https://github.com/googleapis/google-cloud-python/commit/001097bc95a964d063eca7605a0c3acdd2f59727))
+
 ## [0.2.2](https://github.com/googleapis/google-cloud-python/compare/google-cloud-access-context-manager-v0.2.1...google-cloud-access-context-manager-v0.2.2) (2025-03-15)
 
 

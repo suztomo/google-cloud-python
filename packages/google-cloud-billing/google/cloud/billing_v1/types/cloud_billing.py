@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -74,10 +74,10 @@ class BillingAccount(proto.Message):
             the account's parent resource if it is a organization.
             Format:
 
-            -  ``organizations/{organization_id}``, for example,
-               ``organizations/12345678``
-            -  ``billingAccounts/{billing_account_id}``, for example,
-               ``billingAccounts/012345-567890-ABCDEF``
+            - ``organizations/{organization_id}``, for example,
+              ``organizations/12345678``
+            - ``billingAccounts/{billing_account_id}``, for example,
+              ``billingAccounts/012345-567890-ABCDEF``
         currency_code (str):
             Optional. The currency in which the billing account is
             billed and charged, represented as an ISO 4217 code such as
@@ -210,10 +210,10 @@ class ListBillingAccountsRequest(proto.Message):
             Optional. The parent resource to list billing accounts from.
             Format:
 
-            -  ``organizations/{organization_id}``, for example,
-               ``organizations/12345678``
-            -  ``billingAccounts/{billing_account_id}``, for example,
-               ``billingAccounts/012345-567890-ABCDEF``
+            - ``organizations/{organization_id}``, for example,
+              ``organizations/12345678``
+            - ``billingAccounts/{billing_account_id}``, for example,
+              ``billingAccounts/012345-567890-ABCDEF``
     """
 
     page_size: int = proto.Field(
@@ -276,8 +276,8 @@ class CreateBillingAccountRequest(proto.Message):
             Optional. The parent to create a billing account from.
             Format:
 
-            -  ``billingAccounts/{billing_account_id}``, for example,
-               ``billingAccounts/012345-567890-ABCDEF``
+            - ``billingAccounts/{billing_account_id}``, for example,
+              ``billingAccounts/012345-567890-ABCDEF``
     """
 
     billing_account: "BillingAccount" = proto.Field(

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,9 @@ def sample_create_report_config():
     # Initialize request argument(s)
     report_config = migrationcenter_v1.ReportConfig()
     report_config.group_preferenceset_assignments.group = "group_value"
-    report_config.group_preferenceset_assignments.preference_set = "preference_set_value"
+    report_config.group_preferenceset_assignments.preference_set = (
+        "preference_set_value"
+    )
 
     request = migrationcenter_v1.CreateReportConfigRequest(
         parent="parent_value",
@@ -58,5 +60,6 @@ def sample_create_report_config():
 
     # Handle the response
     print(response)
+
 
 # [END migrationcenter_v1_generated_MigrationCenter_CreateReportConfig_sync]

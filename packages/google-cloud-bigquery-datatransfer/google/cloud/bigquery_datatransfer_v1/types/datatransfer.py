@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.bigquery_datatransfer_v1.types import transfer
@@ -126,6 +126,7 @@ class DataSourceParameter(proto.Message):
             LIST (7):
                 List of strings parameter.
         """
+
         TYPE_UNSPECIFIED = 0
         STRING = 1
         INTEGER = 2
@@ -285,6 +286,7 @@ class DataSource(proto.Message):
             FIRST_PARTY_OAUTH (3):
                 Use First Party OAuth.
         """
+
         AUTHORIZATION_TYPE_UNSPECIFIED = 0
         AUTHORIZATION_CODE = 1
         GOOGLE_PLUS_AUTHORIZATION_CODE = 2
@@ -308,6 +310,7 @@ class DataSource(proto.Message):
                 days. Allows custom values to be set for each
                 transfer config.
         """
+
         DATA_REFRESH_TYPE_UNSPECIFIED = 0
         SLIDING_WINDOW = 1
         CUSTOM_SLIDING_WINDOW = 2
@@ -516,10 +519,10 @@ class CreateTransferConfigRequest(proto.Message):
                 https://bigquery.cloud.google.com/datatransfer/oauthz/auth?redirect_uri=urn:ietf:wg:oauth:2.0:oob&response_type=authorization_code&client_id=<var>client_id</var>&scope=<var>data_source_scopes</var>
                 </pre>
 
-            -  The client_id is the OAuth client_id of the data source
-               as returned by ListDataSources method.
-            -  data_source_scopes are the scopes returned by
-               ListDataSources method.
+            - The client_id is the OAuth client_id of the data source as
+              returned by ListDataSources method.
+            - data_source_scopes are the scopes returned by
+              ListDataSources method.
 
             Note that this should not be set when
             ``service_account_name`` is used to create the transfer
@@ -539,10 +542,10 @@ class CreateTransferConfigRequest(proto.Message):
                 https://bigquery.cloud.google.com/datatransfer/oauthz/auth?redirect_uri=urn:ietf:wg:oauth:2.0:oob&response_type=version_info&client_id=<var>client_id</var>&scope=<var>data_source_scopes</var>
                 </pre>
 
-            -  The client_id is the OAuth client_id of the data source
-               as returned by ListDataSources method.
-            -  data_source_scopes are the scopes returned by
-               ListDataSources method.
+            - The client_id is the OAuth client_id of the data source as
+              returned by ListDataSources method.
+            - data_source_scopes are the scopes returned by
+              ListDataSources method.
 
             Note that this should not be set when
             ``service_account_name`` is used to create the transfer
@@ -616,10 +619,10 @@ class UpdateTransferConfigRequest(proto.Message):
                 https://bigquery.cloud.google.com/datatransfer/oauthz/auth?redirect_uri=urn:ietf:wg:oauth:2.0:oob&response_type=authorization_code&client_id=<var>client_id</var>&scope=<var>data_source_scopes</var>
                 </pre>
 
-            -  The client_id is the OAuth client_id of the data source
-               as returned by ListDataSources method.
-            -  data_source_scopes are the scopes returned by
-               ListDataSources method.
+            - The client_id is the OAuth client_id of the data source as
+              returned by ListDataSources method.
+            - data_source_scopes are the scopes returned by
+              ListDataSources method.
 
             Note that this should not be set when
             ``service_account_name`` is used to update the transfer
@@ -642,10 +645,10 @@ class UpdateTransferConfigRequest(proto.Message):
                 https://bigquery.cloud.google.com/datatransfer/oauthz/auth?redirect_uri=urn:ietf:wg:oauth:2.0:oob&response_type=version_info&client_id=<var>client_id</var>&scope=<var>data_source_scopes</var>
                 </pre>
 
-            -  The client_id is the OAuth client_id of the data source
-               as returned by ListDataSources method.
-            -  data_source_scopes are the scopes returned by
-               ListDataSources method.
+            - The client_id is the OAuth client_id of the data source as
+              returned by ListDataSources method.
+            - data_source_scopes are the scopes returned by
+              ListDataSources method.
 
             Note that this should not be set when
             ``service_account_name`` is used to update the transfer
@@ -863,6 +866,7 @@ class ListTransferRunsRequest(proto.Message):
             LATEST (1):
                 Only latest run per day should be returned.
         """
+
         RUN_ATTEMPT_UNSPECIFIED = 0
         LATEST = 1
 
@@ -956,12 +960,12 @@ class ListTransferLogsRequest(proto.Message):
         proto.INT32,
         number=5,
     )
-    message_types: MutableSequence[
-        transfer.TransferMessage.MessageSeverity
-    ] = proto.RepeatedField(
-        proto.ENUM,
-        number=6,
-        enum=transfer.TransferMessage.MessageSeverity,
+    message_types: MutableSequence[transfer.TransferMessage.MessageSeverity] = (
+        proto.RepeatedField(
+            proto.ENUM,
+            number=6,
+            enum=transfer.TransferMessage.MessageSeverity,
+        )
     )
 
 

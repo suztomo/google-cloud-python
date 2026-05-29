@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -66,9 +66,9 @@ class CheckOnboardingStatusRequest(proto.Message):
             should be checked. Should be in one of the following
             formats:
 
-            -  ``projects/{project-number|project-id}/locations/{region}``
-            -  ``folders/{folder-number}/locations/{region}``
-            -  ``organizations/{organization-number}/locations/{region}``
+            - ``projects/{project-number|project-id}/locations/{region}``
+            - ``folders/{folder-number}/locations/{region}``
+            - ``organizations/{organization-number}/locations/{region}``
     """
 
     parent: str = proto.Field(
@@ -151,9 +151,9 @@ class Entitlement(proto.Message):
         name (str):
             Identifier. Name of the entitlement. Possible formats:
 
-            -  ``organizations/{organization-number}/locations/{region}/entitlements/{entitlement-id}``
-            -  ``folders/{folder-number}/locations/{region}/entitlements/{entitlement-id}``
-            -  ``projects/{project-id|project-number}/locations/{region}/entitlements/{entitlement-id}``
+            - ``organizations/{organization-number}/locations/{region}/entitlements/{entitlement-id}``
+            - ``folders/{folder-number}/locations/{region}/entitlements/{entitlement-id}``
+            - ``projects/{project-id|project-number}/locations/{region}/entitlements/{entitlement-id}``
         create_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. Create time stamp.
         update_time (google.protobuf.timestamp_pb2.Timestamp):
@@ -214,6 +214,7 @@ class Entitlement(proto.Message):
             UPDATING (5):
                 The entitlement is being updated.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         AVAILABLE = 2
@@ -406,10 +407,10 @@ class ManualApprovals(proto.Message):
 
     This can be used to create approval workflows such as:
 
-    -  Require an approval from any user in a group G.
-    -  Require an approval from any k number of users from a Group G.
-    -  Require an approval from any user in a group G and then from a
-       user U.
+    - Require an approval from any user in a group G.
+    - Require an approval from any k number of users from a Group G.
+    - Require an approval from any user in a group G and then from a
+      user U.
 
     A single user might be part of the ``approvers`` ACL for multiple
     steps in this workflow, but they can only approve once and that
@@ -537,12 +538,12 @@ class PrivilegedAccess(proto.Message):
             proto.STRING,
             number=2,
         )
-        role_bindings: MutableSequence[
-            "PrivilegedAccess.GcpIamAccess.RoleBinding"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=4,
-            message="PrivilegedAccess.GcpIamAccess.RoleBinding",
+        role_bindings: MutableSequence["PrivilegedAccess.GcpIamAccess.RoleBinding"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=4,
+                message="PrivilegedAccess.GcpIamAccess.RoleBinding",
+            )
         )
 
     gcp_iam_access: GcpIamAccess = proto.Field(
@@ -665,6 +666,7 @@ class SearchEntitlementsRequest(proto.Message):
                 The user has access to approve/deny grants
                 created under this entitlement.
         """
+
         CALLER_ACCESS_TYPE_UNSPECIFIED = 0
         GRANT_REQUESTER = 1
         GRANT_APPROVER = 2
@@ -740,9 +742,9 @@ class CreateEntitlementRequest(proto.Message):
             Required. Name of the parent resource for the entitlement.
             Possible formats:
 
-            -  ``organizations/{organization-number}/locations/{region}``
-            -  ``folders/{folder-number}/locations/{region}``
-            -  ``projects/{project-id|project-number}/locations/{region}``
+            - ``organizations/{organization-number}/locations/{region}``
+            - ``folders/{folder-number}/locations/{region}``
+            - ``projects/{project-id|project-number}/locations/{region}``
         entitlement_id (str):
             Required. The ID to use for this entitlement. This becomes
             the last part of the resource name.
@@ -859,7 +861,7 @@ class UpdateEntitlementRequest(proto.Message):
             contain the entire list of values. The fields specified in
             the update_mask are relative to the resource and not to the
             request. (e.g. ``MaxRequestDuration``; *not*
-            ``entitlement.MaxRequestDuration``) A value of '*' for this
+            ``entitlement.MaxRequestDuration``) A value of '\*' for this
             field refers to full replacement of the resource.
     """
 
@@ -883,9 +885,9 @@ class Grant(proto.Message):
         name (str):
             Identifier. Name of this grant. Possible formats:
 
-            -  ``organizations/{organization-number}/locations/{region}/entitlements/{entitlement-id}/grants/{grant-id}``
-            -  ``folders/{folder-number}/locations/{region}/entitlements/{entitlement-id}/grants/{grant-id}``
-            -  ``projects/{project-id|project-number}/locations/{region}/entitlements/{entitlement-id}/grants/{grant-id}``
+            - ``organizations/{organization-number}/locations/{region}/entitlements/{entitlement-id}/grants/{grant-id}``
+            - ``folders/{folder-number}/locations/{region}/entitlements/{entitlement-id}/grants/{grant-id}``
+            - ``projects/{project-id|project-number}/locations/{region}/entitlements/{entitlement-id}/grants/{grant-id}``
 
             The last segment of this name (``{grant-id}``) is
             autogenerated.
@@ -967,7 +969,13 @@ class Grant(proto.Message):
             ENDED (11):
                 System took back access as the requested
                 duration was over. This is a terminal state.
+            WITHDRAWING (12):
+                Access is being withdrawn.
+            WITHDRAWN (13):
+                Grant was withdrawn by the grant owner. This
+                is a terminal state.
         """
+
         STATE_UNSPECIFIED = 0
         APPROVAL_AWAITED = 1
         DENIED = 3
@@ -979,6 +987,8 @@ class Grant(proto.Message):
         REVOKING = 9
         REVOKED = 10
         ENDED = 11
+        WITHDRAWING = 12
+        WITHDRAWN = 13
 
     class Timeline(proto.Message):
         r"""Timeline of a grant describing what happened to it and when.
@@ -1045,6 +1055,10 @@ class Grant(proto.Message):
                 externally_modified (google.cloud.privilegedaccessmanager_v1.types.Grant.Timeline.Event.ExternallyModified):
                     The policy bindings made by grant have been
                     modified outside of PAM.
+
+                    This field is a member of `oneof`_ ``event``.
+                withdrawn (google.cloud.privilegedaccessmanager_v1.types.Grant.Timeline.Event.Withdrawn):
+                    The grant was withdrawn.
 
                     This field is a member of `oneof`_ ``event``.
                 event_time (google.protobuf.timestamp_pb2.Timestamp):
@@ -1130,6 +1144,9 @@ class Grant(proto.Message):
                     proto.STRING,
                     number=2,
                 )
+
+            class Withdrawn(proto.Message):
+                r"""An event representing that the grant was withdrawn."""
 
             class Scheduled(proto.Message):
                 r"""An event representing that the grant has been scheduled to be
@@ -1241,6 +1258,12 @@ class Grant(proto.Message):
                     oneof="event",
                     message="Grant.Timeline.Event.ExternallyModified",
                 )
+            )
+            withdrawn: "Grant.Timeline.Event.Withdrawn" = proto.Field(
+                proto.MESSAGE,
+                number=13,
+                oneof="event",
+                message="Grant.Timeline.Event.Withdrawn",
             )
             event_time: timestamp_pb2.Timestamp = proto.Field(
                 proto.MESSAGE,
@@ -1479,6 +1502,7 @@ class SearchGrantsRequest(proto.Message):
                 The caller had successfully approved/denied
                 this grant earlier.
         """
+
         CALLER_RELATIONSHIP_TYPE_UNSPECIFIED = 0
         HAD_CREATED = 1
         CAN_APPROVE = 2

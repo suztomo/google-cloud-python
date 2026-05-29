@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +16,17 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -550,9 +550,10 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -570,6 +571,12 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[CompletionServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -817,9 +824,7 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseCompletionServiceRestTransport._BaseAdvancedCompleteQuery._get_http_options()
-            )
+            http_options = _BaseCompletionServiceRestTransport._BaseAdvancedCompleteQuery._get_http_options()
 
             request, metadata = self._interceptor.pre_advanced_complete_query(
                 request, metadata
@@ -980,9 +985,7 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseCompletionServiceRestTransport._BaseCompleteQuery._get_http_options()
-            )
+            http_options = _BaseCompletionServiceRestTransport._BaseCompleteQuery._get_http_options()
 
             request, metadata = self._interceptor.pre_complete_query(request, metadata)
             transcoded_request = _BaseCompletionServiceRestTransport._BaseCompleteQuery._get_transcoded_request(
@@ -1134,9 +1137,7 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseCompletionServiceRestTransport._BaseImportCompletionSuggestions._get_http_options()
-            )
+            http_options = _BaseCompletionServiceRestTransport._BaseImportCompletionSuggestions._get_http_options()
 
             request, metadata = self._interceptor.pre_import_completion_suggestions(
                 request, metadata
@@ -1162,7 +1163,7 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1203,11 +1204,10 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
 
             resp = self._interceptor.post_import_completion_suggestions(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_import_completion_suggestions_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_import_completion_suggestions_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -1296,15 +1296,12 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseCompletionServiceRestTransport._BaseImportSuggestionDenyListEntries._get_http_options()
-            )
+            http_options = _BaseCompletionServiceRestTransport._BaseImportSuggestionDenyListEntries._get_http_options()
 
-            (
-                request,
-                metadata,
-            ) = self._interceptor.pre_import_suggestion_deny_list_entries(
-                request, metadata
+            request, metadata = (
+                self._interceptor.pre_import_suggestion_deny_list_entries(
+                    request, metadata
+                )
             )
             transcoded_request = _BaseCompletionServiceRestTransport._BaseImportSuggestionDenyListEntries._get_transcoded_request(
                 http_options, request
@@ -1327,7 +1324,7 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1368,11 +1365,10 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
 
             resp = self._interceptor.post_import_suggestion_deny_list_entries(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_import_suggestion_deny_list_entries_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_import_suggestion_deny_list_entries_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -1459,9 +1455,7 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseCompletionServiceRestTransport._BasePurgeCompletionSuggestions._get_http_options()
-            )
+            http_options = _BaseCompletionServiceRestTransport._BasePurgeCompletionSuggestions._get_http_options()
 
             request, metadata = self._interceptor.pre_purge_completion_suggestions(
                 request, metadata
@@ -1487,7 +1481,7 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1616,15 +1610,12 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseCompletionServiceRestTransport._BasePurgeSuggestionDenyListEntries._get_http_options()
-            )
+            http_options = _BaseCompletionServiceRestTransport._BasePurgeSuggestionDenyListEntries._get_http_options()
 
-            (
-                request,
-                metadata,
-            ) = self._interceptor.pre_purge_suggestion_deny_list_entries(
-                request, metadata
+            request, metadata = (
+                self._interceptor.pre_purge_suggestion_deny_list_entries(
+                    request, metadata
+                )
             )
             transcoded_request = _BaseCompletionServiceRestTransport._BasePurgeSuggestionDenyListEntries._get_transcoded_request(
                 http_options, request
@@ -1647,7 +1638,7 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1688,11 +1679,10 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
 
             resp = self._interceptor.post_purge_suggestion_deny_list_entries(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_purge_suggestion_deny_list_entries_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_purge_suggestion_deny_list_entries_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -1747,7 +1737,9 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ImportCompletionSuggestions(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ImportCompletionSuggestions(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def import_suggestion_deny_list_entries(
@@ -1757,7 +1749,9 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ImportSuggestionDenyListEntries(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ImportSuggestionDenyListEntries(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def purge_completion_suggestions(
@@ -1767,7 +1761,9 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._PurgeCompletionSuggestions(self._session, self._host, self._interceptor)  # type: ignore
+        return self._PurgeCompletionSuggestions(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def purge_suggestion_deny_list_entries(
@@ -1777,7 +1773,9 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._PurgeSuggestionDenyListEntries(self._session, self._host, self._interceptor)  # type: ignore
+        return self._PurgeSuggestionDenyListEntries(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def cancel_operation(self):
@@ -1835,9 +1833,7 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseCompletionServiceRestTransport._BaseCancelOperation._get_http_options()
-            )
+            http_options = _BaseCompletionServiceRestTransport._BaseCancelOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_cancel_operation(
                 request, metadata
@@ -1957,9 +1953,7 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
                 operations_pb2.Operation: Response from GetOperation method.
             """
 
-            http_options = (
-                _BaseCompletionServiceRestTransport._BaseGetOperation._get_http_options()
-            )
+            http_options = _BaseCompletionServiceRestTransport._BaseGetOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_operation(request, metadata)
             transcoded_request = _BaseCompletionServiceRestTransport._BaseGetOperation._get_transcoded_request(
@@ -2098,9 +2092,7 @@ class CompletionServiceRestTransport(_BaseCompletionServiceRestTransport):
                 operations_pb2.ListOperationsResponse: Response from ListOperations method.
             """
 
-            http_options = (
-                _BaseCompletionServiceRestTransport._BaseListOperations._get_http_options()
-            )
+            http_options = _BaseCompletionServiceRestTransport._BaseListOperations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_operations(request, metadata)
             transcoded_request = _BaseCompletionServiceRestTransport._BaseListOperations._get_transcoded_request(

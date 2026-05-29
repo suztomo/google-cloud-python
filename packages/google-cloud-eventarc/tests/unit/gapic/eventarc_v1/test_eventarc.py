@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +38,14 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.code_pb2 as code_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,23 +54,18 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import options_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    options_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import code_pb2  # type: ignore
 
 from google.cloud.eventarc_v1.services.eventarc import (
     EventarcAsyncClient,
@@ -76,27 +73,29 @@ from google.cloud.eventarc_v1.services.eventarc import (
     pagers,
     transports,
 )
+from google.cloud.eventarc_v1.types import (
+    channel,
+    channel_connection,
+    discovery,
+    enrollment,
+    eventarc,
+    google_api_source,
+    google_channel_config,
+    logging_config,
+    message_bus,
+    network_config,
+    pipeline,
+    trigger,
+)
+from google.cloud.eventarc_v1.types import channel as gce_channel
 from google.cloud.eventarc_v1.types import channel_connection as gce_channel_connection
+from google.cloud.eventarc_v1.types import enrollment as gce_enrollment
 from google.cloud.eventarc_v1.types import google_api_source as gce_google_api_source
 from google.cloud.eventarc_v1.types import (
     google_channel_config as gce_google_channel_config,
 )
-from google.cloud.eventarc_v1.types import channel
-from google.cloud.eventarc_v1.types import channel as gce_channel
-from google.cloud.eventarc_v1.types import channel_connection
-from google.cloud.eventarc_v1.types import discovery
-from google.cloud.eventarc_v1.types import enrollment
-from google.cloud.eventarc_v1.types import enrollment as gce_enrollment
-from google.cloud.eventarc_v1.types import eventarc
-from google.cloud.eventarc_v1.types import google_api_source
-from google.cloud.eventarc_v1.types import google_channel_config
-from google.cloud.eventarc_v1.types import logging_config
-from google.cloud.eventarc_v1.types import message_bus
 from google.cloud.eventarc_v1.types import message_bus as gce_message_bus
-from google.cloud.eventarc_v1.types import network_config
-from google.cloud.eventarc_v1.types import pipeline
 from google.cloud.eventarc_v1.types import pipeline as gce_pipeline
-from google.cloud.eventarc_v1.types import trigger
 from google.cloud.eventarc_v1.types import trigger as gce_trigger
 
 CRED_INFO_JSON = {
@@ -147,12 +146,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert EventarcClient._get_default_mtls_endpoint(None) is None
     assert EventarcClient._get_default_mtls_endpoint(api_endpoint) == api_mtls_endpoint
@@ -169,6 +184,7 @@ def test__get_default_mtls_endpoint():
         == sandbox_mtls_endpoint
     )
     assert EventarcClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    assert EventarcClient._get_default_mtls_endpoint(custom_endpoint) == custom_endpoint
 
 
 def test__read_environment_variables():
@@ -183,12 +199,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            EventarcClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                EventarcClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert EventarcClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert EventarcClient._read_environment_variables() == (False, "never", None)
@@ -213,6 +236,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert EventarcClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert EventarcClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert EventarcClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert EventarcClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert EventarcClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert EventarcClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert EventarcClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert EventarcClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert EventarcClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                EventarcClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert EventarcClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert EventarcClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -571,17 +693,6 @@ def test_eventarc_client_client_options(client_class, transport_class, transport
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -793,6 +904,117 @@ def test_eventarc_client_get_mtls_endpoint_and_cert_source(client_class):
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -825,10 +1047,9 @@ def test_eventarc_client_get_mtls_endpoint_and_cert_source(client_class):
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -841,18 +1062,6 @@ def test_eventarc_client_get_mtls_endpoint_and_cert_source(client_class):
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1065,13 +1274,13 @@ def test_eventarc_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1096,8 +1305,8 @@ def test_eventarc_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.GetTriggerRequest,
-        dict,
+        eventarc.GetTriggerRequest(),
+        {},
     ],
 )
 def test_get_trigger(request_type, transport: str = "grpc"):
@@ -1108,7 +1317,7 @@ def test_get_trigger(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_trigger), "__call__") as call:
@@ -1164,9 +1373,10 @@ def test_get_trigger_non_empty_request_with_auto_populated_field():
         client.get_trigger(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.GetTriggerRequest(
+        request_msg = eventarc.GetTriggerRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_trigger_use_cached_wrapped_rpc():
@@ -1247,9 +1457,14 @@ async def test_get_trigger_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_trigger_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.GetTriggerRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.GetTriggerRequest(),
+        {},
+    ],
+)
+async def test_get_trigger_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1257,7 +1472,7 @@ async def test_get_trigger_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_trigger), "__call__") as call:
@@ -1290,11 +1505,6 @@ async def test_get_trigger_async(
     assert response.event_data_content_type == "event_data_content_type_value"
     assert response.satisfies_pzs is True
     assert response.etag == "etag_value"
-
-
-@pytest.mark.asyncio
-async def test_get_trigger_async_from_dict():
-    await test_get_trigger_async(request_type=dict)
 
 
 def test_get_trigger_field_headers():
@@ -1439,8 +1649,8 @@ async def test_get_trigger_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.ListTriggersRequest,
-        dict,
+        eventarc.ListTriggersRequest(),
+        {},
     ],
 )
 def test_list_triggers(request_type, transport: str = "grpc"):
@@ -1451,7 +1661,7 @@ def test_list_triggers(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_triggers), "__call__") as call:
@@ -1500,12 +1710,13 @@ def test_list_triggers_non_empty_request_with_auto_populated_field():
         client.list_triggers(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.ListTriggersRequest(
+        request_msg = eventarc.ListTriggersRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_triggers_use_cached_wrapped_rpc():
@@ -1586,9 +1797,14 @@ async def test_list_triggers_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_triggers_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.ListTriggersRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.ListTriggersRequest(),
+        {},
+    ],
+)
+async def test_list_triggers_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1596,7 +1812,7 @@ async def test_list_triggers_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_triggers), "__call__") as call:
@@ -1619,11 +1835,6 @@ async def test_list_triggers_async(
     assert isinstance(response, pagers.ListTriggersAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_triggers_async_from_dict():
-    await test_list_triggers_async(request_type=dict)
 
 
 def test_list_triggers_field_headers():
@@ -1953,11 +2164,7 @@ async def test_list_triggers_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_triggers(request={})
-        ).pages:
+        async for page_ in (await client.list_triggers(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -1966,8 +2173,8 @@ async def test_list_triggers_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.CreateTriggerRequest,
-        dict,
+        eventarc.CreateTriggerRequest(),
+        {},
     ],
 )
 def test_create_trigger(request_type, transport: str = "grpc"):
@@ -1978,7 +2185,7 @@ def test_create_trigger(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_trigger), "__call__") as call:
@@ -2020,10 +2227,11 @@ def test_create_trigger_non_empty_request_with_auto_populated_field():
         client.create_trigger(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.CreateTriggerRequest(
+        request_msg = eventarc.CreateTriggerRequest(
             parent="parent_value",
             trigger_id="trigger_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_trigger_use_cached_wrapped_rpc():
@@ -2114,9 +2322,14 @@ async def test_create_trigger_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_trigger_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.CreateTriggerRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.CreateTriggerRequest(),
+        {},
+    ],
+)
+async def test_create_trigger_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2124,7 +2337,7 @@ async def test_create_trigger_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_trigger), "__call__") as call:
@@ -2142,11 +2355,6 @@ async def test_create_trigger_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_trigger_async_from_dict():
-    await test_create_trigger_async(request_type=dict)
 
 
 def test_create_trigger_field_headers():
@@ -2315,8 +2523,8 @@ async def test_create_trigger_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.UpdateTriggerRequest,
-        dict,
+        eventarc.UpdateTriggerRequest(),
+        {},
     ],
 )
 def test_update_trigger(request_type, transport: str = "grpc"):
@@ -2327,7 +2535,7 @@ def test_update_trigger(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_trigger), "__call__") as call:
@@ -2366,7 +2574,8 @@ def test_update_trigger_non_empty_request_with_auto_populated_field():
         client.update_trigger(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.UpdateTriggerRequest()
+        request_msg = eventarc.UpdateTriggerRequest()
+        assert args[0] == request_msg
 
 
 def test_update_trigger_use_cached_wrapped_rpc():
@@ -2457,9 +2666,14 @@ async def test_update_trigger_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_trigger_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.UpdateTriggerRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.UpdateTriggerRequest(),
+        {},
+    ],
+)
+async def test_update_trigger_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2467,7 +2681,7 @@ async def test_update_trigger_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_trigger), "__call__") as call:
@@ -2485,11 +2699,6 @@ async def test_update_trigger_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_trigger_async_from_dict():
-    await test_update_trigger_async(request_type=dict)
 
 
 def test_update_trigger_field_headers():
@@ -2658,8 +2867,8 @@ async def test_update_trigger_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.DeleteTriggerRequest,
-        dict,
+        eventarc.DeleteTriggerRequest(),
+        {},
     ],
 )
 def test_delete_trigger(request_type, transport: str = "grpc"):
@@ -2670,7 +2879,7 @@ def test_delete_trigger(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_trigger), "__call__") as call:
@@ -2712,10 +2921,11 @@ def test_delete_trigger_non_empty_request_with_auto_populated_field():
         client.delete_trigger(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.DeleteTriggerRequest(
+        request_msg = eventarc.DeleteTriggerRequest(
             name="name_value",
             etag="etag_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_trigger_use_cached_wrapped_rpc():
@@ -2806,9 +3016,14 @@ async def test_delete_trigger_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_trigger_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.DeleteTriggerRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.DeleteTriggerRequest(),
+        {},
+    ],
+)
+async def test_delete_trigger_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2816,7 +3031,7 @@ async def test_delete_trigger_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_trigger), "__call__") as call:
@@ -2834,11 +3049,6 @@ async def test_delete_trigger_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_trigger_async_from_dict():
-    await test_delete_trigger_async(request_type=dict)
 
 
 def test_delete_trigger_field_headers():
@@ -2997,8 +3207,8 @@ async def test_delete_trigger_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.GetChannelRequest,
-        dict,
+        eventarc.GetChannelRequest(),
+        {},
     ],
 )
 def test_get_channel(request_type, transport: str = "grpc"):
@@ -3009,7 +3219,7 @@ def test_get_channel(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_channel), "__call__") as call:
@@ -3066,9 +3276,10 @@ def test_get_channel_non_empty_request_with_auto_populated_field():
         client.get_channel(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.GetChannelRequest(
+        request_msg = eventarc.GetChannelRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_channel_use_cached_wrapped_rpc():
@@ -3149,9 +3360,14 @@ async def test_get_channel_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_channel_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.GetChannelRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.GetChannelRequest(),
+        {},
+    ],
+)
+async def test_get_channel_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3159,7 +3375,7 @@ async def test_get_channel_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_channel), "__call__") as call:
@@ -3192,11 +3408,6 @@ async def test_get_channel_async(
     assert response.activation_token == "activation_token_value"
     assert response.crypto_key_name == "crypto_key_name_value"
     assert response.satisfies_pzs is True
-
-
-@pytest.mark.asyncio
-async def test_get_channel_async_from_dict():
-    await test_get_channel_async(request_type=dict)
 
 
 def test_get_channel_field_headers():
@@ -3341,8 +3552,8 @@ async def test_get_channel_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.ListChannelsRequest,
-        dict,
+        eventarc.ListChannelsRequest(),
+        {},
     ],
 )
 def test_list_channels(request_type, transport: str = "grpc"):
@@ -3353,7 +3564,7 @@ def test_list_channels(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_channels), "__call__") as call:
@@ -3401,11 +3612,12 @@ def test_list_channels_non_empty_request_with_auto_populated_field():
         client.list_channels(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.ListChannelsRequest(
+        request_msg = eventarc.ListChannelsRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_channels_use_cached_wrapped_rpc():
@@ -3486,9 +3698,14 @@ async def test_list_channels_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_channels_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.ListChannelsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.ListChannelsRequest(),
+        {},
+    ],
+)
+async def test_list_channels_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3496,7 +3713,7 @@ async def test_list_channels_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_channels), "__call__") as call:
@@ -3519,11 +3736,6 @@ async def test_list_channels_async(
     assert isinstance(response, pagers.ListChannelsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_channels_async_from_dict():
-    await test_list_channels_async(request_type=dict)
 
 
 def test_list_channels_field_headers():
@@ -3853,11 +4065,7 @@ async def test_list_channels_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_channels(request={})
-        ).pages:
+        async for page_ in (await client.list_channels(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -3866,8 +4074,8 @@ async def test_list_channels_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.CreateChannelRequest,
-        dict,
+        eventarc.CreateChannelRequest(),
+        {},
     ],
 )
 def test_create_channel(request_type, transport: str = "grpc"):
@@ -3878,7 +4086,7 @@ def test_create_channel(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_channel_), "__call__") as call:
@@ -3920,10 +4128,11 @@ def test_create_channel_non_empty_request_with_auto_populated_field():
         client.create_channel(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.CreateChannelRequest(
+        request_msg = eventarc.CreateChannelRequest(
             parent="parent_value",
             channel_id="channel_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_channel_use_cached_wrapped_rpc():
@@ -4014,9 +4223,14 @@ async def test_create_channel_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_channel_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.CreateChannelRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.CreateChannelRequest(),
+        {},
+    ],
+)
+async def test_create_channel_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4024,7 +4238,7 @@ async def test_create_channel_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_channel_), "__call__") as call:
@@ -4042,11 +4256,6 @@ async def test_create_channel_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_channel_async_from_dict():
-    await test_create_channel_async(request_type=dict)
 
 
 def test_create_channel_field_headers():
@@ -4215,8 +4424,8 @@ async def test_create_channel_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.UpdateChannelRequest,
-        dict,
+        eventarc.UpdateChannelRequest(),
+        {},
     ],
 )
 def test_update_channel(request_type, transport: str = "grpc"):
@@ -4227,7 +4436,7 @@ def test_update_channel(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_channel), "__call__") as call:
@@ -4266,7 +4475,8 @@ def test_update_channel_non_empty_request_with_auto_populated_field():
         client.update_channel(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.UpdateChannelRequest()
+        request_msg = eventarc.UpdateChannelRequest()
+        assert args[0] == request_msg
 
 
 def test_update_channel_use_cached_wrapped_rpc():
@@ -4357,9 +4567,14 @@ async def test_update_channel_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_channel_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.UpdateChannelRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.UpdateChannelRequest(),
+        {},
+    ],
+)
+async def test_update_channel_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4367,7 +4582,7 @@ async def test_update_channel_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_channel), "__call__") as call:
@@ -4385,11 +4600,6 @@ async def test_update_channel_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_channel_async_from_dict():
-    await test_update_channel_async(request_type=dict)
 
 
 def test_update_channel_field_headers():
@@ -4548,8 +4758,8 @@ async def test_update_channel_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.DeleteChannelRequest,
-        dict,
+        eventarc.DeleteChannelRequest(),
+        {},
     ],
 )
 def test_delete_channel(request_type, transport: str = "grpc"):
@@ -4560,7 +4770,7 @@ def test_delete_channel(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_channel), "__call__") as call:
@@ -4601,9 +4811,10 @@ def test_delete_channel_non_empty_request_with_auto_populated_field():
         client.delete_channel(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.DeleteChannelRequest(
+        request_msg = eventarc.DeleteChannelRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_channel_use_cached_wrapped_rpc():
@@ -4694,9 +4905,14 @@ async def test_delete_channel_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_channel_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.DeleteChannelRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.DeleteChannelRequest(),
+        {},
+    ],
+)
+async def test_delete_channel_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4704,7 +4920,7 @@ async def test_delete_channel_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_channel), "__call__") as call:
@@ -4722,11 +4938,6 @@ async def test_delete_channel_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_channel_async_from_dict():
-    await test_delete_channel_async(request_type=dict)
 
 
 def test_delete_channel_field_headers():
@@ -4875,8 +5086,8 @@ async def test_delete_channel_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.GetProviderRequest,
-        dict,
+        eventarc.GetProviderRequest(),
+        {},
     ],
 )
 def test_get_provider(request_type, transport: str = "grpc"):
@@ -4887,7 +5098,7 @@ def test_get_provider(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_provider), "__call__") as call:
@@ -4933,9 +5144,10 @@ def test_get_provider_non_empty_request_with_auto_populated_field():
         client.get_provider(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.GetProviderRequest(
+        request_msg = eventarc.GetProviderRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_provider_use_cached_wrapped_rpc():
@@ -5016,9 +5228,14 @@ async def test_get_provider_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_provider_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.GetProviderRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.GetProviderRequest(),
+        {},
+    ],
+)
+async def test_get_provider_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -5026,7 +5243,7 @@ async def test_get_provider_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_provider), "__call__") as call:
@@ -5049,11 +5266,6 @@ async def test_get_provider_async(
     assert isinstance(response, discovery.Provider)
     assert response.name == "name_value"
     assert response.display_name == "display_name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_provider_async_from_dict():
-    await test_get_provider_async(request_type=dict)
 
 
 def test_get_provider_field_headers():
@@ -5198,8 +5410,8 @@ async def test_get_provider_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.ListProvidersRequest,
-        dict,
+        eventarc.ListProvidersRequest(),
+        {},
     ],
 )
 def test_list_providers(request_type, transport: str = "grpc"):
@@ -5210,7 +5422,7 @@ def test_list_providers(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_providers), "__call__") as call:
@@ -5259,12 +5471,13 @@ def test_list_providers_non_empty_request_with_auto_populated_field():
         client.list_providers(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.ListProvidersRequest(
+        request_msg = eventarc.ListProvidersRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_providers_use_cached_wrapped_rpc():
@@ -5345,9 +5558,14 @@ async def test_list_providers_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_providers_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.ListProvidersRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.ListProvidersRequest(),
+        {},
+    ],
+)
+async def test_list_providers_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -5355,7 +5573,7 @@ async def test_list_providers_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_providers), "__call__") as call:
@@ -5378,11 +5596,6 @@ async def test_list_providers_async(
     assert isinstance(response, pagers.ListProvidersAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_providers_async_from_dict():
-    await test_list_providers_async(request_type=dict)
 
 
 def test_list_providers_field_headers():
@@ -5712,11 +5925,7 @@ async def test_list_providers_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_providers(request={})
-        ).pages:
+        async for page_ in (await client.list_providers(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -5725,8 +5934,8 @@ async def test_list_providers_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.GetChannelConnectionRequest,
-        dict,
+        eventarc.GetChannelConnectionRequest(),
+        {},
     ],
 )
 def test_get_channel_connection(request_type, transport: str = "grpc"):
@@ -5737,7 +5946,7 @@ def test_get_channel_connection(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5791,9 +6000,10 @@ def test_get_channel_connection_non_empty_request_with_auto_populated_field():
         client.get_channel_connection(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.GetChannelConnectionRequest(
+        request_msg = eventarc.GetChannelConnectionRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_channel_connection_use_cached_wrapped_rpc():
@@ -5820,9 +6030,9 @@ def test_get_channel_connection_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_channel_connection
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_channel_connection] = (
+            mock_rpc
+        )
         request = {}
         client.get_channel_connection(request)
 
@@ -5879,8 +6089,15 @@ async def test_get_channel_connection_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.GetChannelConnectionRequest(),
+        {},
+    ],
+)
 async def test_get_channel_connection_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.GetChannelConnectionRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -5889,7 +6106,7 @@ async def test_get_channel_connection_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5918,11 +6135,6 @@ async def test_get_channel_connection_async(
     assert response.uid == "uid_value"
     assert response.channel == "channel_value"
     assert response.activation_token == "activation_token_value"
-
-
-@pytest.mark.asyncio
-async def test_get_channel_connection_async_from_dict():
-    await test_get_channel_connection_async(request_type=dict)
 
 
 def test_get_channel_connection_field_headers():
@@ -6079,8 +6291,8 @@ async def test_get_channel_connection_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.ListChannelConnectionsRequest,
-        dict,
+        eventarc.ListChannelConnectionsRequest(),
+        {},
     ],
 )
 def test_list_channel_connections(request_type, transport: str = "grpc"):
@@ -6091,7 +6303,7 @@ def test_list_channel_connections(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6142,10 +6354,11 @@ def test_list_channel_connections_non_empty_request_with_auto_populated_field():
         client.list_channel_connections(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.ListChannelConnectionsRequest(
+        request_msg = eventarc.ListChannelConnectionsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_channel_connections_use_cached_wrapped_rpc():
@@ -6231,8 +6444,15 @@ async def test_list_channel_connections_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.ListChannelConnectionsRequest(),
+        {},
+    ],
+)
 async def test_list_channel_connections_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.ListChannelConnectionsRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -6241,7 +6461,7 @@ async def test_list_channel_connections_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6266,11 +6486,6 @@ async def test_list_channel_connections_async(
     assert isinstance(response, pagers.ListChannelConnectionsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_channel_connections_async_from_dict():
-    await test_list_channel_connections_async(request_type=dict)
 
 
 def test_list_channel_connections_field_headers():
@@ -6620,11 +6835,7 @@ async def test_list_channel_connections_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_channel_connections(request={})
-        ).pages:
+        async for page_ in (await client.list_channel_connections(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -6633,8 +6844,8 @@ async def test_list_channel_connections_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.CreateChannelConnectionRequest,
-        dict,
+        eventarc.CreateChannelConnectionRequest(),
+        {},
     ],
 )
 def test_create_channel_connection(request_type, transport: str = "grpc"):
@@ -6645,7 +6856,7 @@ def test_create_channel_connection(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6691,10 +6902,11 @@ def test_create_channel_connection_non_empty_request_with_auto_populated_field()
         client.create_channel_connection(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.CreateChannelConnectionRequest(
+        request_msg = eventarc.CreateChannelConnectionRequest(
             parent="parent_value",
             channel_connection_id="channel_connection_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_channel_connection_use_cached_wrapped_rpc():
@@ -6790,9 +7002,15 @@ async def test_create_channel_connection_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.CreateChannelConnectionRequest(),
+        {},
+    ],
+)
 async def test_create_channel_connection_async(
-    transport: str = "grpc_asyncio",
-    request_type=eventarc.CreateChannelConnectionRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -6801,7 +7019,7 @@ async def test_create_channel_connection_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6821,11 +7039,6 @@ async def test_create_channel_connection_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_channel_connection_async_from_dict():
-    await test_create_channel_connection_async(request_type=dict)
 
 
 def test_create_channel_connection_field_headers():
@@ -7010,8 +7223,8 @@ async def test_create_channel_connection_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.DeleteChannelConnectionRequest,
-        dict,
+        eventarc.DeleteChannelConnectionRequest(),
+        {},
     ],
 )
 def test_delete_channel_connection(request_type, transport: str = "grpc"):
@@ -7022,7 +7235,7 @@ def test_delete_channel_connection(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -7067,9 +7280,10 @@ def test_delete_channel_connection_non_empty_request_with_auto_populated_field()
         client.delete_channel_connection(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.DeleteChannelConnectionRequest(
+        request_msg = eventarc.DeleteChannelConnectionRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_channel_connection_use_cached_wrapped_rpc():
@@ -7165,9 +7379,15 @@ async def test_delete_channel_connection_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.DeleteChannelConnectionRequest(),
+        {},
+    ],
+)
 async def test_delete_channel_connection_async(
-    transport: str = "grpc_asyncio",
-    request_type=eventarc.DeleteChannelConnectionRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -7176,7 +7396,7 @@ async def test_delete_channel_connection_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -7196,11 +7416,6 @@ async def test_delete_channel_connection_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_channel_connection_async_from_dict():
-    await test_delete_channel_connection_async(request_type=dict)
 
 
 def test_delete_channel_connection_field_headers():
@@ -7357,8 +7572,8 @@ async def test_delete_channel_connection_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.GetGoogleChannelConfigRequest,
-        dict,
+        eventarc.GetGoogleChannelConfigRequest(),
+        {},
     ],
 )
 def test_get_google_channel_config(request_type, transport: str = "grpc"):
@@ -7369,7 +7584,7 @@ def test_get_google_channel_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -7419,9 +7634,10 @@ def test_get_google_channel_config_non_empty_request_with_auto_populated_field()
         client.get_google_channel_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.GetGoogleChannelConfigRequest(
+        request_msg = eventarc.GetGoogleChannelConfigRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_google_channel_config_use_cached_wrapped_rpc():
@@ -7507,8 +7723,15 @@ async def test_get_google_channel_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.GetGoogleChannelConfigRequest(),
+        {},
+    ],
+)
 async def test_get_google_channel_config_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.GetGoogleChannelConfigRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -7517,7 +7740,7 @@ async def test_get_google_channel_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -7542,11 +7765,6 @@ async def test_get_google_channel_config_async(
     assert isinstance(response, google_channel_config.GoogleChannelConfig)
     assert response.name == "name_value"
     assert response.crypto_key_name == "crypto_key_name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_google_channel_config_async_from_dict():
-    await test_get_google_channel_config_async(request_type=dict)
 
 
 def test_get_google_channel_config_field_headers():
@@ -7703,8 +7921,8 @@ async def test_get_google_channel_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.UpdateGoogleChannelConfigRequest,
-        dict,
+        eventarc.UpdateGoogleChannelConfigRequest(),
+        {},
     ],
 )
 def test_update_google_channel_config(request_type, transport: str = "grpc"):
@@ -7715,7 +7933,7 @@ def test_update_google_channel_config(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -7763,7 +7981,8 @@ def test_update_google_channel_config_non_empty_request_with_auto_populated_fiel
         client.update_google_channel_config(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.UpdateGoogleChannelConfigRequest()
+        request_msg = eventarc.UpdateGoogleChannelConfigRequest()
+        assert args[0] == request_msg
 
 
 def test_update_google_channel_config_use_cached_wrapped_rpc():
@@ -7849,9 +8068,15 @@ async def test_update_google_channel_config_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.UpdateGoogleChannelConfigRequest(),
+        {},
+    ],
+)
 async def test_update_google_channel_config_async(
-    transport: str = "grpc_asyncio",
-    request_type=eventarc.UpdateGoogleChannelConfigRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -7860,7 +8085,7 @@ async def test_update_google_channel_config_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -7885,11 +8110,6 @@ async def test_update_google_channel_config_async(
     assert isinstance(response, gce_google_channel_config.GoogleChannelConfig)
     assert response.name == "name_value"
     assert response.crypto_key_name == "crypto_key_name_value"
-
-
-@pytest.mark.asyncio
-async def test_update_google_channel_config_async_from_dict():
-    await test_update_google_channel_config_async(request_type=dict)
 
 
 def test_update_google_channel_config_field_headers():
@@ -8064,8 +8284,8 @@ async def test_update_google_channel_config_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.GetMessageBusRequest,
-        dict,
+        eventarc.GetMessageBusRequest(),
+        {},
     ],
 )
 def test_get_message_bus(request_type, transport: str = "grpc"):
@@ -8076,7 +8296,7 @@ def test_get_message_bus(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_message_bus), "__call__") as call:
@@ -8128,9 +8348,10 @@ def test_get_message_bus_non_empty_request_with_auto_populated_field():
         client.get_message_bus(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.GetMessageBusRequest(
+        request_msg = eventarc.GetMessageBusRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_message_bus_use_cached_wrapped_rpc():
@@ -8211,9 +8432,14 @@ async def test_get_message_bus_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_message_bus_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.GetMessageBusRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.GetMessageBusRequest(),
+        {},
+    ],
+)
+async def test_get_message_bus_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -8221,7 +8447,7 @@ async def test_get_message_bus_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_message_bus), "__call__") as call:
@@ -8250,11 +8476,6 @@ async def test_get_message_bus_async(
     assert response.etag == "etag_value"
     assert response.display_name == "display_name_value"
     assert response.crypto_key_name == "crypto_key_name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_message_bus_async_from_dict():
-    await test_get_message_bus_async(request_type=dict)
 
 
 def test_get_message_bus_field_headers():
@@ -8403,8 +8624,8 @@ async def test_get_message_bus_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.ListMessageBusesRequest,
-        dict,
+        eventarc.ListMessageBusesRequest(),
+        {},
     ],
 )
 def test_list_message_buses(request_type, transport: str = "grpc"):
@@ -8415,7 +8636,7 @@ def test_list_message_buses(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -8468,12 +8689,13 @@ def test_list_message_buses_non_empty_request_with_auto_populated_field():
         client.list_message_buses(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.ListMessageBusesRequest(
+        request_msg = eventarc.ListMessageBusesRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_message_buses_use_cached_wrapped_rpc():
@@ -8499,9 +8721,9 @@ def test_list_message_buses_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_message_buses
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_message_buses] = (
+            mock_rpc
+        )
         request = {}
         client.list_message_buses(request)
 
@@ -8558,9 +8780,14 @@ async def test_list_message_buses_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_message_buses_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.ListMessageBusesRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.ListMessageBusesRequest(),
+        {},
+    ],
+)
+async def test_list_message_buses_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -8568,7 +8795,7 @@ async def test_list_message_buses_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -8593,11 +8820,6 @@ async def test_list_message_buses_async(
     assert isinstance(response, pagers.ListMessageBusesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_message_buses_async_from_dict():
-    await test_list_message_buses_async(request_type=dict)
 
 
 def test_list_message_buses_field_headers():
@@ -8943,11 +9165,7 @@ async def test_list_message_buses_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_message_buses(request={})
-        ).pages:
+        async for page_ in (await client.list_message_buses(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -8956,8 +9174,8 @@ async def test_list_message_buses_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.ListMessageBusEnrollmentsRequest,
-        dict,
+        eventarc.ListMessageBusEnrollmentsRequest(),
+        {},
     ],
 )
 def test_list_message_bus_enrollments(request_type, transport: str = "grpc"):
@@ -8968,7 +9186,7 @@ def test_list_message_bus_enrollments(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9021,10 +9239,11 @@ def test_list_message_bus_enrollments_non_empty_request_with_auto_populated_fiel
         client.list_message_bus_enrollments(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.ListMessageBusEnrollmentsRequest(
+        request_msg = eventarc.ListMessageBusEnrollmentsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_message_bus_enrollments_use_cached_wrapped_rpc():
@@ -9110,9 +9329,15 @@ async def test_list_message_bus_enrollments_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.ListMessageBusEnrollmentsRequest(),
+        {},
+    ],
+)
 async def test_list_message_bus_enrollments_async(
-    transport: str = "grpc_asyncio",
-    request_type=eventarc.ListMessageBusEnrollmentsRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -9121,7 +9346,7 @@ async def test_list_message_bus_enrollments_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9148,11 +9373,6 @@ async def test_list_message_bus_enrollments_async(
     assert response.enrollments == ["enrollments_value"]
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_message_bus_enrollments_async_from_dict():
-    await test_list_message_bus_enrollments_async(request_type=dict)
 
 
 def test_list_message_bus_enrollments_field_headers():
@@ -9500,9 +9720,7 @@ async def test_list_message_bus_enrollments_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_message_bus_enrollments(request={})
         ).pages:
             pages.append(page_)
@@ -9513,8 +9731,8 @@ async def test_list_message_bus_enrollments_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.CreateMessageBusRequest,
-        dict,
+        eventarc.CreateMessageBusRequest(),
+        {},
     ],
 )
 def test_create_message_bus(request_type, transport: str = "grpc"):
@@ -9525,7 +9743,7 @@ def test_create_message_bus(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9571,10 +9789,11 @@ def test_create_message_bus_non_empty_request_with_auto_populated_field():
         client.create_message_bus(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.CreateMessageBusRequest(
+        request_msg = eventarc.CreateMessageBusRequest(
             parent="parent_value",
             message_bus_id="message_bus_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_message_bus_use_cached_wrapped_rpc():
@@ -9600,9 +9819,9 @@ def test_create_message_bus_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_message_bus
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_message_bus] = (
+            mock_rpc
+        )
         request = {}
         client.create_message_bus(request)
 
@@ -9669,9 +9888,14 @@ async def test_create_message_bus_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_message_bus_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.CreateMessageBusRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.CreateMessageBusRequest(),
+        {},
+    ],
+)
+async def test_create_message_bus_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -9679,7 +9903,7 @@ async def test_create_message_bus_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9699,11 +9923,6 @@ async def test_create_message_bus_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_message_bus_async_from_dict():
-    await test_create_message_bus_async(request_type=dict)
 
 
 def test_create_message_bus_field_headers():
@@ -9880,8 +10099,8 @@ async def test_create_message_bus_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.UpdateMessageBusRequest,
-        dict,
+        eventarc.UpdateMessageBusRequest(),
+        {},
     ],
 )
 def test_update_message_bus(request_type, transport: str = "grpc"):
@@ -9892,7 +10111,7 @@ def test_update_message_bus(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -9935,7 +10154,8 @@ def test_update_message_bus_non_empty_request_with_auto_populated_field():
         client.update_message_bus(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.UpdateMessageBusRequest()
+        request_msg = eventarc.UpdateMessageBusRequest()
+        assert args[0] == request_msg
 
 
 def test_update_message_bus_use_cached_wrapped_rpc():
@@ -9961,9 +10181,9 @@ def test_update_message_bus_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_message_bus
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_message_bus] = (
+            mock_rpc
+        )
         request = {}
         client.update_message_bus(request)
 
@@ -10030,9 +10250,14 @@ async def test_update_message_bus_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_message_bus_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.UpdateMessageBusRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.UpdateMessageBusRequest(),
+        {},
+    ],
+)
+async def test_update_message_bus_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10040,7 +10265,7 @@ async def test_update_message_bus_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -10060,11 +10285,6 @@ async def test_update_message_bus_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_message_bus_async_from_dict():
-    await test_update_message_bus_async(request_type=dict)
 
 
 def test_update_message_bus_field_headers():
@@ -10231,8 +10451,8 @@ async def test_update_message_bus_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.DeleteMessageBusRequest,
-        dict,
+        eventarc.DeleteMessageBusRequest(),
+        {},
     ],
 )
 def test_delete_message_bus(request_type, transport: str = "grpc"):
@@ -10243,7 +10463,7 @@ def test_delete_message_bus(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -10289,10 +10509,11 @@ def test_delete_message_bus_non_empty_request_with_auto_populated_field():
         client.delete_message_bus(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.DeleteMessageBusRequest(
+        request_msg = eventarc.DeleteMessageBusRequest(
             name="name_value",
             etag="etag_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_message_bus_use_cached_wrapped_rpc():
@@ -10318,9 +10539,9 @@ def test_delete_message_bus_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_message_bus
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_message_bus] = (
+            mock_rpc
+        )
         request = {}
         client.delete_message_bus(request)
 
@@ -10387,9 +10608,14 @@ async def test_delete_message_bus_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_message_bus_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.DeleteMessageBusRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.DeleteMessageBusRequest(),
+        {},
+    ],
+)
+async def test_delete_message_bus_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10397,7 +10623,7 @@ async def test_delete_message_bus_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -10417,11 +10643,6 @@ async def test_delete_message_bus_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_message_bus_async_from_dict():
-    await test_delete_message_bus_async(request_type=dict)
 
 
 def test_delete_message_bus_field_headers():
@@ -10588,8 +10809,8 @@ async def test_delete_message_bus_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.GetEnrollmentRequest,
-        dict,
+        eventarc.GetEnrollmentRequest(),
+        {},
     ],
 )
 def test_get_enrollment(request_type, transport: str = "grpc"):
@@ -10600,7 +10821,7 @@ def test_get_enrollment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_enrollment), "__call__") as call:
@@ -10656,9 +10877,10 @@ def test_get_enrollment_non_empty_request_with_auto_populated_field():
         client.get_enrollment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.GetEnrollmentRequest(
+        request_msg = eventarc.GetEnrollmentRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_enrollment_use_cached_wrapped_rpc():
@@ -10739,9 +10961,14 @@ async def test_get_enrollment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_enrollment_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.GetEnrollmentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.GetEnrollmentRequest(),
+        {},
+    ],
+)
+async def test_get_enrollment_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -10749,7 +10976,7 @@ async def test_get_enrollment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_enrollment), "__call__") as call:
@@ -10782,11 +11009,6 @@ async def test_get_enrollment_async(
     assert response.cel_match == "cel_match_value"
     assert response.message_bus == "message_bus_value"
     assert response.destination == "destination_value"
-
-
-@pytest.mark.asyncio
-async def test_get_enrollment_async_from_dict():
-    await test_get_enrollment_async(request_type=dict)
 
 
 def test_get_enrollment_field_headers():
@@ -10935,8 +11157,8 @@ async def test_get_enrollment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.ListEnrollmentsRequest,
-        dict,
+        eventarc.ListEnrollmentsRequest(),
+        {},
     ],
 )
 def test_list_enrollments(request_type, transport: str = "grpc"):
@@ -10947,7 +11169,7 @@ def test_list_enrollments(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_enrollments), "__call__") as call:
@@ -10996,12 +11218,13 @@ def test_list_enrollments_non_empty_request_with_auto_populated_field():
         client.list_enrollments(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.ListEnrollmentsRequest(
+        request_msg = eventarc.ListEnrollmentsRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_enrollments_use_cached_wrapped_rpc():
@@ -11025,9 +11248,9 @@ def test_list_enrollments_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_enrollments
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_enrollments] = (
+            mock_rpc
+        )
         request = {}
         client.list_enrollments(request)
 
@@ -11084,9 +11307,14 @@ async def test_list_enrollments_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_enrollments_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.ListEnrollmentsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.ListEnrollmentsRequest(),
+        {},
+    ],
+)
+async def test_list_enrollments_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -11094,7 +11322,7 @@ async def test_list_enrollments_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_enrollments), "__call__") as call:
@@ -11117,11 +11345,6 @@ async def test_list_enrollments_async(
     assert isinstance(response, pagers.ListEnrollmentsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_enrollments_async_from_dict():
-    await test_list_enrollments_async(request_type=dict)
 
 
 def test_list_enrollments_field_headers():
@@ -11451,11 +11674,7 @@ async def test_list_enrollments_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_enrollments(request={})
-        ).pages:
+        async for page_ in (await client.list_enrollments(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -11464,8 +11683,8 @@ async def test_list_enrollments_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.CreateEnrollmentRequest,
-        dict,
+        eventarc.CreateEnrollmentRequest(),
+        {},
     ],
 )
 def test_create_enrollment(request_type, transport: str = "grpc"):
@@ -11476,7 +11695,7 @@ def test_create_enrollment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -11522,10 +11741,11 @@ def test_create_enrollment_non_empty_request_with_auto_populated_field():
         client.create_enrollment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.CreateEnrollmentRequest(
+        request_msg = eventarc.CreateEnrollmentRequest(
             parent="parent_value",
             enrollment_id="enrollment_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_enrollment_use_cached_wrapped_rpc():
@@ -11549,9 +11769,9 @@ def test_create_enrollment_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_enrollment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_enrollment] = (
+            mock_rpc
+        )
         request = {}
         client.create_enrollment(request)
 
@@ -11618,9 +11838,14 @@ async def test_create_enrollment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_enrollment_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.CreateEnrollmentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.CreateEnrollmentRequest(),
+        {},
+    ],
+)
+async def test_create_enrollment_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -11628,7 +11853,7 @@ async def test_create_enrollment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -11648,11 +11873,6 @@ async def test_create_enrollment_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_enrollment_async_from_dict():
-    await test_create_enrollment_async(request_type=dict)
 
 
 def test_create_enrollment_field_headers():
@@ -11829,8 +12049,8 @@ async def test_create_enrollment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.UpdateEnrollmentRequest,
-        dict,
+        eventarc.UpdateEnrollmentRequest(),
+        {},
     ],
 )
 def test_update_enrollment(request_type, transport: str = "grpc"):
@@ -11841,7 +12061,7 @@ def test_update_enrollment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -11884,7 +12104,8 @@ def test_update_enrollment_non_empty_request_with_auto_populated_field():
         client.update_enrollment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.UpdateEnrollmentRequest()
+        request_msg = eventarc.UpdateEnrollmentRequest()
+        assert args[0] == request_msg
 
 
 def test_update_enrollment_use_cached_wrapped_rpc():
@@ -11908,9 +12129,9 @@ def test_update_enrollment_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_enrollment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_enrollment] = (
+            mock_rpc
+        )
         request = {}
         client.update_enrollment(request)
 
@@ -11977,9 +12198,14 @@ async def test_update_enrollment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_enrollment_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.UpdateEnrollmentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.UpdateEnrollmentRequest(),
+        {},
+    ],
+)
+async def test_update_enrollment_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -11987,7 +12213,7 @@ async def test_update_enrollment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -12007,11 +12233,6 @@ async def test_update_enrollment_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_enrollment_async_from_dict():
-    await test_update_enrollment_async(request_type=dict)
 
 
 def test_update_enrollment_field_headers():
@@ -12178,8 +12399,8 @@ async def test_update_enrollment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.DeleteEnrollmentRequest,
-        dict,
+        eventarc.DeleteEnrollmentRequest(),
+        {},
     ],
 )
 def test_delete_enrollment(request_type, transport: str = "grpc"):
@@ -12190,7 +12411,7 @@ def test_delete_enrollment(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -12236,10 +12457,11 @@ def test_delete_enrollment_non_empty_request_with_auto_populated_field():
         client.delete_enrollment(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.DeleteEnrollmentRequest(
+        request_msg = eventarc.DeleteEnrollmentRequest(
             name="name_value",
             etag="etag_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_enrollment_use_cached_wrapped_rpc():
@@ -12263,9 +12485,9 @@ def test_delete_enrollment_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_enrollment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_enrollment] = (
+            mock_rpc
+        )
         request = {}
         client.delete_enrollment(request)
 
@@ -12332,9 +12554,14 @@ async def test_delete_enrollment_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_enrollment_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.DeleteEnrollmentRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.DeleteEnrollmentRequest(),
+        {},
+    ],
+)
+async def test_delete_enrollment_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -12342,7 +12569,7 @@ async def test_delete_enrollment_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -12362,11 +12589,6 @@ async def test_delete_enrollment_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_enrollment_async_from_dict():
-    await test_delete_enrollment_async(request_type=dict)
 
 
 def test_delete_enrollment_field_headers():
@@ -12533,8 +12755,8 @@ async def test_delete_enrollment_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.GetPipelineRequest,
-        dict,
+        eventarc.GetPipelineRequest(),
+        {},
     ],
 )
 def test_get_pipeline(request_type, transport: str = "grpc"):
@@ -12545,7 +12767,7 @@ def test_get_pipeline(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_pipeline), "__call__") as call:
@@ -12556,6 +12778,7 @@ def test_get_pipeline(request_type, transport: str = "grpc"):
             display_name="display_name_value",
             crypto_key_name="crypto_key_name_value",
             etag="etag_value",
+            satisfies_pzs=True,
         )
         response = client.get_pipeline(request)
 
@@ -12572,6 +12795,7 @@ def test_get_pipeline(request_type, transport: str = "grpc"):
     assert response.display_name == "display_name_value"
     assert response.crypto_key_name == "crypto_key_name_value"
     assert response.etag == "etag_value"
+    assert response.satisfies_pzs is True
 
 
 def test_get_pipeline_non_empty_request_with_auto_populated_field():
@@ -12597,9 +12821,10 @@ def test_get_pipeline_non_empty_request_with_auto_populated_field():
         client.get_pipeline(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.GetPipelineRequest(
+        request_msg = eventarc.GetPipelineRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_pipeline_use_cached_wrapped_rpc():
@@ -12680,9 +12905,14 @@ async def test_get_pipeline_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_pipeline_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.GetPipelineRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.GetPipelineRequest(),
+        {},
+    ],
+)
+async def test_get_pipeline_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -12690,7 +12920,7 @@ async def test_get_pipeline_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_pipeline), "__call__") as call:
@@ -12702,6 +12932,7 @@ async def test_get_pipeline_async(
                 display_name="display_name_value",
                 crypto_key_name="crypto_key_name_value",
                 etag="etag_value",
+                satisfies_pzs=True,
             )
         )
         response = await client.get_pipeline(request)
@@ -12719,11 +12950,7 @@ async def test_get_pipeline_async(
     assert response.display_name == "display_name_value"
     assert response.crypto_key_name == "crypto_key_name_value"
     assert response.etag == "etag_value"
-
-
-@pytest.mark.asyncio
-async def test_get_pipeline_async_from_dict():
-    await test_get_pipeline_async(request_type=dict)
+    assert response.satisfies_pzs is True
 
 
 def test_get_pipeline_field_headers():
@@ -12868,8 +13095,8 @@ async def test_get_pipeline_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.ListPipelinesRequest,
-        dict,
+        eventarc.ListPipelinesRequest(),
+        {},
     ],
 )
 def test_list_pipelines(request_type, transport: str = "grpc"):
@@ -12880,7 +13107,7 @@ def test_list_pipelines(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_pipelines), "__call__") as call:
@@ -12929,12 +13156,13 @@ def test_list_pipelines_non_empty_request_with_auto_populated_field():
         client.list_pipelines(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.ListPipelinesRequest(
+        request_msg = eventarc.ListPipelinesRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_pipelines_use_cached_wrapped_rpc():
@@ -13015,9 +13243,14 @@ async def test_list_pipelines_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_pipelines_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.ListPipelinesRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.ListPipelinesRequest(),
+        {},
+    ],
+)
+async def test_list_pipelines_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -13025,7 +13258,7 @@ async def test_list_pipelines_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_pipelines), "__call__") as call:
@@ -13048,11 +13281,6 @@ async def test_list_pipelines_async(
     assert isinstance(response, pagers.ListPipelinesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_pipelines_async_from_dict():
-    await test_list_pipelines_async(request_type=dict)
 
 
 def test_list_pipelines_field_headers():
@@ -13382,11 +13610,7 @@ async def test_list_pipelines_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_pipelines(request={})
-        ).pages:
+        async for page_ in (await client.list_pipelines(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -13395,8 +13619,8 @@ async def test_list_pipelines_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.CreatePipelineRequest,
-        dict,
+        eventarc.CreatePipelineRequest(),
+        {},
     ],
 )
 def test_create_pipeline(request_type, transport: str = "grpc"):
@@ -13407,7 +13631,7 @@ def test_create_pipeline(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_pipeline), "__call__") as call:
@@ -13449,10 +13673,11 @@ def test_create_pipeline_non_empty_request_with_auto_populated_field():
         client.create_pipeline(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.CreatePipelineRequest(
+        request_msg = eventarc.CreatePipelineRequest(
             parent="parent_value",
             pipeline_id="pipeline_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_pipeline_use_cached_wrapped_rpc():
@@ -13543,9 +13768,14 @@ async def test_create_pipeline_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_pipeline_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.CreatePipelineRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.CreatePipelineRequest(),
+        {},
+    ],
+)
+async def test_create_pipeline_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -13553,7 +13783,7 @@ async def test_create_pipeline_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_pipeline), "__call__") as call:
@@ -13571,11 +13801,6 @@ async def test_create_pipeline_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_pipeline_async_from_dict():
-    await test_create_pipeline_async(request_type=dict)
 
 
 def test_create_pipeline_field_headers():
@@ -13744,8 +13969,8 @@ async def test_create_pipeline_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.UpdatePipelineRequest,
-        dict,
+        eventarc.UpdatePipelineRequest(),
+        {},
     ],
 )
 def test_update_pipeline(request_type, transport: str = "grpc"):
@@ -13756,7 +13981,7 @@ def test_update_pipeline(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_pipeline), "__call__") as call:
@@ -13795,7 +14020,8 @@ def test_update_pipeline_non_empty_request_with_auto_populated_field():
         client.update_pipeline(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.UpdatePipelineRequest()
+        request_msg = eventarc.UpdatePipelineRequest()
+        assert args[0] == request_msg
 
 
 def test_update_pipeline_use_cached_wrapped_rpc():
@@ -13886,9 +14112,14 @@ async def test_update_pipeline_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_pipeline_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.UpdatePipelineRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.UpdatePipelineRequest(),
+        {},
+    ],
+)
+async def test_update_pipeline_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -13896,7 +14127,7 @@ async def test_update_pipeline_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_pipeline), "__call__") as call:
@@ -13914,11 +14145,6 @@ async def test_update_pipeline_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_pipeline_async_from_dict():
-    await test_update_pipeline_async(request_type=dict)
 
 
 def test_update_pipeline_field_headers():
@@ -14077,8 +14303,8 @@ async def test_update_pipeline_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.DeletePipelineRequest,
-        dict,
+        eventarc.DeletePipelineRequest(),
+        {},
     ],
 )
 def test_delete_pipeline(request_type, transport: str = "grpc"):
@@ -14089,7 +14315,7 @@ def test_delete_pipeline(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_pipeline), "__call__") as call:
@@ -14131,10 +14357,11 @@ def test_delete_pipeline_non_empty_request_with_auto_populated_field():
         client.delete_pipeline(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.DeletePipelineRequest(
+        request_msg = eventarc.DeletePipelineRequest(
             name="name_value",
             etag="etag_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_pipeline_use_cached_wrapped_rpc():
@@ -14225,9 +14452,14 @@ async def test_delete_pipeline_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_pipeline_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.DeletePipelineRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.DeletePipelineRequest(),
+        {},
+    ],
+)
+async def test_delete_pipeline_async(request_type, transport: str = "grpc_asyncio"):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -14235,7 +14467,7 @@ async def test_delete_pipeline_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_pipeline), "__call__") as call:
@@ -14253,11 +14485,6 @@ async def test_delete_pipeline_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_pipeline_async_from_dict():
-    await test_delete_pipeline_async(request_type=dict)
 
 
 def test_delete_pipeline_field_headers():
@@ -14416,8 +14643,8 @@ async def test_delete_pipeline_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.GetGoogleApiSourceRequest,
-        dict,
+        eventarc.GetGoogleApiSourceRequest(),
+        {},
     ],
 )
 def test_get_google_api_source(request_type, transport: str = "grpc"):
@@ -14428,7 +14655,7 @@ def test_get_google_api_source(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -14486,9 +14713,10 @@ def test_get_google_api_source_non_empty_request_with_auto_populated_field():
         client.get_google_api_source(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.GetGoogleApiSourceRequest(
+        request_msg = eventarc.GetGoogleApiSourceRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_google_api_source_use_cached_wrapped_rpc():
@@ -14515,9 +14743,9 @@ def test_get_google_api_source_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_google_api_source
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_google_api_source] = (
+            mock_rpc
+        )
         request = {}
         client.get_google_api_source(request)
 
@@ -14574,8 +14802,15 @@ async def test_get_google_api_source_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.GetGoogleApiSourceRequest(),
+        {},
+    ],
+)
 async def test_get_google_api_source_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.GetGoogleApiSourceRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -14584,7 +14819,7 @@ async def test_get_google_api_source_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -14617,11 +14852,6 @@ async def test_get_google_api_source_async(
     assert response.display_name == "display_name_value"
     assert response.destination == "destination_value"
     assert response.crypto_key_name == "crypto_key_name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_google_api_source_async_from_dict():
-    await test_get_google_api_source_async(request_type=dict)
 
 
 def test_get_google_api_source_field_headers():
@@ -14778,8 +15008,8 @@ async def test_get_google_api_source_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.ListGoogleApiSourcesRequest,
-        dict,
+        eventarc.ListGoogleApiSourcesRequest(),
+        {},
     ],
 )
 def test_list_google_api_sources(request_type, transport: str = "grpc"):
@@ -14790,7 +15020,7 @@ def test_list_google_api_sources(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -14843,12 +15073,13 @@ def test_list_google_api_sources_non_empty_request_with_auto_populated_field():
         client.list_google_api_sources(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.ListGoogleApiSourcesRequest(
+        request_msg = eventarc.ListGoogleApiSourcesRequest(
             parent="parent_value",
             page_token="page_token_value",
             order_by="order_by_value",
             filter="filter_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_google_api_sources_use_cached_wrapped_rpc():
@@ -14934,8 +15165,15 @@ async def test_list_google_api_sources_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.ListGoogleApiSourcesRequest(),
+        {},
+    ],
+)
 async def test_list_google_api_sources_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.ListGoogleApiSourcesRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -14944,7 +15182,7 @@ async def test_list_google_api_sources_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -14969,11 +15207,6 @@ async def test_list_google_api_sources_async(
     assert isinstance(response, pagers.ListGoogleApiSourcesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
     assert response.unreachable == ["unreachable_value"]
-
-
-@pytest.mark.asyncio
-async def test_list_google_api_sources_async_from_dict():
-    await test_list_google_api_sources_async(request_type=dict)
 
 
 def test_list_google_api_sources_field_headers():
@@ -15319,11 +15552,7 @@ async def test_list_google_api_sources_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_google_api_sources(request={})
-        ).pages:
+        async for page_ in (await client.list_google_api_sources(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -15332,8 +15561,8 @@ async def test_list_google_api_sources_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.CreateGoogleApiSourceRequest,
-        dict,
+        eventarc.CreateGoogleApiSourceRequest(),
+        {},
     ],
 )
 def test_create_google_api_source(request_type, transport: str = "grpc"):
@@ -15344,7 +15573,7 @@ def test_create_google_api_source(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -15390,10 +15619,11 @@ def test_create_google_api_source_non_empty_request_with_auto_populated_field():
         client.create_google_api_source(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.CreateGoogleApiSourceRequest(
+        request_msg = eventarc.CreateGoogleApiSourceRequest(
             parent="parent_value",
             google_api_source_id="google_api_source_id_value",
         )
+        assert args[0] == request_msg
 
 
 def test_create_google_api_source_use_cached_wrapped_rpc():
@@ -15489,8 +15719,15 @@ async def test_create_google_api_source_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.CreateGoogleApiSourceRequest(),
+        {},
+    ],
+)
 async def test_create_google_api_source_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.CreateGoogleApiSourceRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -15499,7 +15736,7 @@ async def test_create_google_api_source_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -15519,11 +15756,6 @@ async def test_create_google_api_source_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_create_google_api_source_async_from_dict():
-    await test_create_google_api_source_async(request_type=dict)
 
 
 def test_create_google_api_source_field_headers():
@@ -15700,8 +15932,8 @@ async def test_create_google_api_source_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.UpdateGoogleApiSourceRequest,
-        dict,
+        eventarc.UpdateGoogleApiSourceRequest(),
+        {},
     ],
 )
 def test_update_google_api_source(request_type, transport: str = "grpc"):
@@ -15712,7 +15944,7 @@ def test_update_google_api_source(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -15755,7 +15987,8 @@ def test_update_google_api_source_non_empty_request_with_auto_populated_field():
         client.update_google_api_source(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.UpdateGoogleApiSourceRequest()
+        request_msg = eventarc.UpdateGoogleApiSourceRequest()
+        assert args[0] == request_msg
 
 
 def test_update_google_api_source_use_cached_wrapped_rpc():
@@ -15851,8 +16084,15 @@ async def test_update_google_api_source_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.UpdateGoogleApiSourceRequest(),
+        {},
+    ],
+)
 async def test_update_google_api_source_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.UpdateGoogleApiSourceRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -15861,7 +16101,7 @@ async def test_update_google_api_source_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -15881,11 +16121,6 @@ async def test_update_google_api_source_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_update_google_api_source_async_from_dict():
-    await test_update_google_api_source_async(request_type=dict)
 
 
 def test_update_google_api_source_field_headers():
@@ -16052,8 +16287,8 @@ async def test_update_google_api_source_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        eventarc.DeleteGoogleApiSourceRequest,
-        dict,
+        eventarc.DeleteGoogleApiSourceRequest(),
+        {},
     ],
 )
 def test_delete_google_api_source(request_type, transport: str = "grpc"):
@@ -16064,7 +16299,7 @@ def test_delete_google_api_source(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -16110,10 +16345,11 @@ def test_delete_google_api_source_non_empty_request_with_auto_populated_field():
         client.delete_google_api_source(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == eventarc.DeleteGoogleApiSourceRequest(
+        request_msg = eventarc.DeleteGoogleApiSourceRequest(
             name="name_value",
             etag="etag_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_google_api_source_use_cached_wrapped_rpc():
@@ -16209,8 +16445,15 @@ async def test_delete_google_api_source_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        eventarc.DeleteGoogleApiSourceRequest(),
+        {},
+    ],
+)
 async def test_delete_google_api_source_async(
-    transport: str = "grpc_asyncio", request_type=eventarc.DeleteGoogleApiSourceRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = EventarcAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -16219,7 +16462,7 @@ async def test_delete_google_api_source_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -16239,11 +16482,6 @@ async def test_delete_google_api_source_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_google_api_source_async_from_dict():
-    await test_delete_google_api_source_async(request_type=dict)
 
 
 def test_delete_google_api_source_field_headers():
@@ -16513,7 +16751,7 @@ def test_get_trigger_rest_required_fields(request_type=eventarc.GetTriggerReques
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_trigger_rest_unset_required_fields():
@@ -16697,7 +16935,7 @@ def test_list_triggers_rest_required_fields(request_type=eventarc.ListTriggersRe
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_triggers_rest_unset_required_fields():
@@ -16967,7 +17205,7 @@ def test_create_trigger_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_trigger_rest_unset_required_fields():
@@ -17271,7 +17509,7 @@ def test_delete_trigger_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_trigger_rest_unset_required_fields():
@@ -17455,7 +17693,7 @@ def test_get_channel_rest_required_fields(request_type=eventarc.GetChannelReques
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_channel_rest_unset_required_fields():
@@ -17638,7 +17876,7 @@ def test_list_channels_rest_required_fields(request_type=eventarc.ListChannelsRe
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_channels_rest_unset_required_fields():
@@ -17907,7 +18145,7 @@ def test_create_channel_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_channel_rest_unset_required_fields():
@@ -18203,7 +18441,7 @@ def test_delete_channel_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_channel_rest_unset_required_fields():
@@ -18376,7 +18614,7 @@ def test_get_provider_rest_required_fields(request_type=eventarc.GetProviderRequ
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_provider_rest_unset_required_fields():
@@ -18564,7 +18802,7 @@ def test_list_providers_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_providers_rest_unset_required_fields():
@@ -18728,9 +18966,9 @@ def test_get_channel_connection_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_channel_connection
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_channel_connection] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_channel_connection(request)
@@ -18817,7 +19055,7 @@ def test_get_channel_connection_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_channel_connection_rest_unset_required_fields():
@@ -19009,7 +19247,7 @@ def test_list_channel_connections_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_channel_connections_rest_unset_required_fields():
@@ -19283,7 +19521,7 @@ def test_create_channel_connection_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_channel_connection_rest_unset_required_fields():
@@ -19482,7 +19720,7 @@ def test_delete_channel_connection_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_channel_connection_rest_unset_required_fields():
@@ -19665,7 +19903,7 @@ def test_get_google_channel_config_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_google_channel_config_rest_unset_required_fields():
@@ -19850,7 +20088,7 @@ def test_update_google_channel_config_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_google_channel_config_rest_unset_required_fields():
@@ -20038,7 +20276,7 @@ def test_get_message_bus_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_message_bus_rest_unset_required_fields():
@@ -20133,9 +20371,9 @@ def test_list_message_buses_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_message_buses
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_message_buses] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_message_buses(request)
@@ -20231,7 +20469,7 @@ def test_list_message_buses_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_message_buses_rest_unset_required_fields():
@@ -20492,7 +20730,7 @@ def test_list_message_bus_enrollments_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_message_bus_enrollments_rest_unset_required_fields():
@@ -20660,9 +20898,9 @@ def test_create_message_bus_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_message_bus
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_message_bus] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_message_bus(request)
@@ -20771,7 +21009,7 @@ def test_create_message_bus_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_message_bus_rest_unset_required_fields():
@@ -20880,9 +21118,9 @@ def test_update_message_bus_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_message_bus
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_message_bus] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_message_bus(request)
@@ -20974,7 +21212,7 @@ def test_update_message_bus_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_message_bus_rest_unset_required_fields():
@@ -21080,9 +21318,9 @@ def test_delete_message_bus_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_message_bus
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_message_bus] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_message_bus(request)
@@ -21178,7 +21416,7 @@ def test_delete_message_bus_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_message_bus_rest_unset_required_fields():
@@ -21367,7 +21605,7 @@ def test_get_enrollment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_enrollment_rest_unset_required_fields():
@@ -21460,9 +21698,9 @@ def test_list_enrollments_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_enrollments
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_enrollments] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_enrollments(request)
@@ -21558,7 +21796,7 @@ def test_list_enrollments_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_enrollments_rest_unset_required_fields():
@@ -21720,9 +21958,9 @@ def test_create_enrollment_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_enrollment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_enrollment] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_enrollment(request)
@@ -21831,7 +22069,7 @@ def test_create_enrollment_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_enrollment_rest_unset_required_fields():
@@ -21938,9 +22176,9 @@ def test_update_enrollment_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_enrollment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_enrollment] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_enrollment(request)
@@ -22032,7 +22270,7 @@ def test_update_enrollment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_enrollment_rest_unset_required_fields():
@@ -22136,9 +22374,9 @@ def test_delete_enrollment_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_enrollment
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_enrollment] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_enrollment(request)
@@ -22234,7 +22472,7 @@ def test_delete_enrollment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_enrollment_rest_unset_required_fields():
@@ -22421,7 +22659,7 @@ def test_get_pipeline_rest_required_fields(request_type=eventarc.GetPipelineRequ
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_pipeline_rest_unset_required_fields():
@@ -22609,7 +22847,7 @@ def test_list_pipelines_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_pipelines_rest_unset_required_fields():
@@ -22879,7 +23117,7 @@ def test_create_pipeline_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_pipeline_rest_unset_required_fields():
@@ -23077,7 +23315,7 @@ def test_update_pipeline_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_pipeline_rest_unset_required_fields():
@@ -23275,7 +23513,7 @@ def test_delete_pipeline_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_pipeline_rest_unset_required_fields():
@@ -23379,9 +23617,9 @@ def test_get_google_api_source_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_google_api_source
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_google_api_source] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_google_api_source(request)
@@ -23468,7 +23706,7 @@ def test_get_google_api_source_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_google_api_source_rest_unset_required_fields():
@@ -23662,7 +23900,7 @@ def test_list_google_api_sources_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_google_api_sources_rest_unset_required_fields():
@@ -23942,7 +24180,7 @@ def test_create_google_api_source_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_google_api_source_rest_unset_required_fields():
@@ -24146,7 +24384,7 @@ def test_update_google_api_source_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_google_api_source_rest_unset_required_fields():
@@ -24351,7 +24589,7 @@ def test_delete_google_api_source_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_google_api_source_rest_unset_required_fields():
@@ -24555,7 +24793,6 @@ def test_get_trigger_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetTriggerRequest()
-
         assert args[0] == request_msg
 
 
@@ -24576,7 +24813,6 @@ def test_list_triggers_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListTriggersRequest()
-
         assert args[0] == request_msg
 
 
@@ -24597,7 +24833,6 @@ def test_create_trigger_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateTriggerRequest()
-
         assert args[0] == request_msg
 
 
@@ -24618,7 +24853,6 @@ def test_update_trigger_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateTriggerRequest()
-
         assert args[0] == request_msg
 
 
@@ -24639,7 +24873,6 @@ def test_delete_trigger_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteTriggerRequest()
-
         assert args[0] == request_msg
 
 
@@ -24660,7 +24893,6 @@ def test_get_channel_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -24681,7 +24913,6 @@ def test_list_channels_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListChannelsRequest()
-
         assert args[0] == request_msg
 
 
@@ -24702,7 +24933,6 @@ def test_create_channel_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -24723,7 +24953,6 @@ def test_update_channel_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -24744,7 +24973,6 @@ def test_delete_channel_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -24765,7 +24993,6 @@ def test_get_provider_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetProviderRequest()
-
         assert args[0] == request_msg
 
 
@@ -24786,7 +25013,6 @@ def test_list_providers_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListProvidersRequest()
-
         assert args[0] == request_msg
 
 
@@ -24809,7 +25035,6 @@ def test_get_channel_connection_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetChannelConnectionRequest()
-
         assert args[0] == request_msg
 
 
@@ -24832,7 +25057,6 @@ def test_list_channel_connections_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListChannelConnectionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -24855,7 +25079,6 @@ def test_create_channel_connection_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateChannelConnectionRequest()
-
         assert args[0] == request_msg
 
 
@@ -24878,7 +25101,6 @@ def test_delete_channel_connection_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteChannelConnectionRequest()
-
         assert args[0] == request_msg
 
 
@@ -24901,7 +25123,6 @@ def test_get_google_channel_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetGoogleChannelConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -24924,7 +25145,6 @@ def test_update_google_channel_config_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateGoogleChannelConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -24945,7 +25165,6 @@ def test_get_message_bus_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetMessageBusRequest()
-
         assert args[0] == request_msg
 
 
@@ -24968,7 +25187,6 @@ def test_list_message_buses_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListMessageBusesRequest()
-
         assert args[0] == request_msg
 
 
@@ -24991,7 +25209,6 @@ def test_list_message_bus_enrollments_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListMessageBusEnrollmentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -25014,7 +25231,6 @@ def test_create_message_bus_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateMessageBusRequest()
-
         assert args[0] == request_msg
 
 
@@ -25037,7 +25253,6 @@ def test_update_message_bus_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateMessageBusRequest()
-
         assert args[0] == request_msg
 
 
@@ -25060,7 +25275,6 @@ def test_delete_message_bus_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteMessageBusRequest()
-
         assert args[0] == request_msg
 
 
@@ -25081,7 +25295,6 @@ def test_get_enrollment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetEnrollmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -25102,7 +25315,6 @@ def test_list_enrollments_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListEnrollmentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -25125,7 +25337,6 @@ def test_create_enrollment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateEnrollmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -25148,7 +25359,6 @@ def test_update_enrollment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateEnrollmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -25171,7 +25381,6 @@ def test_delete_enrollment_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteEnrollmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -25192,7 +25401,6 @@ def test_get_pipeline_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetPipelineRequest()
-
         assert args[0] == request_msg
 
 
@@ -25213,7 +25421,6 @@ def test_list_pipelines_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListPipelinesRequest()
-
         assert args[0] == request_msg
 
 
@@ -25234,7 +25441,6 @@ def test_create_pipeline_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreatePipelineRequest()
-
         assert args[0] == request_msg
 
 
@@ -25255,7 +25461,6 @@ def test_update_pipeline_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdatePipelineRequest()
-
         assert args[0] == request_msg
 
 
@@ -25276,7 +25481,6 @@ def test_delete_pipeline_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeletePipelineRequest()
-
         assert args[0] == request_msg
 
 
@@ -25299,7 +25503,6 @@ def test_get_google_api_source_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetGoogleApiSourceRequest()
-
         assert args[0] == request_msg
 
 
@@ -25322,7 +25525,6 @@ def test_list_google_api_sources_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListGoogleApiSourcesRequest()
-
         assert args[0] == request_msg
 
 
@@ -25345,7 +25547,6 @@ def test_create_google_api_source_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateGoogleApiSourceRequest()
-
         assert args[0] == request_msg
 
 
@@ -25368,7 +25569,6 @@ def test_update_google_api_source_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateGoogleApiSourceRequest()
-
         assert args[0] == request_msg
 
 
@@ -25391,7 +25591,6 @@ def test_delete_google_api_source_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteGoogleApiSourceRequest()
-
         assert args[0] == request_msg
 
 
@@ -25438,7 +25637,6 @@ async def test_get_trigger_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetTriggerRequest()
-
         assert args[0] == request_msg
 
 
@@ -25466,7 +25664,6 @@ async def test_list_triggers_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListTriggersRequest()
-
         assert args[0] == request_msg
 
 
@@ -25491,7 +25688,6 @@ async def test_create_trigger_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateTriggerRequest()
-
         assert args[0] == request_msg
 
 
@@ -25516,7 +25712,6 @@ async def test_update_trigger_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateTriggerRequest()
-
         assert args[0] == request_msg
 
 
@@ -25541,7 +25736,6 @@ async def test_delete_trigger_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteTriggerRequest()
-
         assert args[0] == request_msg
 
 
@@ -25574,7 +25768,6 @@ async def test_get_channel_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -25602,7 +25795,6 @@ async def test_list_channels_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListChannelsRequest()
-
         assert args[0] == request_msg
 
 
@@ -25627,7 +25819,6 @@ async def test_create_channel_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -25652,7 +25843,6 @@ async def test_update_channel_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -25677,7 +25867,6 @@ async def test_delete_channel_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -25705,7 +25894,6 @@ async def test_get_provider_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetProviderRequest()
-
         assert args[0] == request_msg
 
 
@@ -25733,7 +25921,6 @@ async def test_list_providers_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListProvidersRequest()
-
         assert args[0] == request_msg
 
 
@@ -25765,7 +25952,6 @@ async def test_get_channel_connection_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetChannelConnectionRequest()
-
         assert args[0] == request_msg
 
 
@@ -25795,7 +25981,6 @@ async def test_list_channel_connections_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListChannelConnectionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -25822,7 +26007,6 @@ async def test_create_channel_connection_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateChannelConnectionRequest()
-
         assert args[0] == request_msg
 
 
@@ -25849,7 +26033,6 @@ async def test_delete_channel_connection_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteChannelConnectionRequest()
-
         assert args[0] == request_msg
 
 
@@ -25879,7 +26062,6 @@ async def test_get_google_channel_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetGoogleChannelConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -25909,7 +26091,6 @@ async def test_update_google_channel_config_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateGoogleChannelConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -25940,7 +26121,6 @@ async def test_get_message_bus_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetMessageBusRequest()
-
         assert args[0] == request_msg
 
 
@@ -25970,7 +26150,6 @@ async def test_list_message_buses_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListMessageBusesRequest()
-
         assert args[0] == request_msg
 
 
@@ -26001,7 +26180,6 @@ async def test_list_message_bus_enrollments_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListMessageBusEnrollmentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -26028,7 +26206,6 @@ async def test_create_message_bus_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateMessageBusRequest()
-
         assert args[0] == request_msg
 
 
@@ -26055,7 +26232,6 @@ async def test_update_message_bus_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateMessageBusRequest()
-
         assert args[0] == request_msg
 
 
@@ -26082,7 +26258,6 @@ async def test_delete_message_bus_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteMessageBusRequest()
-
         assert args[0] == request_msg
 
 
@@ -26115,7 +26290,6 @@ async def test_get_enrollment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetEnrollmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -26143,7 +26317,6 @@ async def test_list_enrollments_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListEnrollmentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -26170,7 +26343,6 @@ async def test_create_enrollment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateEnrollmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -26197,7 +26369,6 @@ async def test_update_enrollment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateEnrollmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -26224,7 +26395,6 @@ async def test_delete_enrollment_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteEnrollmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -26247,6 +26417,7 @@ async def test_get_pipeline_empty_call_grpc_asyncio():
                 display_name="display_name_value",
                 crypto_key_name="crypto_key_name_value",
                 etag="etag_value",
+                satisfies_pzs=True,
             )
         )
         await client.get_pipeline(request=None)
@@ -26255,7 +26426,6 @@ async def test_get_pipeline_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetPipelineRequest()
-
         assert args[0] == request_msg
 
 
@@ -26283,7 +26453,6 @@ async def test_list_pipelines_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListPipelinesRequest()
-
         assert args[0] == request_msg
 
 
@@ -26308,7 +26477,6 @@ async def test_create_pipeline_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreatePipelineRequest()
-
         assert args[0] == request_msg
 
 
@@ -26333,7 +26501,6 @@ async def test_update_pipeline_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdatePipelineRequest()
-
         assert args[0] == request_msg
 
 
@@ -26358,7 +26525,6 @@ async def test_delete_pipeline_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeletePipelineRequest()
-
         assert args[0] == request_msg
 
 
@@ -26392,7 +26558,6 @@ async def test_get_google_api_source_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetGoogleApiSourceRequest()
-
         assert args[0] == request_msg
 
 
@@ -26422,7 +26587,6 @@ async def test_list_google_api_sources_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListGoogleApiSourcesRequest()
-
         assert args[0] == request_msg
 
 
@@ -26449,7 +26613,6 @@ async def test_create_google_api_source_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateGoogleApiSourceRequest()
-
         assert args[0] == request_msg
 
 
@@ -26476,7 +26639,6 @@ async def test_update_google_api_source_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateGoogleApiSourceRequest()
-
         assert args[0] == request_msg
 
 
@@ -26503,7 +26665,6 @@ async def test_delete_google_api_source_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteGoogleApiSourceRequest()
-
         assert args[0] == request_msg
 
 
@@ -26523,8 +26684,9 @@ def test_get_trigger_rest_bad_request(request_type=eventarc.GetTriggerRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26597,17 +26759,17 @@ def test_get_trigger_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_trigger"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_trigger_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_get_trigger"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_trigger"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_trigger_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.EventarcRestInterceptor, "pre_get_trigger") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26656,8 +26818,9 @@ def test_list_triggers_rest_bad_request(request_type=eventarc.ListTriggersReques
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26720,17 +26883,19 @@ def test_list_triggers_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_triggers"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_triggers_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_list_triggers"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_triggers"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_triggers_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_list_triggers"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26781,8 +26946,9 @@ def test_create_trigger_rest_bad_request(request_type=eventarc.CreateTriggerRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26848,6 +27014,7 @@ def test_create_trigger_rest_call_success(request_type):
         "conditions": {},
         "event_data_content_type": "event_data_content_type_value",
         "satisfies_pzs": True,
+        "retry_policy": {"max_attempts": 1303},
         "etag": "etag_value",
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
@@ -26945,19 +27112,20 @@ def test_create_trigger_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_create_trigger"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_create_trigger_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_create_trigger"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_create_trigger"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_create_trigger_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_create_trigger"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -27008,8 +27176,9 @@ def test_update_trigger_rest_bad_request(request_type=eventarc.UpdateTriggerRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -27077,6 +27246,7 @@ def test_update_trigger_rest_call_success(request_type):
         "conditions": {},
         "event_data_content_type": "event_data_content_type_value",
         "satisfies_pzs": True,
+        "retry_policy": {"max_attempts": 1303},
         "etag": "etag_value",
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
@@ -27174,19 +27344,20 @@ def test_update_trigger_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_update_trigger"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_update_trigger_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_update_trigger"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_update_trigger"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_update_trigger_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_update_trigger"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -27235,8 +27406,9 @@ def test_delete_trigger_rest_bad_request(request_type=eventarc.DeleteTriggerRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -27291,19 +27463,20 @@ def test_delete_trigger_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_delete_trigger"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_delete_trigger_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_delete_trigger"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_delete_trigger"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_delete_trigger_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_delete_trigger"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -27352,8 +27525,9 @@ def test_get_channel_rest_bad_request(request_type=eventarc.GetChannelRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -27427,17 +27601,17 @@ def test_get_channel_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_channel"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_channel_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_get_channel"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_channel"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_channel_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.EventarcRestInterceptor, "pre_get_channel") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -27486,8 +27660,9 @@ def test_list_channels_rest_bad_request(request_type=eventarc.ListChannelsReques
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -27550,17 +27725,19 @@ def test_list_channels_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_channels"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_channels_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_list_channels"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_channels"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_channels_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_list_channels"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -27611,8 +27788,9 @@ def test_create_channel_rest_bad_request(request_type=eventarc.CreateChannelRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -27650,6 +27828,7 @@ def test_create_channel_rest_call_success(request_type):
         "activation_token": "activation_token_value",
         "crypto_key_name": "crypto_key_name_value",
         "satisfies_pzs": True,
+        "labels": {},
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -27746,19 +27925,20 @@ def test_create_channel_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_create_channel"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_create_channel_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_create_channel"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_create_channel"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_create_channel_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_create_channel"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -27809,8 +27989,9 @@ def test_update_channel_rest_bad_request(request_type=eventarc.UpdateChannelRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -27850,6 +28031,7 @@ def test_update_channel_rest_call_success(request_type):
         "activation_token": "activation_token_value",
         "crypto_key_name": "crypto_key_name_value",
         "satisfies_pzs": True,
+        "labels": {},
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -27946,19 +28128,20 @@ def test_update_channel_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_update_channel"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_update_channel_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_update_channel"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_update_channel"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_update_channel_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_update_channel"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -28007,8 +28190,9 @@ def test_delete_channel_rest_bad_request(request_type=eventarc.DeleteChannelRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -28063,19 +28247,20 @@ def test_delete_channel_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_delete_channel"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_delete_channel_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_delete_channel"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_delete_channel"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_delete_channel_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_delete_channel"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -28124,8 +28309,9 @@ def test_get_provider_rest_bad_request(request_type=eventarc.GetProviderRequest)
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -28188,17 +28374,19 @@ def test_get_provider_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_provider"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_provider_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_get_provider"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_provider"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_provider_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_get_provider"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -28247,8 +28435,9 @@ def test_list_providers_rest_bad_request(request_type=eventarc.ListProvidersRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -28311,17 +28500,19 @@ def test_list_providers_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_providers"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_providers_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_list_providers"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_providers"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_providers_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_list_providers"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -28376,8 +28567,9 @@ def test_get_channel_connection_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -28446,17 +28638,20 @@ def test_get_channel_connection_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_channel_connection"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_channel_connection_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_get_channel_connection"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_channel_connection"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor,
+            "post_get_channel_connection_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_get_channel_connection"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -28514,8 +28709,9 @@ def test_list_channel_connections_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -28578,18 +28774,20 @@ def test_list_channel_connections_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_channel_connections"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor,
-        "post_list_channel_connections_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_list_channel_connections"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_channel_connections"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor,
+            "post_list_channel_connections_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_list_channel_connections"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -28647,8 +28845,9 @@ def test_create_channel_connection_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -28682,6 +28881,7 @@ def test_create_channel_connection_rest_call_success(request_type):
         "create_time": {"seconds": 751, "nanos": 543},
         "update_time": {},
         "activation_token": "activation_token_value",
+        "labels": {},
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -28780,20 +28980,21 @@ def test_create_channel_connection_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_create_channel_connection"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor,
-        "post_create_channel_connection_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_create_channel_connection"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_create_channel_connection"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor,
+            "post_create_channel_connection_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_create_channel_connection"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -28848,8 +29049,9 @@ def test_delete_channel_connection_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -28906,20 +29108,21 @@ def test_delete_channel_connection_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_delete_channel_connection"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor,
-        "post_delete_channel_connection_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_delete_channel_connection"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_delete_channel_connection"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor,
+            "post_delete_channel_connection_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_delete_channel_connection"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -28972,8 +29175,9 @@ def test_get_google_channel_config_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -29036,18 +29240,20 @@ def test_get_google_channel_config_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_google_channel_config"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor,
-        "post_get_google_channel_config_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_get_google_channel_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_google_channel_config"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor,
+            "post_get_google_channel_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_get_google_channel_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -29109,8 +29315,9 @@ def test_update_google_channel_config_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -29145,6 +29352,7 @@ def test_update_google_channel_config_rest_call_success(request_type):
         "name": "projects/sample1/locations/sample2/googleChannelConfig",
         "update_time": {"seconds": 751, "nanos": 543},
         "crypto_key_name": "crypto_key_name_value",
+        "labels": {},
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -29253,18 +29461,20 @@ def test_update_google_channel_config_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_update_google_channel_config"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor,
-        "post_update_google_channel_config_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_update_google_channel_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_update_google_channel_config"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor,
+            "post_update_google_channel_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_update_google_channel_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -29320,8 +29530,9 @@ def test_get_message_bus_rest_bad_request(request_type=eventarc.GetMessageBusReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -29390,17 +29601,19 @@ def test_get_message_bus_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_message_bus"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_message_bus_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_get_message_bus"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_message_bus"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_message_bus_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_get_message_bus"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -29451,8 +29664,9 @@ def test_list_message_buses_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -29515,17 +29729,19 @@ def test_list_message_buses_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_message_buses"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_message_buses_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_list_message_buses"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_message_buses"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_message_buses_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_list_message_buses"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -29580,8 +29796,9 @@ def test_list_message_bus_enrollments_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -29646,18 +29863,20 @@ def test_list_message_bus_enrollments_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_message_bus_enrollments"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor,
-        "post_list_message_bus_enrollments_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_list_message_bus_enrollments"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_message_bus_enrollments"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor,
+            "post_list_message_bus_enrollments_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_list_message_bus_enrollments"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -29715,8 +29934,9 @@ def test_create_message_bus_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -29850,19 +30070,20 @@ def test_create_message_bus_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_create_message_bus"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_create_message_bus_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_create_message_bus"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_create_message_bus"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_create_message_bus_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_create_message_bus"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -29919,8 +30140,9 @@ def test_update_message_bus_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30058,19 +30280,20 @@ def test_update_message_bus_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_update_message_bus"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_update_message_bus_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_update_message_bus"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_update_message_bus"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_update_message_bus_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_update_message_bus"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30123,8 +30346,9 @@ def test_delete_message_bus_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30179,19 +30403,20 @@ def test_delete_message_bus_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_delete_message_bus"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_delete_message_bus_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_delete_message_bus"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_delete_message_bus"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_delete_message_bus_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_delete_message_bus"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30242,8 +30467,9 @@ def test_get_enrollment_rest_bad_request(request_type=eventarc.GetEnrollmentRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30316,17 +30542,19 @@ def test_get_enrollment_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_enrollment"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_enrollment_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_get_enrollment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_enrollment"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_enrollment_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_get_enrollment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30377,8 +30605,9 @@ def test_list_enrollments_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30441,17 +30670,19 @@ def test_list_enrollments_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_enrollments"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_enrollments_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_list_enrollments"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_enrollments"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_enrollments_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_list_enrollments"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30506,8 +30737,9 @@ def test_create_enrollment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30642,19 +30874,20 @@ def test_create_enrollment_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_create_enrollment"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_create_enrollment_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_create_enrollment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_create_enrollment"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_create_enrollment_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_create_enrollment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30709,8 +30942,9 @@ def test_update_enrollment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30847,19 +31081,20 @@ def test_update_enrollment_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_update_enrollment"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_update_enrollment_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_update_enrollment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_update_enrollment"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_update_enrollment_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_update_enrollment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30912,8 +31147,9 @@ def test_delete_enrollment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30968,19 +31204,20 @@ def test_delete_enrollment_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_delete_enrollment"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_delete_enrollment_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_delete_enrollment"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_delete_enrollment"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_delete_enrollment_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_delete_enrollment"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31031,8 +31268,9 @@ def test_get_pipeline_rest_bad_request(request_type=eventarc.GetPipelineRequest)
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31070,6 +31308,7 @@ def test_get_pipeline_rest_call_success(request_type):
             display_name="display_name_value",
             crypto_key_name="crypto_key_name_value",
             etag="etag_value",
+            satisfies_pzs=True,
         )
 
         # Wrap the value into a proper Response obj
@@ -31091,6 +31330,7 @@ def test_get_pipeline_rest_call_success(request_type):
     assert response.display_name == "display_name_value"
     assert response.crypto_key_name == "crypto_key_name_value"
     assert response.etag == "etag_value"
+    assert response.satisfies_pzs is True
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -31101,17 +31341,19 @@ def test_get_pipeline_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_pipeline"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_pipeline_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_get_pipeline"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_pipeline"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_pipeline_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_get_pipeline"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31160,8 +31402,9 @@ def test_list_pipelines_rest_bad_request(request_type=eventarc.ListPipelinesRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31224,17 +31467,19 @@ def test_list_pipelines_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_pipelines"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_pipelines_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_list_pipelines"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_pipelines"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_pipelines_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_list_pipelines"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31285,8 +31530,9 @@ def test_create_pipeline_rest_bad_request(request_type=eventarc.CreatePipelineRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31364,6 +31610,7 @@ def test_create_pipeline_rest_call_success(request_type):
             "max_retry_delay": {},
         },
         "etag": "etag_value",
+        "satisfies_pzs": True,
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -31460,19 +31707,20 @@ def test_create_pipeline_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_create_pipeline"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_create_pipeline_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_create_pipeline"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_create_pipeline"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_create_pipeline_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_create_pipeline"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31523,8 +31771,9 @@ def test_update_pipeline_rest_bad_request(request_type=eventarc.UpdatePipelineRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31604,6 +31853,7 @@ def test_update_pipeline_rest_call_success(request_type):
             "max_retry_delay": {},
         },
         "etag": "etag_value",
+        "satisfies_pzs": True,
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -31700,19 +31950,20 @@ def test_update_pipeline_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_update_pipeline"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_update_pipeline_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_update_pipeline"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_update_pipeline"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_update_pipeline_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_update_pipeline"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31761,8 +32012,9 @@ def test_delete_pipeline_rest_bad_request(request_type=eventarc.DeletePipelineRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31817,19 +32069,20 @@ def test_delete_pipeline_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_delete_pipeline"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_delete_pipeline_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_delete_pipeline"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_delete_pipeline"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_delete_pipeline_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_delete_pipeline"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31882,8 +32135,9 @@ def test_get_google_api_source_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31956,17 +32210,20 @@ def test_get_google_api_source_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_google_api_source"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_get_google_api_source_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_get_google_api_source"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_get_google_api_source"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor,
+            "post_get_google_api_source_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_get_google_api_source"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -32021,8 +32278,9 @@ def test_list_google_api_sources_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -32085,17 +32343,20 @@ def test_list_google_api_sources_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_google_api_sources"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor, "post_list_google_api_sources_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_list_google_api_sources"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_list_google_api_sources"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor,
+            "post_list_google_api_sources_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_list_google_api_sources"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -32153,8 +32414,9 @@ def test_create_google_api_source_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -32193,6 +32455,8 @@ def test_create_google_api_source_rest_call_success(request_type):
         "destination": "destination_value",
         "crypto_key_name": "crypto_key_name_value",
         "logging_config": {"log_severity": 1},
+        "organization_subscription": {"enabled": True},
+        "project_subscriptions": {"list_": ["list__value1", "list__value2"]},
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -32289,20 +32553,21 @@ def test_create_google_api_source_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_create_google_api_source"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor,
-        "post_create_google_api_source_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_create_google_api_source"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_create_google_api_source"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor,
+            "post_create_google_api_source_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_create_google_api_source"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -32359,8 +32624,9 @@ def test_update_google_api_source_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -32403,6 +32669,8 @@ def test_update_google_api_source_rest_call_success(request_type):
         "destination": "destination_value",
         "crypto_key_name": "crypto_key_name_value",
         "logging_config": {"log_severity": 1},
+        "organization_subscription": {"enabled": True},
+        "project_subscriptions": {"list_": ["list__value1", "list__value2"]},
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -32499,20 +32767,21 @@ def test_update_google_api_source_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_update_google_api_source"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor,
-        "post_update_google_api_source_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_update_google_api_source"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_update_google_api_source"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor,
+            "post_update_google_api_source_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_update_google_api_source"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -32567,8 +32836,9 @@ def test_delete_google_api_source_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -32625,20 +32895,21 @@ def test_delete_google_api_source_rest_interceptors(null_interceptor):
     )
     client = EventarcClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.EventarcRestInterceptor, "post_delete_google_api_source"
-    ) as post, mock.patch.object(
-        transports.EventarcRestInterceptor,
-        "post_delete_google_api_source_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.EventarcRestInterceptor, "pre_delete_google_api_source"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "post_delete_google_api_source"
+        ) as post,
+        mock.patch.object(
+            transports.EventarcRestInterceptor,
+            "post_delete_google_api_source_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.EventarcRestInterceptor, "pre_delete_google_api_source"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -32691,8 +32962,9 @@ def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationReq
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -32751,8 +33023,9 @@ def test_list_locations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -32813,8 +33086,9 @@ def test_get_iam_policy_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -32875,8 +33149,9 @@ def test_set_iam_policy_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -32937,8 +33212,9 @@ def test_test_iam_permissions_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -32999,8 +33275,9 @@ def test_cancel_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -33061,8 +33338,9 @@ def test_delete_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -33123,8 +33401,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -33185,8 +33464,9 @@ def test_list_operations_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -33257,7 +33537,6 @@ def test_get_trigger_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetTriggerRequest()
-
         assert args[0] == request_msg
 
 
@@ -33277,7 +33556,6 @@ def test_list_triggers_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListTriggersRequest()
-
         assert args[0] == request_msg
 
 
@@ -33297,7 +33575,6 @@ def test_create_trigger_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateTriggerRequest()
-
         assert args[0] == request_msg
 
 
@@ -33317,7 +33594,6 @@ def test_update_trigger_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateTriggerRequest()
-
         assert args[0] == request_msg
 
 
@@ -33337,7 +33613,6 @@ def test_delete_trigger_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteTriggerRequest()
-
         assert args[0] == request_msg
 
 
@@ -33357,7 +33632,6 @@ def test_get_channel_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -33377,7 +33651,6 @@ def test_list_channels_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListChannelsRequest()
-
         assert args[0] == request_msg
 
 
@@ -33397,7 +33670,6 @@ def test_create_channel_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -33417,7 +33689,6 @@ def test_update_channel_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -33437,7 +33708,6 @@ def test_delete_channel_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteChannelRequest()
-
         assert args[0] == request_msg
 
 
@@ -33457,7 +33727,6 @@ def test_get_provider_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetProviderRequest()
-
         assert args[0] == request_msg
 
 
@@ -33477,7 +33746,6 @@ def test_list_providers_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListProvidersRequest()
-
         assert args[0] == request_msg
 
 
@@ -33499,7 +33767,6 @@ def test_get_channel_connection_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetChannelConnectionRequest()
-
         assert args[0] == request_msg
 
 
@@ -33521,7 +33788,6 @@ def test_list_channel_connections_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListChannelConnectionsRequest()
-
         assert args[0] == request_msg
 
 
@@ -33543,7 +33809,6 @@ def test_create_channel_connection_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateChannelConnectionRequest()
-
         assert args[0] == request_msg
 
 
@@ -33565,7 +33830,6 @@ def test_delete_channel_connection_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteChannelConnectionRequest()
-
         assert args[0] == request_msg
 
 
@@ -33587,7 +33851,6 @@ def test_get_google_channel_config_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetGoogleChannelConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -33609,7 +33872,6 @@ def test_update_google_channel_config_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateGoogleChannelConfigRequest()
-
         assert args[0] == request_msg
 
 
@@ -33629,7 +33891,6 @@ def test_get_message_bus_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetMessageBusRequest()
-
         assert args[0] == request_msg
 
 
@@ -33651,7 +33912,6 @@ def test_list_message_buses_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListMessageBusesRequest()
-
         assert args[0] == request_msg
 
 
@@ -33673,7 +33933,6 @@ def test_list_message_bus_enrollments_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListMessageBusEnrollmentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -33695,7 +33954,6 @@ def test_create_message_bus_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateMessageBusRequest()
-
         assert args[0] == request_msg
 
 
@@ -33717,7 +33975,6 @@ def test_update_message_bus_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateMessageBusRequest()
-
         assert args[0] == request_msg
 
 
@@ -33739,7 +33996,6 @@ def test_delete_message_bus_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteMessageBusRequest()
-
         assert args[0] == request_msg
 
 
@@ -33759,7 +34015,6 @@ def test_get_enrollment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetEnrollmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -33779,7 +34034,6 @@ def test_list_enrollments_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListEnrollmentsRequest()
-
         assert args[0] == request_msg
 
 
@@ -33801,7 +34055,6 @@ def test_create_enrollment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateEnrollmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -33823,7 +34076,6 @@ def test_update_enrollment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateEnrollmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -33845,7 +34097,6 @@ def test_delete_enrollment_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteEnrollmentRequest()
-
         assert args[0] == request_msg
 
 
@@ -33865,7 +34116,6 @@ def test_get_pipeline_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetPipelineRequest()
-
         assert args[0] == request_msg
 
 
@@ -33885,7 +34135,6 @@ def test_list_pipelines_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListPipelinesRequest()
-
         assert args[0] == request_msg
 
 
@@ -33905,7 +34154,6 @@ def test_create_pipeline_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreatePipelineRequest()
-
         assert args[0] == request_msg
 
 
@@ -33925,7 +34173,6 @@ def test_update_pipeline_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdatePipelineRequest()
-
         assert args[0] == request_msg
 
 
@@ -33945,7 +34192,6 @@ def test_delete_pipeline_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeletePipelineRequest()
-
         assert args[0] == request_msg
 
 
@@ -33967,7 +34213,6 @@ def test_get_google_api_source_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.GetGoogleApiSourceRequest()
-
         assert args[0] == request_msg
 
 
@@ -33989,7 +34234,6 @@ def test_list_google_api_sources_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.ListGoogleApiSourcesRequest()
-
         assert args[0] == request_msg
 
 
@@ -34011,7 +34255,6 @@ def test_create_google_api_source_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.CreateGoogleApiSourceRequest()
-
         assert args[0] == request_msg
 
 
@@ -34033,7 +34276,6 @@ def test_update_google_api_source_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.UpdateGoogleApiSourceRequest()
-
         assert args[0] == request_msg
 
 
@@ -34055,7 +34297,6 @@ def test_delete_google_api_source_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = eventarc.DeleteGoogleApiSourceRequest()
-
         assert args[0] == request_msg
 
 
@@ -34181,11 +34422,14 @@ def test_eventarc_base_transport():
 
 def test_eventarc_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.eventarc_v1.services.eventarc.transports.EventarcTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.eventarc_v1.services.eventarc.transports.EventarcTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.EventarcTransport(
@@ -34202,9 +34446,12 @@ def test_eventarc_base_transport_with_credentials_file():
 
 def test_eventarc_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.eventarc_v1.services.eventarc.transports.EventarcTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.eventarc_v1.services.eventarc.transports.EventarcTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.EventarcTransport()
@@ -34276,11 +34523,12 @@ def test_eventarc_transport_auth_gdch_credentials(transport_class):
 def test_eventarc_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -34564,6 +34812,7 @@ def test_eventarc_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [transports.EventarcGrpcTransport, transports.EventarcGrpcAsyncIOTransport],
@@ -35358,6 +35607,38 @@ async def test_delete_operation_from_dict_async():
         call.assert_called()
 
 
+def test_delete_operation_flattened():
+    client = EventarcClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_flattened_async():
+    client = EventarcAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
 def test_cancel_operation(transport: str = "grpc"):
     client = EventarcClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -35495,6 +35776,38 @@ async def test_cancel_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_cancel_operation_flattened():
+    client = EventarcClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = EventarcAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
 
 
 def test_get_operation(transport: str = "grpc"):
@@ -35642,6 +35955,40 @@ async def test_get_operation_from_dict_async():
         call.assert_called()
 
 
+def test_get_operation_flattened():
+    client = EventarcClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = EventarcAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
 def test_list_operations(transport: str = "grpc"):
     client = EventarcClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -35785,6 +36132,40 @@ async def test_list_operations_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_list_operations_flattened():
+    client = EventarcClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = EventarcAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
 
 
 def test_list_locations(transport: str = "grpc"):
@@ -35932,6 +36313,40 @@ async def test_list_locations_from_dict_async():
         call.assert_called()
 
 
+def test_list_locations_flattened():
+    client = EventarcClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_flattened_async():
+    client = EventarcAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
 def test_get_location(transport: str = "grpc"):
     client = EventarcClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -36071,6 +36486,40 @@ async def test_get_location_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_location_flattened():
+    client = EventarcClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_location_flattened_async():
+    client = EventarcAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
 
 
 def test_set_iam_policy(transport: str = "grpc"):
@@ -36235,6 +36684,41 @@ async def test_set_iam_policy_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_set_iam_policy_flattened():
+    client = EventarcClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        client.set_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.SetIamPolicyRequest()
+
+
+@pytest.mark.asyncio
+async def test_set_iam_policy_flattened_async():
+    client = EventarcAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.set_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.SetIamPolicyRequest()
 
 
 def test_get_iam_policy(transport: str = "grpc"):
@@ -36402,6 +36886,41 @@ async def test_get_iam_policy_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_iam_policy_flattened():
+    client = EventarcClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        client.get_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.GetIamPolicyRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_iam_policy_flattened_async():
+    client = EventarcAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.get_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.GetIamPolicyRequest()
 
 
 def test_test_iam_permissions(transport: str = "grpc"):
@@ -36579,6 +37098,47 @@ async def test_test_iam_permissions_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_test_iam_permissions_flattened():
+    client = EventarcClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = iam_policy_pb2.TestIamPermissionsResponse()
+
+        client.test_iam_permissions()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.TestIamPermissionsRequest()
+
+
+@pytest.mark.asyncio
+async def test_test_iam_permissions_flattened_async():
+    client = EventarcAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            iam_policy_pb2.TestIamPermissionsResponse()
+        )
+
+        await client.test_iam_permissions()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.TestIamPermissionsRequest()
 
 
 def test_transport_close_grpc():

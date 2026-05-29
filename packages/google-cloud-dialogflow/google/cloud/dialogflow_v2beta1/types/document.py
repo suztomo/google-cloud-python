@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflow_v2beta1.types import gcs
@@ -165,6 +165,7 @@ class Document(proto.Message):
                 The legacy enum for agent-facing smart reply
                 feature.
         """
+
         _pb_options = {"allow_alias": True}
         KNOWLEDGE_TYPE_UNSPECIFIED = 0
         FAQ = 1
@@ -190,6 +191,7 @@ class Document(proto.Message):
             DELETING (5):
                 The document deletion is in progress.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2
@@ -310,23 +312,23 @@ class ListDocumentsRequest(proto.Message):
             The filter expression used to filter documents returned by
             the list method. The expression has the following syntax:
 
-             [AND ] ...
+            [AND ] ...
 
             The following fields and operators are supported:
 
-            -  knowledge_types with has(:) operator
-            -  display_name with has(:) operator
-            -  state with equals(=) operator
+            - knowledge_types with has(:) operator
+            - display_name with has(:) operator
+            - state with equals(=) operator
 
             Examples:
 
-            -  "knowledge_types:FAQ" matches documents with FAQ
-               knowledge type.
-            -  "display_name:customer" matches documents whose display
-               name contains "customer".
-            -  "state=ACTIVE" matches documents with ACTIVE state.
-            -  "knowledge_types:FAQ AND state=ACTIVE" matches all active
-               FAQ documents.
+            - "knowledge_types:FAQ" matches documents with FAQ knowledge
+              type.
+            - "display_name:customer" matches documents whose display
+              name contains "customer".
+            - "state=ACTIVE" matches documents with ACTIVE state.
+            - "knowledge_types:FAQ AND state=ACTIVE" matches all active
+              FAQ documents.
 
             For more information about filtering, see `API
             Filtering <https://aip.dev/160>`__.
@@ -587,6 +589,8 @@ class KnowledgeOperationMetadata(proto.Message):
             as the destination of export.
 
             This field is a member of `oneof`_ ``operation_metadata``.
+        done_time (google.protobuf.timestamp_pb2.Timestamp):
+            The time when the operation finished.
     """
 
     class State(proto.Enum):
@@ -603,6 +607,7 @@ class KnowledgeOperationMetadata(proto.Message):
                 The operation is done, either cancelled or
                 completed.
         """
+
         STATE_UNSPECIFIED = 0
         PENDING = 1
         RUNNING = 2
@@ -622,6 +627,11 @@ class KnowledgeOperationMetadata(proto.Message):
         number=4,
         oneof="operation_metadata",
         message="ExportOperationMetadata",
+    )
+    done_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=5,
+        message=timestamp_pb2.Timestamp,
     )
 
 

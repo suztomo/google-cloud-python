@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
+import asyncio
 import json
 import math
+import os
+import re
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +39,15 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.interval_pb2 as interval_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,19 +56,12 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.datacatalog_lineage_v1.services.lineage import (
     LineageAsyncClient,
@@ -80,6 +77,9 @@ CRED_INFO_JSON = {
     "principal": "service-account@example.com",
 }
 CRED_INFO_STRING = json.dumps(CRED_INFO_JSON)
+_UUID4_RE = re.compile(
+    r"[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}"
+)
 
 
 async def mock_async_gen(data, chunk_size=1):
@@ -122,12 +122,28 @@ def modify_default_endpoint_template(client):
     )
 
 
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
 def test__get_default_mtls_endpoint():
     api_endpoint = "example.googleapis.com"
     api_mtls_endpoint = "example.mtls.googleapis.com"
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert LineageClient._get_default_mtls_endpoint(None) is None
     assert LineageClient._get_default_mtls_endpoint(api_endpoint) == api_mtls_endpoint
@@ -143,6 +159,7 @@ def test__get_default_mtls_endpoint():
         == sandbox_mtls_endpoint
     )
     assert LineageClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    assert LineageClient._get_default_mtls_endpoint(custom_endpoint) == custom_endpoint
 
 
 def test__read_environment_variables():
@@ -157,12 +174,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            LineageClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                LineageClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert LineageClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert LineageClient._read_environment_variables() == (False, "never", None)
@@ -183,6 +207,105 @@ def test__read_environment_variables():
 
     with mock.patch.dict(os.environ, {"GOOGLE_CLOUD_UNIVERSE_DOMAIN": "foo.com"}):
         assert LineageClient._read_environment_variables() == (False, "auto", "foo.com")
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert LineageClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert LineageClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert LineageClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert LineageClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert LineageClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert LineageClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert LineageClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert LineageClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert LineageClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                LineageClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert LineageClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert LineageClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -345,6 +468,104 @@ def test__add_cred_info_for_auth_errors_no_get_cred_info(error_code):
 
     client._add_cred_info_for_auth_errors(error)
     assert error.details == []
+
+
+def test__setup_request_id():
+    class MockRequest:
+        def __init__(self, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+        def __contains__(self, key):
+            return hasattr(self, key)
+
+    class MockProtoRequest:
+        def __init__(self, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+        def HasField(self, key):
+            return hasattr(self, key)
+
+    # Test with proto3 optional field not in request
+    request = MockRequest()
+    LineageClient._setup_request_id(request, "request_id", True)
+    assert re.match(
+        r"[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}",
+        request.request_id,
+    )
+
+    # Test with proto3 optional field already in request
+    request = MockRequest(request_id="already_set")
+    LineageClient._setup_request_id(request, "request_id", True)
+    assert request.request_id == "already_set"
+
+    # Test with non-proto3 optional field empty
+    request = MockRequest(request_id="")
+    LineageClient._setup_request_id(request, "request_id", False)
+    assert re.match(
+        r"[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}",
+        request.request_id,
+    )
+
+    # Test with non-proto3 optional field already set
+    request = MockRequest(request_id="already_set")
+    LineageClient._setup_request_id(request, "request_id", False)
+    assert request.request_id == "already_set"
+
+    # Test with proto3 optional field not in request (MockProtoRequest)
+    request = MockProtoRequest()
+    LineageClient._setup_request_id(request, "request_id", True)
+    assert re.match(
+        r"[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}",
+        request.request_id,
+    )
+
+    # Test with proto3 optional field already in request (MockProtoRequest)
+    request = MockProtoRequest(request_id="already_set")
+    LineageClient._setup_request_id(request, "request_id", True)
+    assert request.request_id == "already_set"
+
+    # Test with ValueError
+    class MockValueErrorRequest:
+        def HasField(self, key):
+            raise ValueError("Mismatched field")
+
+        def __contains__(self, key):
+            return hasattr(self, key)
+
+    request = MockValueErrorRequest()
+    LineageClient._setup_request_id(request, "request_id", True)
+    assert re.match(
+        r"[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}",
+        request.request_id,
+    )
+
+    # Test with dict and proto3 optional field not in request
+    request = {}
+    LineageClient._setup_request_id(request, "request_id", True)
+    assert re.match(
+        r"[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}",
+        request["request_id"],
+    )
+
+    # Test with dict and proto3 optional field already in request
+    request = {"request_id": "already_set"}
+    LineageClient._setup_request_id(request, "request_id", True)
+    assert request["request_id"] == "already_set"
+
+    # Test with dict and non-proto3 optional field empty
+    request = {"request_id": ""}
+    LineageClient._setup_request_id(request, "request_id", False)
+    assert re.match(
+        r"[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}",
+        request["request_id"],
+    )
+
+    # Test with dict and non-proto3 optional field already set
+    request = {"request_id": "already_set"}
+    LineageClient._setup_request_id(request, "request_id", False)
+    assert request["request_id"] == "already_set"
 
 
 @pytest.mark.parametrize(
@@ -535,17 +756,6 @@ def test_lineage_client_client_options(client_class, transport_class, transport_
     assert (
         str(excinfo.value)
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-    )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
     )
 
     # Check the case quota_project_id is provided
@@ -757,6 +967,117 @@ def test_lineage_client_get_mtls_endpoint_and_cert_source(client_class):
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -789,10 +1110,9 @@ def test_lineage_client_get_mtls_endpoint_and_cert_source(client_class):
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -805,18 +1125,6 @@ def test_lineage_client_get_mtls_endpoint_and_cert_source(client_class):
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1029,13 +1337,13 @@ def test_lineage_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1060,8 +1368,15 @@ def test_lineage_client_create_channel_credentials_file(
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.ProcessOpenLineageRunEventRequest,
-        dict,
+        # Pure protobuf messages (non-proto-plus) require keyword arguments.
+        lineage.ProcessOpenLineageRunEventRequest(
+            **{
+                "request_id": "explicit value for autopopulate-able field",
+            }
+        ),
+        {
+            "request_id": "explicit value for autopopulate-able field",
+        },
     ],
 )
 def test_process_open_lineage_run_event(request_type, transport: str = "grpc"):
@@ -1072,7 +1387,7 @@ def test_process_open_lineage_run_event(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1090,6 +1405,7 @@ def test_process_open_lineage_run_event(request_type, transport: str = "grpc"):
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
         request = lineage.ProcessOpenLineageRunEventRequest()
+        request.request_id = "explicit value for autopopulate-able field"
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -1112,7 +1428,6 @@ def test_process_open_lineage_run_event_non_empty_request_with_auto_populated_fi
     # if they meet the requirements of AIP 4235.
     request = lineage.ProcessOpenLineageRunEventRequest(
         parent="parent_value",
-        request_id="request_id_value",
     )
 
     # Mock the actual call within the gRPC stub, and fake the request.
@@ -1125,10 +1440,13 @@ def test_process_open_lineage_run_event_non_empty_request_with_auto_populated_fi
         client.process_open_lineage_run_event(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.ProcessOpenLineageRunEventRequest(
+        request_msg = lineage.ProcessOpenLineageRunEventRequest(
             parent="parent_value",
-            request_id="request_id_value",
         )
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
+        assert args[0] == request_msg
 
 
 def test_process_open_lineage_run_event_use_cached_wrapped_rpc():
@@ -1214,9 +1532,22 @@ async def test_process_open_lineage_run_event_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        # Pure protobuf messages (non-proto-plus) require keyword arguments.
+        lineage.ProcessOpenLineageRunEventRequest(
+            **{
+                "request_id": "explicit value for autopopulate-able field",
+            }
+        ),
+        {
+            "request_id": "explicit value for autopopulate-able field",
+        },
+    ],
+)
 async def test_process_open_lineage_run_event_async(
-    transport: str = "grpc_asyncio",
-    request_type=lineage.ProcessOpenLineageRunEventRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -1225,7 +1556,7 @@ async def test_process_open_lineage_run_event_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -1245,6 +1576,7 @@ async def test_process_open_lineage_run_event_async(
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
         request = lineage.ProcessOpenLineageRunEventRequest()
+        request.request_id = "explicit value for autopopulate-able field"
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -1252,11 +1584,6 @@ async def test_process_open_lineage_run_event_async(
     assert response.process == "process_value"
     assert response.run == "run_value"
     assert response.lineage_events == ["lineage_events_value"]
-
-
-@pytest.mark.asyncio
-async def test_process_open_lineage_run_event_async_from_dict():
-    await test_process_open_lineage_run_event_async(request_type=dict)
 
 
 def test_process_open_lineage_run_event_field_headers():
@@ -1459,8 +1786,15 @@ async def test_process_open_lineage_run_event_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.CreateProcessRequest,
-        dict,
+        # Pure protobuf messages (non-proto-plus) require keyword arguments.
+        lineage.CreateProcessRequest(
+            **{
+                "request_id": "explicit value for autopopulate-able field",
+            }
+        ),
+        {
+            "request_id": "explicit value for autopopulate-able field",
+        },
     ],
 )
 def test_create_process(request_type, transport: str = "grpc"):
@@ -1471,7 +1805,7 @@ def test_create_process(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_process), "__call__") as call:
@@ -1486,6 +1820,7 @@ def test_create_process(request_type, transport: str = "grpc"):
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
         request = lineage.CreateProcessRequest()
+        request.request_id = "explicit value for autopopulate-able field"
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -1507,7 +1842,6 @@ def test_create_process_non_empty_request_with_auto_populated_field():
     # if they meet the requirements of AIP 4235.
     request = lineage.CreateProcessRequest(
         parent="parent_value",
-        request_id="request_id_value",
     )
 
     # Mock the actual call within the gRPC stub, and fake the request.
@@ -1518,10 +1852,13 @@ def test_create_process_non_empty_request_with_auto_populated_field():
         client.create_process(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.CreateProcessRequest(
+        request_msg = lineage.CreateProcessRequest(
             parent="parent_value",
-            request_id="request_id_value",
         )
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
+        assert args[0] == request_msg
 
 
 def test_create_process_use_cached_wrapped_rpc():
@@ -1602,9 +1939,21 @@ async def test_create_process_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_create_process_async(
-    transport: str = "grpc_asyncio", request_type=lineage.CreateProcessRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        # Pure protobuf messages (non-proto-plus) require keyword arguments.
+        lineage.CreateProcessRequest(
+            **{
+                "request_id": "explicit value for autopopulate-able field",
+            }
+        ),
+        {
+            "request_id": "explicit value for autopopulate-able field",
+        },
+    ],
+)
+async def test_create_process_async(request_type, transport: str = "grpc_asyncio"):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1612,7 +1961,7 @@ async def test_create_process_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_process), "__call__") as call:
@@ -1629,17 +1978,13 @@ async def test_create_process_async(
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
         request = lineage.CreateProcessRequest()
+        request.request_id = "explicit value for autopopulate-able field"
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, lineage.Process)
     assert response.name == "name_value"
     assert response.display_name == "display_name_value"
-
-
-@pytest.mark.asyncio
-async def test_create_process_async_from_dict():
-    await test_create_process_async(request_type=dict)
 
 
 def test_create_process_field_headers():
@@ -1794,8 +2139,15 @@ async def test_create_process_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.UpdateProcessRequest,
-        dict,
+        # Pure protobuf messages (non-proto-plus) require keyword arguments.
+        lineage.UpdateProcessRequest(
+            **{
+                "request_id": "explicit value for autopopulate-able field",
+            }
+        ),
+        {
+            "request_id": "explicit value for autopopulate-able field",
+        },
     ],
 )
 def test_update_process(request_type, transport: str = "grpc"):
@@ -1806,7 +2158,7 @@ def test_update_process(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_process), "__call__") as call:
@@ -1821,6 +2173,7 @@ def test_update_process(request_type, transport: str = "grpc"):
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
         request = lineage.UpdateProcessRequest()
+        request.request_id = "explicit value for autopopulate-able field"
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -1850,7 +2203,11 @@ def test_update_process_non_empty_request_with_auto_populated_field():
         client.update_process(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.UpdateProcessRequest()
+        request_msg = lineage.UpdateProcessRequest()
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
+        assert args[0] == request_msg
 
 
 def test_update_process_use_cached_wrapped_rpc():
@@ -1931,9 +2288,21 @@ async def test_update_process_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_update_process_async(
-    transport: str = "grpc_asyncio", request_type=lineage.UpdateProcessRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        # Pure protobuf messages (non-proto-plus) require keyword arguments.
+        lineage.UpdateProcessRequest(
+            **{
+                "request_id": "explicit value for autopopulate-able field",
+            }
+        ),
+        {
+            "request_id": "explicit value for autopopulate-able field",
+        },
+    ],
+)
+async def test_update_process_async(request_type, transport: str = "grpc_asyncio"):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -1941,7 +2310,7 @@ async def test_update_process_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_process), "__call__") as call:
@@ -1958,17 +2327,13 @@ async def test_update_process_async(
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
         request = lineage.UpdateProcessRequest()
+        request.request_id = "explicit value for autopopulate-able field"
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, lineage.Process)
     assert response.name == "name_value"
     assert response.display_name == "display_name_value"
-
-
-@pytest.mark.asyncio
-async def test_update_process_async_from_dict():
-    await test_update_process_async(request_type=dict)
 
 
 def test_update_process_field_headers():
@@ -2123,8 +2488,8 @@ async def test_update_process_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.GetProcessRequest,
-        dict,
+        lineage.GetProcessRequest(),
+        {},
     ],
 )
 def test_get_process(request_type, transport: str = "grpc"):
@@ -2135,7 +2500,7 @@ def test_get_process(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_process), "__call__") as call:
@@ -2181,9 +2546,10 @@ def test_get_process_non_empty_request_with_auto_populated_field():
         client.get_process(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.GetProcessRequest(
+        request_msg = lineage.GetProcessRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_process_use_cached_wrapped_rpc():
@@ -2264,9 +2630,14 @@ async def test_get_process_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_process_async(
-    transport: str = "grpc_asyncio", request_type=lineage.GetProcessRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.GetProcessRequest(),
+        {},
+    ],
+)
+async def test_get_process_async(request_type, transport: str = "grpc_asyncio"):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2274,7 +2645,7 @@ async def test_get_process_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_process), "__call__") as call:
@@ -2297,11 +2668,6 @@ async def test_get_process_async(
     assert isinstance(response, lineage.Process)
     assert response.name == "name_value"
     assert response.display_name == "display_name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_process_async_from_dict():
-    await test_get_process_async(request_type=dict)
 
 
 def test_get_process_field_headers():
@@ -2446,8 +2812,8 @@ async def test_get_process_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.ListProcessesRequest,
-        dict,
+        lineage.ListProcessesRequest(),
+        {},
     ],
 )
 def test_list_processes(request_type, transport: str = "grpc"):
@@ -2458,7 +2824,7 @@ def test_list_processes(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_processes), "__call__") as call:
@@ -2503,10 +2869,11 @@ def test_list_processes_non_empty_request_with_auto_populated_field():
         client.list_processes(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.ListProcessesRequest(
+        request_msg = lineage.ListProcessesRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_processes_use_cached_wrapped_rpc():
@@ -2587,9 +2954,14 @@ async def test_list_processes_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_processes_async(
-    transport: str = "grpc_asyncio", request_type=lineage.ListProcessesRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.ListProcessesRequest(),
+        {},
+    ],
+)
+async def test_list_processes_async(request_type, transport: str = "grpc_asyncio"):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -2597,7 +2969,7 @@ async def test_list_processes_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_processes), "__call__") as call:
@@ -2618,11 +2990,6 @@ async def test_list_processes_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListProcessesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_processes_async_from_dict():
-    await test_list_processes_async(request_type=dict)
 
 
 def test_list_processes_field_headers():
@@ -2952,11 +3319,7 @@ async def test_list_processes_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_processes(request={})
-        ).pages:
+        async for page_ in (await client.list_processes(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -2965,8 +3328,8 @@ async def test_list_processes_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.DeleteProcessRequest,
-        dict,
+        lineage.DeleteProcessRequest(),
+        {},
     ],
 )
 def test_delete_process(request_type, transport: str = "grpc"):
@@ -2977,7 +3340,7 @@ def test_delete_process(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_process), "__call__") as call:
@@ -3018,9 +3381,10 @@ def test_delete_process_non_empty_request_with_auto_populated_field():
         client.delete_process(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.DeleteProcessRequest(
+        request_msg = lineage.DeleteProcessRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_process_use_cached_wrapped_rpc():
@@ -3111,9 +3475,14 @@ async def test_delete_process_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_delete_process_async(
-    transport: str = "grpc_asyncio", request_type=lineage.DeleteProcessRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.DeleteProcessRequest(),
+        {},
+    ],
+)
+async def test_delete_process_async(request_type, transport: str = "grpc_asyncio"):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3121,7 +3490,7 @@ async def test_delete_process_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_process), "__call__") as call:
@@ -3139,11 +3508,6 @@ async def test_delete_process_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_process_async_from_dict():
-    await test_delete_process_async(request_type=dict)
 
 
 def test_delete_process_field_headers():
@@ -3292,8 +3656,15 @@ async def test_delete_process_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.CreateRunRequest,
-        dict,
+        # Pure protobuf messages (non-proto-plus) require keyword arguments.
+        lineage.CreateRunRequest(
+            **{
+                "request_id": "explicit value for autopopulate-able field",
+            }
+        ),
+        {
+            "request_id": "explicit value for autopopulate-able field",
+        },
     ],
 )
 def test_create_run(request_type, transport: str = "grpc"):
@@ -3304,7 +3675,7 @@ def test_create_run(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_run), "__call__") as call:
@@ -3320,6 +3691,7 @@ def test_create_run(request_type, transport: str = "grpc"):
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
         request = lineage.CreateRunRequest()
+        request.request_id = "explicit value for autopopulate-able field"
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -3342,7 +3714,6 @@ def test_create_run_non_empty_request_with_auto_populated_field():
     # if they meet the requirements of AIP 4235.
     request = lineage.CreateRunRequest(
         parent="parent_value",
-        request_id="request_id_value",
     )
 
     # Mock the actual call within the gRPC stub, and fake the request.
@@ -3353,10 +3724,13 @@ def test_create_run_non_empty_request_with_auto_populated_field():
         client.create_run(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.CreateRunRequest(
+        request_msg = lineage.CreateRunRequest(
             parent="parent_value",
-            request_id="request_id_value",
         )
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
+        assert args[0] == request_msg
 
 
 def test_create_run_use_cached_wrapped_rpc():
@@ -3435,9 +3809,21 @@ async def test_create_run_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_create_run_async(
-    transport: str = "grpc_asyncio", request_type=lineage.CreateRunRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        # Pure protobuf messages (non-proto-plus) require keyword arguments.
+        lineage.CreateRunRequest(
+            **{
+                "request_id": "explicit value for autopopulate-able field",
+            }
+        ),
+        {
+            "request_id": "explicit value for autopopulate-able field",
+        },
+    ],
+)
+async def test_create_run_async(request_type, transport: str = "grpc_asyncio"):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3445,7 +3831,7 @@ async def test_create_run_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.create_run), "__call__") as call:
@@ -3463,6 +3849,7 @@ async def test_create_run_async(
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
         request = lineage.CreateRunRequest()
+        request.request_id = "explicit value for autopopulate-able field"
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -3470,11 +3857,6 @@ async def test_create_run_async(
     assert response.name == "name_value"
     assert response.display_name == "display_name_value"
     assert response.state == lineage.Run.State.STARTED
-
-
-@pytest.mark.asyncio
-async def test_create_run_async_from_dict():
-    await test_create_run_async(request_type=dict)
 
 
 def test_create_run_field_headers():
@@ -3629,8 +4011,8 @@ async def test_create_run_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.UpdateRunRequest,
-        dict,
+        lineage.UpdateRunRequest(),
+        {},
     ],
 )
 def test_update_run(request_type, transport: str = "grpc"):
@@ -3641,7 +4023,7 @@ def test_update_run(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_run), "__call__") as call:
@@ -3687,7 +4069,8 @@ def test_update_run_non_empty_request_with_auto_populated_field():
         client.update_run(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.UpdateRunRequest()
+        request_msg = lineage.UpdateRunRequest()
+        assert args[0] == request_msg
 
 
 def test_update_run_use_cached_wrapped_rpc():
@@ -3766,9 +4149,14 @@ async def test_update_run_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_update_run_async(
-    transport: str = "grpc_asyncio", request_type=lineage.UpdateRunRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.UpdateRunRequest(),
+        {},
+    ],
+)
+async def test_update_run_async(request_type, transport: str = "grpc_asyncio"):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -3776,7 +4164,7 @@ async def test_update_run_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.update_run), "__call__") as call:
@@ -3801,11 +4189,6 @@ async def test_update_run_async(
     assert response.name == "name_value"
     assert response.display_name == "display_name_value"
     assert response.state == lineage.Run.State.STARTED
-
-
-@pytest.mark.asyncio
-async def test_update_run_async_from_dict():
-    await test_update_run_async(request_type=dict)
 
 
 def test_update_run_field_headers():
@@ -3960,8 +4343,8 @@ async def test_update_run_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.GetRunRequest,
-        dict,
+        lineage.GetRunRequest(),
+        {},
     ],
 )
 def test_get_run(request_type, transport: str = "grpc"):
@@ -3972,7 +4355,7 @@ def test_get_run(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_run), "__call__") as call:
@@ -4020,9 +4403,10 @@ def test_get_run_non_empty_request_with_auto_populated_field():
         client.get_run(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.GetRunRequest(
+        request_msg = lineage.GetRunRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_run_use_cached_wrapped_rpc():
@@ -4101,9 +4485,14 @@ async def test_get_run_async_use_cached_wrapped_rpc(transport: str = "grpc_async
 
 
 @pytest.mark.asyncio
-async def test_get_run_async(
-    transport: str = "grpc_asyncio", request_type=lineage.GetRunRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.GetRunRequest(),
+        {},
+    ],
+)
+async def test_get_run_async(request_type, transport: str = "grpc_asyncio"):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4111,7 +4500,7 @@ async def test_get_run_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.get_run), "__call__") as call:
@@ -4136,11 +4525,6 @@ async def test_get_run_async(
     assert response.name == "name_value"
     assert response.display_name == "display_name_value"
     assert response.state == lineage.Run.State.STARTED
-
-
-@pytest.mark.asyncio
-async def test_get_run_async_from_dict():
-    await test_get_run_async(request_type=dict)
 
 
 def test_get_run_field_headers():
@@ -4285,8 +4669,8 @@ async def test_get_run_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.ListRunsRequest,
-        dict,
+        lineage.ListRunsRequest(),
+        {},
     ],
 )
 def test_list_runs(request_type, transport: str = "grpc"):
@@ -4297,7 +4681,7 @@ def test_list_runs(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_runs), "__call__") as call:
@@ -4342,10 +4726,11 @@ def test_list_runs_non_empty_request_with_auto_populated_field():
         client.list_runs(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.ListRunsRequest(
+        request_msg = lineage.ListRunsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_runs_use_cached_wrapped_rpc():
@@ -4424,9 +4809,14 @@ async def test_list_runs_async_use_cached_wrapped_rpc(transport: str = "grpc_asy
 
 
 @pytest.mark.asyncio
-async def test_list_runs_async(
-    transport: str = "grpc_asyncio", request_type=lineage.ListRunsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.ListRunsRequest(),
+        {},
+    ],
+)
+async def test_list_runs_async(request_type, transport: str = "grpc_asyncio"):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4434,7 +4824,7 @@ async def test_list_runs_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.list_runs), "__call__") as call:
@@ -4455,11 +4845,6 @@ async def test_list_runs_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListRunsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_runs_async_from_dict():
-    await test_list_runs_async(request_type=dict)
 
 
 def test_list_runs_field_headers():
@@ -4789,11 +5174,7 @@ async def test_list_runs_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_runs(request={})
-        ).pages:
+        async for page_ in (await client.list_runs(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -4802,8 +5183,8 @@ async def test_list_runs_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.DeleteRunRequest,
-        dict,
+        lineage.DeleteRunRequest(),
+        {},
     ],
 )
 def test_delete_run(request_type, transport: str = "grpc"):
@@ -4814,7 +5195,7 @@ def test_delete_run(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_run), "__call__") as call:
@@ -4855,9 +5236,10 @@ def test_delete_run_non_empty_request_with_auto_populated_field():
         client.delete_run(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.DeleteRunRequest(
+        request_msg = lineage.DeleteRunRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_run_use_cached_wrapped_rpc():
@@ -4946,9 +5328,14 @@ async def test_delete_run_async_use_cached_wrapped_rpc(transport: str = "grpc_as
 
 
 @pytest.mark.asyncio
-async def test_delete_run_async(
-    transport: str = "grpc_asyncio", request_type=lineage.DeleteRunRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.DeleteRunRequest(),
+        {},
+    ],
+)
+async def test_delete_run_async(request_type, transport: str = "grpc_asyncio"):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -4956,7 +5343,7 @@ async def test_delete_run_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.delete_run), "__call__") as call:
@@ -4974,11 +5361,6 @@ async def test_delete_run_async(
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, future.Future)
-
-
-@pytest.mark.asyncio
-async def test_delete_run_async_from_dict():
-    await test_delete_run_async(request_type=dict)
 
 
 def test_delete_run_field_headers():
@@ -5127,8 +5509,15 @@ async def test_delete_run_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.CreateLineageEventRequest,
-        dict,
+        # Pure protobuf messages (non-proto-plus) require keyword arguments.
+        lineage.CreateLineageEventRequest(
+            **{
+                "request_id": "explicit value for autopopulate-able field",
+            }
+        ),
+        {
+            "request_id": "explicit value for autopopulate-able field",
+        },
     ],
 )
 def test_create_lineage_event(request_type, transport: str = "grpc"):
@@ -5139,7 +5528,7 @@ def test_create_lineage_event(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5155,6 +5544,7 @@ def test_create_lineage_event(request_type, transport: str = "grpc"):
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
         request = lineage.CreateLineageEventRequest()
+        request.request_id = "explicit value for autopopulate-able field"
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -5175,7 +5565,6 @@ def test_create_lineage_event_non_empty_request_with_auto_populated_field():
     # if they meet the requirements of AIP 4235.
     request = lineage.CreateLineageEventRequest(
         parent="parent_value",
-        request_id="request_id_value",
     )
 
     # Mock the actual call within the gRPC stub, and fake the request.
@@ -5188,10 +5577,13 @@ def test_create_lineage_event_non_empty_request_with_auto_populated_field():
         client.create_lineage_event(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.CreateLineageEventRequest(
+        request_msg = lineage.CreateLineageEventRequest(
             parent="parent_value",
-            request_id="request_id_value",
         )
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
+        assert args[0] == request_msg
 
 
 def test_create_lineage_event_use_cached_wrapped_rpc():
@@ -5217,9 +5609,9 @@ def test_create_lineage_event_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_lineage_event
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_lineage_event] = (
+            mock_rpc
+        )
         request = {}
         client.create_lineage_event(request)
 
@@ -5276,8 +5668,22 @@ async def test_create_lineage_event_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        # Pure protobuf messages (non-proto-plus) require keyword arguments.
+        lineage.CreateLineageEventRequest(
+            **{
+                "request_id": "explicit value for autopopulate-able field",
+            }
+        ),
+        {
+            "request_id": "explicit value for autopopulate-able field",
+        },
+    ],
+)
 async def test_create_lineage_event_async(
-    transport: str = "grpc_asyncio", request_type=lineage.CreateLineageEventRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -5286,7 +5692,7 @@ async def test_create_lineage_event_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5304,16 +5710,12 @@ async def test_create_lineage_event_async(
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
         request = lineage.CreateLineageEventRequest()
+        request.request_id = "explicit value for autopopulate-able field"
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
     assert isinstance(response, lineage.LineageEvent)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_create_lineage_event_async_from_dict():
-    await test_create_lineage_event_async(request_type=dict)
 
 
 def test_create_lineage_event_field_headers():
@@ -5480,8 +5882,8 @@ async def test_create_lineage_event_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.GetLineageEventRequest,
-        dict,
+        lineage.GetLineageEventRequest(),
+        {},
     ],
 )
 def test_get_lineage_event(request_type, transport: str = "grpc"):
@@ -5492,7 +5894,7 @@ def test_get_lineage_event(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5540,9 +5942,10 @@ def test_get_lineage_event_non_empty_request_with_auto_populated_field():
         client.get_lineage_event(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.GetLineageEventRequest(
+        request_msg = lineage.GetLineageEventRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_get_lineage_event_use_cached_wrapped_rpc():
@@ -5566,9 +5969,9 @@ def test_get_lineage_event_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_lineage_event
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_lineage_event] = (
+            mock_rpc
+        )
         request = {}
         client.get_lineage_event(request)
 
@@ -5625,9 +6028,14 @@ async def test_get_lineage_event_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_get_lineage_event_async(
-    transport: str = "grpc_asyncio", request_type=lineage.GetLineageEventRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.GetLineageEventRequest(),
+        {},
+    ],
+)
+async def test_get_lineage_event_async(request_type, transport: str = "grpc_asyncio"):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -5635,7 +6043,7 @@ async def test_get_lineage_event_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5658,11 +6066,6 @@ async def test_get_lineage_event_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, lineage.LineageEvent)
     assert response.name == "name_value"
-
-
-@pytest.mark.asyncio
-async def test_get_lineage_event_async_from_dict():
-    await test_get_lineage_event_async(request_type=dict)
 
 
 def test_get_lineage_event_field_headers():
@@ -5819,8 +6222,8 @@ async def test_get_lineage_event_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.ListLineageEventsRequest,
-        dict,
+        lineage.ListLineageEventsRequest(),
+        {},
     ],
 )
 def test_list_lineage_events(request_type, transport: str = "grpc"):
@@ -5831,7 +6234,7 @@ def test_list_lineage_events(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -5880,10 +6283,11 @@ def test_list_lineage_events_non_empty_request_with_auto_populated_field():
         client.list_lineage_events(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.ListLineageEventsRequest(
+        request_msg = lineage.ListLineageEventsRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_list_lineage_events_use_cached_wrapped_rpc():
@@ -5909,9 +6313,9 @@ def test_list_lineage_events_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_lineage_events
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_lineage_events] = (
+            mock_rpc
+        )
         request = {}
         client.list_lineage_events(request)
 
@@ -5968,9 +6372,14 @@ async def test_list_lineage_events_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_list_lineage_events_async(
-    transport: str = "grpc_asyncio", request_type=lineage.ListLineageEventsRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.ListLineageEventsRequest(),
+        {},
+    ],
+)
+async def test_list_lineage_events_async(request_type, transport: str = "grpc_asyncio"):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -5978,7 +6387,7 @@ async def test_list_lineage_events_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6001,11 +6410,6 @@ async def test_list_lineage_events_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListLineageEventsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_list_lineage_events_async_from_dict():
-    await test_list_lineage_events_async(request_type=dict)
 
 
 def test_list_lineage_events_field_headers():
@@ -6351,11 +6755,7 @@ async def test_list_lineage_events_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_lineage_events(request={})
-        ).pages:
+        async for page_ in (await client.list_lineage_events(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -6364,8 +6764,8 @@ async def test_list_lineage_events_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.DeleteLineageEventRequest,
-        dict,
+        lineage.DeleteLineageEventRequest(),
+        {},
     ],
 )
 def test_delete_lineage_event(request_type, transport: str = "grpc"):
@@ -6376,7 +6776,7 @@ def test_delete_lineage_event(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6421,9 +6821,10 @@ def test_delete_lineage_event_non_empty_request_with_auto_populated_field():
         client.delete_lineage_event(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.DeleteLineageEventRequest(
+        request_msg = lineage.DeleteLineageEventRequest(
             name="name_value",
         )
+        assert args[0] == request_msg
 
 
 def test_delete_lineage_event_use_cached_wrapped_rpc():
@@ -6449,9 +6850,9 @@ def test_delete_lineage_event_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_lineage_event
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_lineage_event] = (
+            mock_rpc
+        )
         request = {}
         client.delete_lineage_event(request)
 
@@ -6508,8 +6909,15 @@ async def test_delete_lineage_event_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.DeleteLineageEventRequest(),
+        {},
+    ],
+)
 async def test_delete_lineage_event_async(
-    transport: str = "grpc_asyncio", request_type=lineage.DeleteLineageEventRequest
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -6518,7 +6926,7 @@ async def test_delete_lineage_event_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -6536,11 +6944,6 @@ async def test_delete_lineage_event_async(
 
     # Establish that the response is the type that we expect.
     assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_lineage_event_async_from_dict():
-    await test_delete_lineage_event_async(request_type=dict)
 
 
 def test_delete_lineage_event_field_headers():
@@ -6693,8 +7096,8 @@ async def test_delete_lineage_event_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.SearchLinksRequest,
-        dict,
+        lineage.SearchLinksRequest(),
+        {},
     ],
 )
 def test_search_links(request_type, transport: str = "grpc"):
@@ -6705,7 +7108,7 @@ def test_search_links(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.search_links), "__call__") as call:
@@ -6750,10 +7153,11 @@ def test_search_links_non_empty_request_with_auto_populated_field():
         client.search_links(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.SearchLinksRequest(
+        request_msg = lineage.SearchLinksRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_search_links_use_cached_wrapped_rpc():
@@ -6834,9 +7238,14 @@ async def test_search_links_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
-async def test_search_links_async(
-    transport: str = "grpc_asyncio", request_type=lineage.SearchLinksRequest
-):
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.SearchLinksRequest(),
+        {},
+    ],
+)
+async def test_search_links_async(request_type, transport: str = "grpc_asyncio"):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
         transport=transport,
@@ -6844,7 +7253,7 @@ async def test_search_links_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(type(client.transport.search_links), "__call__") as call:
@@ -6865,11 +7274,6 @@ async def test_search_links_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.SearchLinksAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_search_links_async_from_dict():
-    await test_search_links_async(request_type=dict)
 
 
 def test_search_links_field_headers():
@@ -7117,11 +7521,7 @@ async def test_search_links_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.search_links(request={})
-        ).pages:
+        async for page_ in (await client.search_links(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -7130,8 +7530,8 @@ async def test_search_links_async_pages():
 @pytest.mark.parametrize(
     "request_type",
     [
-        lineage.BatchSearchLinkProcessesRequest,
-        dict,
+        lineage.BatchSearchLinkProcessesRequest(),
+        {},
     ],
 )
 def test_batch_search_link_processes(request_type, transport: str = "grpc"):
@@ -7142,7 +7542,7 @@ def test_batch_search_link_processes(request_type, transport: str = "grpc"):
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -7191,10 +7591,11 @@ def test_batch_search_link_processes_non_empty_request_with_auto_populated_field
         client.batch_search_link_processes(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[0] == lineage.BatchSearchLinkProcessesRequest(
+        request_msg = lineage.BatchSearchLinkProcessesRequest(
             parent="parent_value",
             page_token="page_token_value",
         )
+        assert args[0] == request_msg
 
 
 def test_batch_search_link_processes_use_cached_wrapped_rpc():
@@ -7280,9 +7681,15 @@ async def test_batch_search_link_processes_async_use_cached_wrapped_rpc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.BatchSearchLinkProcessesRequest(),
+        {},
+    ],
+)
 async def test_batch_search_link_processes_async(
-    transport: str = "grpc_asyncio",
-    request_type=lineage.BatchSearchLinkProcessesRequest,
+    request_type, transport: str = "grpc_asyncio"
 ):
     client = LineageAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -7291,7 +7698,7 @@ async def test_batch_search_link_processes_async(
 
     # Everything is optional in proto3 as far as the runtime is concerned,
     # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
+    request = request_type
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -7314,11 +7721,6 @@ async def test_batch_search_link_processes_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.BatchSearchLinkProcessesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
-
-
-@pytest.mark.asyncio
-async def test_batch_search_link_processes_async_from_dict():
-    await test_batch_search_link_processes_async(request_type=dict)
 
 
 def test_batch_search_link_processes_field_headers():
@@ -7580,14 +7982,267 @@ async def test_batch_search_link_processes_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.batch_search_link_processes(request={})
-        ).pages:
+        async for page_ in (await client.batch_search_link_processes(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.SearchLineageStreamingRequest(),
+        {},
+    ],
+)
+def test_search_lineage_streaming(request_type, transport: str = "grpc"):
+    client = LineageClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.search_lineage_streaming), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = iter([lineage.SearchLineageStreamingResponse()])
+        response = client.search_lineage_streaming(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = lineage.SearchLineageStreamingRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    for message in response:
+        assert isinstance(message, lineage.SearchLineageStreamingResponse)
+
+
+def test_search_lineage_streaming_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = LineageClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = lineage.SearchLineageStreamingRequest(
+        parent="parent_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.search_lineage_streaming), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.search_lineage_streaming(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = lineage.SearchLineageStreamingRequest(
+            parent="parent_value",
+        )
+        assert args[0] == request_msg
+
+
+def test_search_lineage_streaming_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = LineageClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.search_lineage_streaming
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.search_lineage_streaming
+        ] = mock_rpc
+        request = {}
+        client.search_lineage_streaming(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.search_lineage_streaming(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_search_lineage_streaming_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = LineageAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.search_lineage_streaming
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.search_lineage_streaming
+        ] = mock_rpc
+
+        request = {}
+        await client.search_lineage_streaming(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.search_lineage_streaming(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.SearchLineageStreamingRequest(),
+        {},
+    ],
+)
+async def test_search_lineage_streaming_async(
+    request_type, transport: str = "grpc_asyncio"
+):
+    client = LineageAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.search_lineage_streaming), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = mock.Mock(aio.UnaryStreamCall, autospec=True)
+        call.return_value.read = mock.AsyncMock(
+            side_effect=[lineage.SearchLineageStreamingResponse()]
+        )
+        response = await client.search_lineage_streaming(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = lineage.SearchLineageStreamingRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    message = await response.read()
+    assert isinstance(message, lineage.SearchLineageStreamingResponse)
+
+
+def test_search_lineage_streaming_field_headers():
+    client = LineageClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = lineage.SearchLineageStreamingRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.search_lineage_streaming), "__call__"
+    ) as call:
+        call.return_value = iter([lineage.SearchLineageStreamingResponse()])
+        client.search_lineage_streaming(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_search_lineage_streaming_field_headers_async():
+    client = LineageAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = lineage.SearchLineageStreamingRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.search_lineage_streaming), "__call__"
+    ) as call:
+        call.return_value = mock.Mock(aio.UnaryStreamCall, autospec=True)
+        call.return_value.read = mock.AsyncMock(
+            side_effect=[lineage.SearchLineageStreamingResponse()]
+        )
+        await client.search_lineage_streaming(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
 
 
 def test_process_open_lineage_run_event_rest_use_cached_wrapped_rpc():
@@ -7705,8 +8360,17 @@ def test_process_open_lineage_run_event_rest_required_fields(
             response = client.process_open_lineage_run_event(request)
 
             expected_params = [("$alt", "json;enum-encoding=int")]
+            # Ensure that the uuid4 field is set according to AIP 4235
+            for i, (key, value) in enumerate(req.call_args.kwargs["params"]):
+                if key == "requestId":
+                    assert _UUID4_RE.match(value)
+                    break
+
+            # Include requestId within expected_params with value mock.ANY
+            expected_params = [p for p in expected_params if p[0] != "requestId"]
+            expected_params.append(("requestId", mock.ANY))
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_process_open_lineage_run_event_rest_unset_required_fields():
@@ -7908,8 +8572,17 @@ def test_create_process_rest_required_fields(request_type=lineage.CreateProcessR
             response = client.create_process(request)
 
             expected_params = [("$alt", "json;enum-encoding=int")]
+            # Ensure that the uuid4 field is set according to AIP 4235
+            for i, (key, value) in enumerate(req.call_args.kwargs["params"]):
+                if key == "requestId":
+                    assert _UUID4_RE.match(value)
+                    break
+
+            # Include requestId within expected_params with value mock.ANY
+            expected_params = [p for p in expected_params if p[0] != "requestId"]
+            expected_params.append(("requestId", mock.ANY))
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_process_rest_unset_required_fields():
@@ -8050,6 +8723,7 @@ def test_update_process_rest_required_fields(request_type=lineage.UpdateProcessR
     assert not set(unset_fields) - set(
         (
             "allow_missing",
+            "request_id",
             "update_mask",
         )
     )
@@ -8096,8 +8770,17 @@ def test_update_process_rest_required_fields(request_type=lineage.UpdateProcessR
             response = client.update_process(request)
 
             expected_params = [("$alt", "json;enum-encoding=int")]
+            # Ensure that the uuid4 field is set according to AIP 4235
+            for i, (key, value) in enumerate(req.call_args.kwargs["params"]):
+                if key == "requestId":
+                    assert _UUID4_RE.match(value)
+                    break
+
+            # Include requestId within expected_params with value mock.ANY
+            expected_params = [p for p in expected_params if p[0] != "requestId"]
+            expected_params.append(("requestId", mock.ANY))
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_process_rest_unset_required_fields():
@@ -8110,6 +8793,7 @@ def test_update_process_rest_unset_required_fields():
         set(
             (
                 "allowMissing",
+                "requestId",
                 "updateMask",
             )
         )
@@ -8285,7 +8969,7 @@ def test_get_process_rest_required_fields(request_type=lineage.GetProcessRequest
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_process_rest_unset_required_fields():
@@ -8469,7 +9153,7 @@ def test_list_processes_rest_required_fields(request_type=lineage.ListProcessesR
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_processes_rest_unset_required_fields():
@@ -8716,7 +9400,7 @@ def test_delete_process_rest_required_fields(request_type=lineage.DeleteProcessR
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_process_rest_unset_required_fields():
@@ -8893,8 +9577,17 @@ def test_create_run_rest_required_fields(request_type=lineage.CreateRunRequest):
             response = client.create_run(request)
 
             expected_params = [("$alt", "json;enum-encoding=int")]
+            # Ensure that the uuid4 field is set according to AIP 4235
+            for i, (key, value) in enumerate(req.call_args.kwargs["params"]):
+                if key == "requestId":
+                    assert _UUID4_RE.match(value)
+                    break
+
+            # Include requestId within expected_params with value mock.ANY
+            expected_params = [p for p in expected_params if p[0] != "requestId"]
+            expected_params.append(("requestId", mock.ANY))
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_run_rest_unset_required_fields():
@@ -9085,7 +9778,7 @@ def test_update_run_rest_required_fields(request_type=lineage.UpdateRunRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_run_rest_unset_required_fields():
@@ -9275,7 +9968,7 @@ def test_get_run_rest_required_fields(request_type=lineage.GetRunRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_run_rest_unset_required_fields():
@@ -9460,7 +10153,7 @@ def test_list_runs_rest_required_fields(request_type=lineage.ListRunsRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_runs_rest_unset_required_fields():
@@ -9712,7 +10405,7 @@ def test_delete_run_rest_required_fields(request_type=lineage.DeleteRunRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_run_rest_unset_required_fields():
@@ -9805,9 +10498,9 @@ def test_create_lineage_event_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_lineage_event
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_lineage_event] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_lineage_event(request)
@@ -9896,8 +10589,17 @@ def test_create_lineage_event_rest_required_fields(
             response = client.create_lineage_event(request)
 
             expected_params = [("$alt", "json;enum-encoding=int")]
+            # Ensure that the uuid4 field is set according to AIP 4235
+            for i, (key, value) in enumerate(req.call_args.kwargs["params"]):
+                if key == "requestId":
+                    assert _UUID4_RE.match(value)
+                    break
+
+            # Include requestId within expected_params with value mock.ANY
+            expected_params = [p for p in expected_params if p[0] != "requestId"]
+            expected_params.append(("requestId", mock.ANY))
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_lineage_event_rest_unset_required_fields():
@@ -10000,9 +10702,9 @@ def test_get_lineage_event_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_lineage_event
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_lineage_event] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_lineage_event(request)
@@ -10089,7 +10791,7 @@ def test_get_lineage_event_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_lineage_event_rest_unset_required_fields():
@@ -10184,9 +10886,9 @@ def test_list_lineage_events_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_lineage_events
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_lineage_events] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_lineage_events(request)
@@ -10280,7 +10982,7 @@ def test_list_lineage_events_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_lineage_events_rest_unset_required_fields():
@@ -10446,9 +11148,9 @@ def test_delete_lineage_event_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_lineage_event
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_lineage_event] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_lineage_event(request)
@@ -10534,7 +11236,7 @@ def test_delete_lineage_event_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_lineage_event_rest_unset_required_fields():
@@ -10711,7 +11413,7 @@ def test_search_links_rest_required_fields(request_type=lineage.SearchLinksReque
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_search_links_rest_unset_required_fields():
@@ -10902,7 +11604,7 @@ def test_batch_search_link_processes_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_batch_search_link_processes_rest_unset_required_fields():
@@ -10983,6 +11685,149 @@ def test_batch_search_link_processes_rest_pager(transport: str = "rest"):
         pages = list(client.batch_search_link_processes(request=sample_request).pages)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
+
+
+def test_search_lineage_streaming_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = LineageClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.search_lineage_streaming
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.search_lineage_streaming
+        ] = mock_rpc
+
+        request = {}
+        client.search_lineage_streaming(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.search_lineage_streaming(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_search_lineage_streaming_rest_required_fields(
+    request_type=lineage.SearchLineageStreamingRequest,
+):
+    transport_class = transports.LineageRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request_init["locations"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).search_lineage_streaming._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+    jsonified_request["locations"] = "locations_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).search_lineage_streaming._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+    assert "locations" in jsonified_request
+    assert jsonified_request["locations"] == "locations_value"
+
+    client = LineageClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = lineage.SearchLineageStreamingResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = lineage.SearchLineageStreamingResponse.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+            json_return_value = "[{}]".format(json_return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            with mock.patch.object(response_value, "iter_content") as iter_content:
+                iter_content.return_value = iter(json_return_value)
+                response = client.search_lineage_streaming(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_search_lineage_streaming_rest_unset_required_fields():
+    transport = transports.LineageRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.search_lineage_streaming._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(())
+        & set(
+            (
+                "parent",
+                "locations",
+                "rootCriteria",
+                "direction",
+            )
+        )
+    )
 
 
 def test_credentials_transport_error():
@@ -11110,7 +11955,9 @@ def test_process_open_lineage_run_event_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.ProcessOpenLineageRunEventRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -11131,7 +11978,9 @@ def test_create_process_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.CreateProcessRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -11152,7 +12001,9 @@ def test_update_process_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.UpdateProcessRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -11173,7 +12024,6 @@ def test_get_process_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.GetProcessRequest()
-
         assert args[0] == request_msg
 
 
@@ -11194,7 +12044,6 @@ def test_list_processes_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.ListProcessesRequest()
-
         assert args[0] == request_msg
 
 
@@ -11215,7 +12064,6 @@ def test_delete_process_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.DeleteProcessRequest()
-
         assert args[0] == request_msg
 
 
@@ -11236,7 +12084,9 @@ def test_create_run_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.CreateRunRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -11257,7 +12107,6 @@ def test_update_run_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.UpdateRunRequest()
-
         assert args[0] == request_msg
 
 
@@ -11278,7 +12127,6 @@ def test_get_run_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.GetRunRequest()
-
         assert args[0] == request_msg
 
 
@@ -11299,7 +12147,6 @@ def test_list_runs_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.ListRunsRequest()
-
         assert args[0] == request_msg
 
 
@@ -11320,7 +12167,6 @@ def test_delete_run_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.DeleteRunRequest()
-
         assert args[0] == request_msg
 
 
@@ -11343,7 +12189,9 @@ def test_create_lineage_event_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.CreateLineageEventRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -11366,7 +12214,6 @@ def test_get_lineage_event_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.GetLineageEventRequest()
-
         assert args[0] == request_msg
 
 
@@ -11389,7 +12236,6 @@ def test_list_lineage_events_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.ListLineageEventsRequest()
-
         assert args[0] == request_msg
 
 
@@ -11412,7 +12258,6 @@ def test_delete_lineage_event_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.DeleteLineageEventRequest()
-
         assert args[0] == request_msg
 
 
@@ -11433,7 +12278,6 @@ def test_search_links_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.SearchLinksRequest()
-
         assert args[0] == request_msg
 
 
@@ -11456,7 +12300,28 @@ def test_batch_search_link_processes_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.BatchSearchLinkProcessesRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_search_lineage_streaming_empty_call_grpc():
+    client = LineageClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.search_lineage_streaming), "__call__"
+    ) as call:
+        call.return_value = iter([lineage.SearchLineageStreamingResponse()])
+        client.search_lineage_streaming(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = lineage.SearchLineageStreamingRequest()
         assert args[0] == request_msg
 
 
@@ -11501,7 +12366,9 @@ async def test_process_open_lineage_run_event_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.ProcessOpenLineageRunEventRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -11529,7 +12396,9 @@ async def test_create_process_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.CreateProcessRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -11557,7 +12426,9 @@ async def test_update_process_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.UpdateProcessRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -11585,7 +12456,6 @@ async def test_get_process_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.GetProcessRequest()
-
         assert args[0] == request_msg
 
 
@@ -11612,7 +12482,6 @@ async def test_list_processes_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.ListProcessesRequest()
-
         assert args[0] == request_msg
 
 
@@ -11637,7 +12506,6 @@ async def test_delete_process_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.DeleteProcessRequest()
-
         assert args[0] == request_msg
 
 
@@ -11666,7 +12534,9 @@ async def test_create_run_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.CreateRunRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -11695,7 +12565,6 @@ async def test_update_run_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.UpdateRunRequest()
-
         assert args[0] == request_msg
 
 
@@ -11724,7 +12593,6 @@ async def test_get_run_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.GetRunRequest()
-
         assert args[0] == request_msg
 
 
@@ -11751,7 +12619,6 @@ async def test_list_runs_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.ListRunsRequest()
-
         assert args[0] == request_msg
 
 
@@ -11776,7 +12643,6 @@ async def test_delete_run_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.DeleteRunRequest()
-
         assert args[0] == request_msg
 
 
@@ -11805,7 +12671,9 @@ async def test_create_lineage_event_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.CreateLineageEventRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -11834,7 +12702,6 @@ async def test_get_lineage_event_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.GetLineageEventRequest()
-
         assert args[0] == request_msg
 
 
@@ -11863,7 +12730,6 @@ async def test_list_lineage_events_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.ListLineageEventsRequest()
-
         assert args[0] == request_msg
 
 
@@ -11888,7 +12754,6 @@ async def test_delete_lineage_event_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.DeleteLineageEventRequest()
-
         assert args[0] == request_msg
 
 
@@ -11915,7 +12780,6 @@ async def test_search_links_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.SearchLinksRequest()
-
         assert args[0] == request_msg
 
 
@@ -11944,7 +12808,33 @@ async def test_batch_search_link_processes_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.BatchSearchLinkProcessesRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_search_lineage_streaming_empty_call_grpc_asyncio():
+    client = LineageAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.search_lineage_streaming), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = mock.Mock(aio.UnaryStreamCall, autospec=True)
+        call.return_value.read = mock.AsyncMock(
+            side_effect=[lineage.SearchLineageStreamingResponse()]
+        )
+        await client.search_lineage_streaming(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = lineage.SearchLineageStreamingRequest()
         assert args[0] == request_msg
 
 
@@ -11966,8 +12856,9 @@ def test_process_open_lineage_run_event_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -12100,18 +12991,20 @@ def test_process_open_lineage_run_event_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "post_process_open_lineage_run_event"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor,
-        "post_process_open_lineage_run_event_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_process_open_lineage_run_event"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_process_open_lineage_run_event"
+        ) as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor,
+            "post_process_open_lineage_run_event_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "pre_process_open_lineage_run_event"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -12167,8 +13060,9 @@ def test_create_process_rest_bad_request(request_type=lineage.CreateProcessReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -12304,17 +13198,19 @@ def test_create_process_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "post_create_process"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor, "post_create_process_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_create_process"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_create_process"
+        ) as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_create_process_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "pre_create_process"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -12365,8 +13261,9 @@ def test_update_process_rest_bad_request(request_type=lineage.UpdateProcessReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -12504,17 +13401,19 @@ def test_update_process_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "post_update_process"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor, "post_update_process_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_update_process"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_update_process"
+        ) as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_update_process_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "pre_update_process"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -12563,8 +13462,9 @@ def test_get_process_rest_bad_request(request_type=lineage.GetProcessRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -12627,17 +13527,17 @@ def test_get_process_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "post_get_process"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor, "post_get_process_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_get_process"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_get_process"
+        ) as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_get_process_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.LineageRestInterceptor, "pre_get_process") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -12686,8 +13586,9 @@ def test_list_processes_rest_bad_request(request_type=lineage.ListProcessesReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -12748,17 +13649,19 @@ def test_list_processes_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "post_list_processes"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor, "post_list_processes_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_list_processes"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_list_processes"
+        ) as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_list_processes_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "pre_list_processes"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -12809,8 +13712,9 @@ def test_delete_process_rest_bad_request(request_type=lineage.DeleteProcessReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -12865,19 +13769,20 @@ def test_delete_process_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.LineageRestInterceptor, "post_delete_process"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor, "post_delete_process_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_delete_process"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_delete_process"
+        ) as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_delete_process_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "pre_delete_process"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -12926,8 +13831,9 @@ def test_create_run_rest_bad_request(request_type=lineage.CreateRunRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -13067,17 +13973,15 @@ def test_create_run_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "post_create_run"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor, "post_create_run_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_create_run"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.LineageRestInterceptor, "post_create_run") as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_create_run_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.LineageRestInterceptor, "pre_create_run") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -13130,8 +14034,9 @@ def test_update_run_rest_bad_request(request_type=lineage.UpdateRunRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -13275,17 +14180,15 @@ def test_update_run_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "post_update_run"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor, "post_update_run_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_update_run"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.LineageRestInterceptor, "post_update_run") as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_update_run_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.LineageRestInterceptor, "pre_update_run") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -13336,8 +14239,9 @@ def test_get_run_rest_bad_request(request_type=lineage.GetRunRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -13404,17 +14308,15 @@ def test_get_run_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "post_get_run"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor, "post_get_run_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_get_run"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.LineageRestInterceptor, "post_get_run") as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_get_run_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.LineageRestInterceptor, "pre_get_run") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -13463,8 +14365,9 @@ def test_list_runs_rest_bad_request(request_type=lineage.ListRunsRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -13525,17 +14428,15 @@ def test_list_runs_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "post_list_runs"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor, "post_list_runs_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_list_runs"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(transports.LineageRestInterceptor, "post_list_runs") as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_list_runs_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.LineageRestInterceptor, "pre_list_runs") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -13586,8 +14487,9 @@ def test_delete_run_rest_bad_request(request_type=lineage.DeleteRunRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -13644,19 +14546,16 @@ def test_delete_run_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.LineageRestInterceptor, "post_delete_run"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor, "post_delete_run_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_delete_run"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(transports.LineageRestInterceptor, "post_delete_run") as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_delete_run_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.LineageRestInterceptor, "pre_delete_run") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -13709,8 +14608,9 @@ def test_create_lineage_event_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -13743,8 +14643,12 @@ def test_create_lineage_event_rest_call_success(request_type):
         "name": "name_value",
         "links": [
             {
-                "source": {"fully_qualified_name": "fully_qualified_name_value"},
+                "source": {
+                    "fully_qualified_name": "fully_qualified_name_value",
+                    "field": ["field_value1", "field_value2"],
+                },
                 "target": {},
+                "dependency_info": {"dependency_type": 1},
             }
         ],
         "start_time": {"seconds": 751, "nanos": 543},
@@ -13851,17 +14755,19 @@ def test_create_lineage_event_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "post_create_lineage_event"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor, "post_create_lineage_event_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_create_lineage_event"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_create_lineage_event"
+        ) as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_create_lineage_event_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "pre_create_lineage_event"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -13916,8 +14822,9 @@ def test_get_lineage_event_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -13980,17 +14887,19 @@ def test_get_lineage_event_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "post_get_lineage_event"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor, "post_get_lineage_event_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_get_lineage_event"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_get_lineage_event"
+        ) as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_get_lineage_event_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "pre_get_lineage_event"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -14043,8 +14952,9 @@ def test_list_lineage_events_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -14107,17 +15017,19 @@ def test_list_lineage_events_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "post_list_lineage_events"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor, "post_list_lineage_events_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_list_lineage_events"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_list_lineage_events"
+        ) as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_list_lineage_events_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "pre_list_lineage_events"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -14174,8 +15086,9 @@ def test_delete_lineage_event_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -14232,13 +15145,13 @@ def test_delete_lineage_event_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_delete_lineage_event"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "pre_delete_lineage_event"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = lineage.DeleteLineageEventRequest.pb(
             lineage.DeleteLineageEventRequest()
@@ -14281,8 +15194,9 @@ def test_search_links_rest_bad_request(request_type=lineage.SearchLinksRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -14343,17 +15257,17 @@ def test_search_links_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "post_search_links"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor, "post_search_links_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_search_links"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_search_links"
+        ) as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_search_links_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.LineageRestInterceptor, "pre_search_links") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -14406,8 +15320,9 @@ def test_batch_search_link_processes_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -14468,18 +15383,20 @@ def test_batch_search_link_processes_rest_interceptors(null_interceptor):
     )
     client = LineageClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.LineageRestInterceptor, "post_batch_search_link_processes"
-    ) as post, mock.patch.object(
-        transports.LineageRestInterceptor,
-        "post_batch_search_link_processes_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.LineageRestInterceptor, "pre_batch_search_link_processes"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_batch_search_link_processes"
+        ) as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor,
+            "post_batch_search_link_processes_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "pre_batch_search_link_processes"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -14526,6 +15443,144 @@ def test_batch_search_link_processes_rest_interceptors(null_interceptor):
         post_with_metadata.assert_called_once()
 
 
+def test_search_lineage_streaming_rest_bad_request(
+    request_type=lineage.SearchLineageStreamingRequest,
+):
+    client = LineageClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.search_lineage_streaming(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        lineage.SearchLineageStreamingRequest,
+        dict,
+    ],
+)
+def test_search_lineage_streaming_rest_call_success(request_type):
+    client = LineageClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = lineage.SearchLineageStreamingResponse(
+            unreachable=["unreachable_value"],
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = lineage.SearchLineageStreamingResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        json_return_value = "[{}]".format(json_return_value)
+        response_value.iter_content = mock.Mock(return_value=iter(json_return_value))
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.search_lineage_streaming(request)
+
+    assert isinstance(response, Iterable)
+    response = next(response)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, lineage.SearchLineageStreamingResponse)
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_search_lineage_streaming_rest_interceptors(null_interceptor):
+    transport = transports.LineageRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None if null_interceptor else transports.LineageRestInterceptor(),
+    )
+    client = LineageClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "post_search_lineage_streaming"
+        ) as post,
+        mock.patch.object(
+            transports.LineageRestInterceptor,
+            "post_search_lineage_streaming_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.LineageRestInterceptor, "pre_search_lineage_streaming"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = lineage.SearchLineageStreamingRequest.pb(
+            lineage.SearchLineageStreamingRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = lineage.SearchLineageStreamingResponse.to_json(
+            lineage.SearchLineageStreamingResponse()
+        )
+        req.return_value.iter_content = mock.Mock(return_value=iter(return_value))
+
+        request = lineage.SearchLineageStreamingRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = lineage.SearchLineageStreamingResponse()
+        post_with_metadata.return_value = (
+            lineage.SearchLineageStreamingResponse(),
+            metadata,
+        )
+
+        client.search_lineage_streaming(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
 def test_cancel_operation_rest_bad_request(
     request_type=operations_pb2.CancelOperationRequest,
 ):
@@ -14539,8 +15594,9 @@ def test_cancel_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -14601,8 +15657,9 @@ def test_delete_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -14663,8 +15720,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -14725,8 +15783,9 @@ def test_list_operations_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -14799,7 +15858,9 @@ def test_process_open_lineage_run_event_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.ProcessOpenLineageRunEventRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -14819,7 +15880,9 @@ def test_create_process_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.CreateProcessRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -14839,7 +15902,9 @@ def test_update_process_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.UpdateProcessRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -14859,7 +15924,6 @@ def test_get_process_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.GetProcessRequest()
-
         assert args[0] == request_msg
 
 
@@ -14879,7 +15943,6 @@ def test_list_processes_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.ListProcessesRequest()
-
         assert args[0] == request_msg
 
 
@@ -14899,7 +15962,6 @@ def test_delete_process_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.DeleteProcessRequest()
-
         assert args[0] == request_msg
 
 
@@ -14919,7 +15981,9 @@ def test_create_run_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.CreateRunRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -14939,7 +16003,6 @@ def test_update_run_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.UpdateRunRequest()
-
         assert args[0] == request_msg
 
 
@@ -14959,7 +16022,6 @@ def test_get_run_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.GetRunRequest()
-
         assert args[0] == request_msg
 
 
@@ -14979,7 +16041,6 @@ def test_list_runs_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.ListRunsRequest()
-
         assert args[0] == request_msg
 
 
@@ -14999,7 +16060,6 @@ def test_delete_run_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.DeleteRunRequest()
-
         assert args[0] == request_msg
 
 
@@ -15021,7 +16081,9 @@ def test_create_lineage_event_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.CreateLineageEventRequest()
-
+        # Ensure that the uuid4 field is set according to AIP 4235
+        assert _UUID4_RE.fullmatch(args[0].request_id)
+        request_msg.request_id = args[0].request_id
         assert args[0] == request_msg
 
 
@@ -15043,7 +16105,6 @@ def test_get_lineage_event_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.GetLineageEventRequest()
-
         assert args[0] == request_msg
 
 
@@ -15065,7 +16126,6 @@ def test_list_lineage_events_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.ListLineageEventsRequest()
-
         assert args[0] == request_msg
 
 
@@ -15087,7 +16147,6 @@ def test_delete_lineage_event_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.DeleteLineageEventRequest()
-
         assert args[0] == request_msg
 
 
@@ -15107,7 +16166,6 @@ def test_search_links_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.SearchLinksRequest()
-
         assert args[0] == request_msg
 
 
@@ -15129,7 +16187,27 @@ def test_batch_search_link_processes_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = lineage.BatchSearchLinkProcessesRequest()
+        assert args[0] == request_msg
 
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_search_lineage_streaming_empty_call_rest():
+    client = LineageClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.search_lineage_streaming), "__call__"
+    ) as call:
+        client.search_lineage_streaming(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = lineage.SearchLineageStreamingRequest()
         assert args[0] == request_msg
 
 
@@ -15200,6 +16278,7 @@ def test_lineage_base_transport():
         "delete_lineage_event",
         "search_links",
         "batch_search_link_processes",
+        "search_lineage_streaming",
         "get_operation",
         "cancel_operation",
         "delete_operation",
@@ -15228,11 +16307,14 @@ def test_lineage_base_transport():
 
 def test_lineage_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.datacatalog_lineage_v1.services.lineage.transports.LineageTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.datacatalog_lineage_v1.services.lineage.transports.LineageTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.LineageTransport(
@@ -15249,9 +16331,12 @@ def test_lineage_base_transport_with_credentials_file():
 
 def test_lineage_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.datacatalog_lineage_v1.services.lineage.transports.LineageTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.datacatalog_lineage_v1.services.lineage.transports.LineageTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.LineageTransport()
@@ -15323,11 +16408,12 @@ def test_lineage_transport_auth_gdch_credentials(transport_class):
 def test_lineage_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -15515,6 +16601,9 @@ def test_lineage_client_transport_session_collision(transport_name):
     session1 = client1.transport.batch_search_link_processes._session
     session2 = client2.transport.batch_search_link_processes._session
     assert session1 != session2
+    session1 = client1.transport.search_lineage_streaming._session
+    session2 = client2.transport.search_lineage_streaming._session
+    assert session1 != session2
 
 
 def test_lineage_grpc_transport_channel():
@@ -15545,6 +16634,7 @@ def test_lineage_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [transports.LineageGrpcTransport, transports.LineageGrpcAsyncIOTransport],
@@ -16025,6 +17115,38 @@ async def test_delete_operation_from_dict_async():
         call.assert_called()
 
 
+def test_delete_operation_flattened():
+    client = LineageClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_flattened_async():
+    client = LineageAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
 def test_cancel_operation(transport: str = "grpc"):
     client = LineageClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -16162,6 +17284,38 @@ async def test_cancel_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_cancel_operation_flattened():
+    client = LineageClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = LineageAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
 
 
 def test_get_operation(transport: str = "grpc"):
@@ -16309,6 +17463,40 @@ async def test_get_operation_from_dict_async():
         call.assert_called()
 
 
+def test_get_operation_flattened():
+    client = LineageClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = LineageAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
 def test_list_operations(transport: str = "grpc"):
     client = LineageClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -16452,6 +17640,40 @@ async def test_list_operations_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_list_operations_flattened():
+    client = LineageClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = LineageAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
 
 
 def test_transport_close_grpc():

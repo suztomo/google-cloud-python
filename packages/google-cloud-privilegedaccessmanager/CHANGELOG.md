@@ -1,5 +1,66 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-privilegedaccessmanager/#history
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-privilegedaccessmanager-v0.3.0...google-cloud-privilegedaccessmanager-v0.4.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.3.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-privilegedaccessmanager-v0.2.0...google-cloud-privilegedaccessmanager-v0.3.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.2.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-privilegedaccessmanager-v0.1.9...google-cloud-privilegedaccessmanager-v0.2.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.1.9](https://github.com/googleapis/google-cloud-python/compare/google-cloud-privilegedaccessmanager-v0.1.8...google-cloud-privilegedaccessmanager-v0.1.9) (2025-08-06)
+
+
+### Features
+
+* [google-cloud-privilegedaccessmanager] Introducing new Grant states for Withdrawal operation ([#14168](https://github.com/googleapis/google-cloud-python/issues/14168)) ([e35550f](https://github.com/googleapis/google-cloud-python/commit/e35550fc0207a480f10c6d2859a971a565b055c9))
+* add a FooBar API ([2f16fa5](https://github.com/googleapis/google-cloud-python/commit/2f16fa5610250d05ecc605862e2f806b94593814))
+* add the VeoTuningSpec ([2f16fa5](https://github.com/googleapis/google-cloud-python/commit/2f16fa5610250d05ecc605862e2f806b94593814))
+* Remove private preview label from Model Armor protos ([2f16fa5](https://github.com/googleapis/google-cloud-python/commit/2f16fa5610250d05ecc605862e2f806b94593814))
+
+
+### Documentation
+
+* update comments for rpc BatchCreatePullRequestComments, ResolvePullRequestComments and UnresolvePullRequestComments ([2f16fa5](https://github.com/googleapis/google-cloud-python/commit/2f16fa5610250d05ecc605862e2f806b94593814))
+
+## [0.1.8](https://github.com/googleapis/google-cloud-python/compare/google-cloud-privilegedaccessmanager-v0.1.7...google-cloud-privilegedaccessmanager-v0.1.8) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([dfc2cd6](https://github.com/googleapis/google-cloud-python/commit/dfc2cd6be6422baa45dcebc5ff6e7fc846bf5c7d))
+
 ## [0.1.7](https://github.com/googleapis/google-cloud-python/compare/google-cloud-privilegedaccessmanager-v0.1.6...google-cloud-privilegedaccessmanager-v0.1.7) (2025-03-15)
 
 
